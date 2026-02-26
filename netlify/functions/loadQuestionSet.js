@@ -190,9 +190,36 @@ export default async (request, context) => {
       if (!bank[sub][chap]) bank[sub][chap] = [];
       bank[sub][chap].push(q);
     }
+    const countBank = (bk) => {
+      if (!bk || typeof bk !== "object") return 0;
+      let total = 0;
+      for (const sub in bk) {
+        const chaps = bk[sub];
+        if (!chaps || typeof chaps !== "object") continue;
+        for (const chap in chaps) {
+          const arr = chaps[chap];
+          if (Array.isArray(arr)) total += arr.length;
+        }
+      }
+      return total;
+    };
+    const baseBank =
+      baseState && typeof baseState === "object" && baseState.bank
+        ? baseState.bank
+        : null;
+    if (baseBank && countBank(baseBank) > countBank(bank)) {
+      for (const sub in bank) delete bank[sub];
+      Object.assign(bank, baseBank);
+    }
 
     const state = {
       bank,
+      bankName:
+        baseState &&
+        typeof baseState === "object" &&
+        typeof baseState.bankName === "string"
+          ? baseState.bankName
+          : null,
       history:
         baseState &&
         typeof baseState === "object" &&
@@ -212,7 +239,13 @@ export default async (request, context) => {
         typeof baseState.trash === "object" &&
         !Array.isArray(baseState.trash)
           ? baseState.trash
-          : {}
+          : {},
+      hiddenMistakeIds:
+        baseState &&
+        typeof baseState === "object" &&
+        Array.isArray(baseState.hiddenMistakeIds)
+          ? baseState.hiddenMistakeIds
+          : []
     };
 
     return new Response(

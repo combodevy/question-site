@@ -602,6 +602,7 @@
                     </svg>
                 </button>
             </div>
+            <div id="sync-debug-panel" class="px-4 pt-3 pb-2 text-[11px] text-[var(--sub)] border-b border-[var(--border)]"></div>
             <div id="sync-log-list" class="p-3 overflow-y-auto custom-scroll text-xs"></div>
         </div>
     </div>
@@ -1558,6 +1559,7 @@
                 bankKey: 'lms_v26_bank',
                 // 回收站存储 Key
                 trashKey: 'lms_v26_trash',
+                bankNameKey: 'lms_v26_bank_name',
 
                 // 刷题历史
                 history: [],
@@ -1565,6 +1567,7 @@
 
                 // 题库结构：{ [subject]: { [chapter]: Question[] } }
                 bank: {}, 
+                bankName: '',
                 // 回收站结构：与 bank 相同，但题目对象附带删除元信息
                 trash: {},
                 hiddenMistakeIds: [],
@@ -1578,6 +1581,7 @@
                 _lastSyncedCounts: null,
                 _cloudSaveTimer: null,
                 _lastSyncedQuestionIds: null,
+                _bankDirty: false,
                 remoteVersion: 0,
 
                 init() {
@@ -1621,6 +1625,12 @@
                             }
                         }
                     } catch(e) { console.error("Bank parse error", e); }
+                    try {
+                        const nStr = localStorage.getItem(this.bankNameKey);
+                        if (nStr && typeof nStr === 'string') {
+                            this.bankName = nStr;
+                        }
+                    } catch (e) {}
 
                     // 加载回收站
                     try {
@@ -1652,6 +1662,7 @@
 
                 clearAllForLogout() {
                     this.bank = {};
+                    this.bankName = '';
                     this.history = [];
                     this.trash = {};
                     this.hiddenMistakeIds = [];
@@ -1661,9 +1672,11 @@
                     this._isHistoryDirty = true;
                     this._lastSyncedCounts = null;
                     this._lastSyncedQuestionIds = null;
+                    this._bankDirty = false;
                     this.remoteVersion = 0;
                     try {
                         localStorage.removeItem(this.bankKey);
+                        localStorage.removeItem(this.bankNameKey);
                         localStorage.removeItem(this.historyKey);
                         localStorage.removeItem(this.trashKey);
                     } catch (e) {
@@ -1823,6 +1836,18 @@
                                 this.bank[sub][chap] = Array.from(uniq.values());
                             }
                         }
+                        this.normalizeBankStructure();
+                        if (!this.bankName) {
+                            const subs = Object.keys(sanitizedInput || {});
+                            if (subs.length === 1) {
+                                this.bankName = subs[0];
+                            } else if (subs.length > 1) {
+                                this.bankName = subs[0];
+                            }
+                            if (this.bankName) {
+                                this._safeSetItem(this.bankNameKey, this.bankName);
+                            }
+                        }
                         this.persistBank();
                         // 记录导入报告，供 UI 后续查看
                         this._lastImportReport = report;
@@ -1902,10 +1927,14 @@
                 // 持久化题库
                 persistBank() {
                     this._safeSetItem(this.bankKey, JSON.stringify(this.bank));
+                    if (this.bankName) {
+                        this._safeSetItem(this.bankNameKey, this.bankName);
+                    }
                     this._cachedQuestions = null;
                     this._questionMap = null;
                     this._errFreqCache = null;
                     this._isHistoryDirty = true;
+                    this._bankDirty = true;
                     if (!this._suppressCloudSync && this.saveToCloudDebounced) {
                         this.saveToCloudDebounced();
                     }
@@ -2041,6 +2070,7 @@
                     const history = Array.isArray(this.history) ? this.history : [];
                     const trash = this.trash || {};
                     const lastPracticeTime = this.lastPracticeTime || null;
+                    this.normalizeBankStructure();
                     const questions = [];
                     let totalTrash = 0;
                     for (const sub in bank) {
@@ -2076,9 +2106,23 @@
                         history: counts.history - prev.history,
                         trash: counts.trash - prev.trash
                     };
+                    const inferredName = this.bankName || Object.keys(bank || {})[0] || "默认题库";
+                    const skipQuestionsUpdate = !this._bankDirty && delta.questions === 0;
+                    if (window.App && App.sync && typeof App.sync.setDebug === 'function') {
+                        App.sync.setDebug({
+                            time: Date.now(),
+                            name: inferredName,
+                            questionsCount: questions.length,
+                            historyCount: history.length,
+                            trashCount: totalTrash,
+                            skipQuestionsUpdate,
+                            version: typeof this.remoteVersion === "number" ? this.remoteVersion : 0
+                        });
+                    }
 
                     const state = {
                         bank,
+                        bankName: this.bankName || null,
                         history,
                         lastPracticeTime,
                         trash,
@@ -2118,9 +2162,10 @@
                                 Authorization: "Bearer " + token
                             },
                             body: JSON.stringify({
-                                name: "默认题库",
+                                name: inferredName,
                                 questions,
                                 state,
+                                skipQuestionsUpdate,
                                 version: typeof this.remoteVersion === "number" ? this.remoteVersion : 0,
                                 delta: {
                                     questions: delta.questions,
@@ -2171,6 +2216,9 @@
                             if (window.App && App.sync && typeof App.sync.showSyncStatus === 'function') {
                                 App.sync.showSyncStatus('success', delta);
                             }
+                            this._bankDirty = false;
+                            this.bankName = inferredName;
+                            this._safeSetItem(this.bankNameKey, this.bankName);
                             this._retryAfterConflictOnce = 0;
                         }
                     } catch (e) {
@@ -2245,6 +2293,10 @@
                         typeof state.lastPracticeTime === "number" ? state.lastPracticeTime : null;
                     this.trash = state.trash && typeof state.trash === "object" ? state.trash : {};
                     this.hiddenMistakeIds = Array.isArray(state.hiddenMistakeIds) ? state.hiddenMistakeIds : [];
+                    this.bankName = typeof data.name === "string" && data.name ? data.name : (state.bankName || this.bankName || '');
+                    if (this.bankName) {
+                        this._safeSetItem(this.bankNameKey, this.bankName);
+                    }
                     this._safeSetItem(this.bankKey, JSON.stringify(this.bank));
                     this._safeSetItem(this.historyKey, JSON.stringify({
                         history: this.history,
@@ -2288,6 +2340,7 @@
                         trash: trashCount
                     };
                     this._lastSyncedQuestionIds = allIds;
+                    this._bankDirty = false;
                     this._suppressCloudSync = false;
                 },
 
@@ -6190,6 +6243,7 @@ ${rawText}
                 _lastStatus: 'success',
                 _realtimeDisconnected: false,
                 _lastMessage: '',
+                _lastSyncDebug: null,
                 render() {
                     const btn = App.dom.get('save-cloud-btn');
                     const icon = document.getElementById('sync-indicator-icon');
@@ -6223,6 +6277,9 @@ ${rawText}
                     this._lastStatus = status || 'success';
                     this._lastMessage = message || '';
                     this.render();
+                },
+                setDebug(info) {
+                    this._lastSyncDebug = info;
                 },
                 showSyncStatus(status, delta, message) {
                     this.setStatus(status, delta, message);
@@ -6272,7 +6329,25 @@ ${rawText}
                     }
                     const list = document.getElementById('sync-log-list');
                     const modal = document.getElementById('sync-log-modal');
+                    const debugPanel = document.getElementById('sync-debug-panel');
                     if (!list || !modal) return;
+                    if (debugPanel) {
+                        const dbg = this._lastSyncDebug;
+                        if (!dbg) {
+                            debugPanel.innerHTML = '<div class="text-[var(--sub)]">暂无诊断信息</div>';
+                        } else {
+                            const time = dbg.time ? new Date(dbg.time).toLocaleString() : '';
+                            debugPanel.innerHTML = `
+                                <div class="flex flex-col gap-1">
+                                    <div class="text-[10px] uppercase tracking-wider text-[var(--sub)]">同步诊断</div>
+                                    <div>时间：${App.utils.escapeHTML(time)}</div>
+                                    <div>题库：${App.utils.escapeHTML(dbg.name || '')}</div>
+                                    <div>questions=${dbg.questionsCount} / history=${dbg.historyCount} / trash=${dbg.trashCount}</div>
+                                    <div>skipQuestionsUpdate=${dbg.skipQuestionsUpdate ? 'true' : 'false'} / version=${dbg.version}</div>
+                                </div>
+                            `;
+                        }
+                    }
                     list.innerHTML = '';
                     const logs = data && data.ok && Array.isArray(data.logs) ? data.logs : [];
                     if (!logs.length) {

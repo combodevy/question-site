@@ -171,6 +171,7 @@ export default async (request, context) => {
     body.state && typeof body.state === "object" ? body.state : null;
   const delta =
     body.delta && typeof body.delta === "object" ? body.delta : null;
+  const skipQuestionsUpdate = body.skipQuestionsUpdate === true;
   const clientVersion =
     typeof body.version === "number" && Number.isFinite(body.version)
       ? body.version
@@ -227,10 +228,12 @@ export default async (request, context) => {
         set name = ${name}, state = ${state}, version = ${nextVersion}
         where id = ${setId}
       `;
-      await sql`
-        delete from questions
-        where question_set_id = ${setId}
-      `;
+      if (!skipQuestionsUpdate) {
+        await sql`
+          delete from questions
+          where question_set_id = ${setId}
+        `;
+      }
     } else {
       nextVersion = 1;
       const inserted = await sql`
@@ -241,11 +244,13 @@ export default async (request, context) => {
       setId = inserted[0].id;
     }
 
-    for (const q of questions) {
-      await sql`
-        insert into questions (question_set_id, content)
-        values (${setId}, ${JSON.stringify(q)}::jsonb)
-      `;
+    if (!skipQuestionsUpdate || existing.length === 0) {
+      for (const q of questions) {
+        await sql`
+          insert into questions (question_set_id, content)
+          values (${setId}, ${JSON.stringify(q)}::jsonb)
+        `;
+      }
     }
 
     try {
