@@ -1585,6 +1585,8 @@
                 _syncReady: false,
                 _cloudLoading: false,
                 _pendingSaveState: null,
+                _deferredSave: false,
+                _saveQueueRunning: false,
                 remoteVersion: 0,
 
                 init() {
@@ -2066,11 +2068,31 @@
                     }
                 },
 
+                async _runSaveQueue() {
+                    if (this._saveQueueRunning) return;
+                    this._saveQueueRunning = true;
+                    try {
+                        while (this._deferredSave || this._cloudSaveTimer) {
+                            if (this._cloudSaveTimer) {
+                                clearTimeout(this._cloudSaveTimer);
+                                this._cloudSaveTimer = null;
+                            }
+                            this._deferredSave = false;
+                            await this.saveToCloud();
+                            if (this._deferredSave) continue;
+                            if (!this._cloudSaveTimer) break;
+                        }
+                    } finally {
+                        this._saveQueueRunning = false;
+                    }
+                },
+
                 async saveToCloud() {
                     if (!window.netlifyIdentity || !window.netlifyIdentity.currentUser) return;
                     const user = window.netlifyIdentity.currentUser();
                     if (!user) return;
                     if (!this._syncReady) {
+                        this._deferredSave = true;
                         if (!this._cloudLoading) {
                             this._cloudLoading = true;
                             try {
@@ -2079,6 +2101,7 @@
                                 this._cloudLoading = false;
                             }
                         }
+                        this._runSaveQueue();
                         return;
                     }
                     const token = await user.jwt();
@@ -2285,6 +2308,7 @@
                     }
                     if (!window.netlifyIdentity || !window.netlifyIdentity.currentUser) return;
                     if (!this._syncReady) {
+                        this._deferredSave = true;
                         if (!this._cloudLoading) {
                             this._cloudLoading = true;
                             this.loadFromCloud().finally(() => {
@@ -2298,7 +2322,8 @@
                     }
                     this._cloudSaveTimer = setTimeout(() => {
                         this._cloudSaveTimer = null;
-                        this.saveToCloud();
+                        this._deferredSave = true;
+                        this._runSaveQueue();
                     }, 400);
                 },
 
@@ -2319,10 +2344,22 @@
                         });
                     } catch (e) {
                         console.error("从云端加载题库失败", e);
+                        this._cloudLoading = false;
+                        this._syncReady = true;
+                        if (this._deferredSave) {
+                            this._deferredSave = false;
+                        this._runSaveQueue();
+                        }
                         return;
                     }
                     if (!res.ok) {
                         console.error("从云端加载题库失败", res.status);
+                        this._cloudLoading = false;
+                        this._syncReady = true;
+                        if (this._deferredSave) {
+                            this._deferredSave = false;
+                            this.saveToCloudDebounced();
+                        }
                         return;
                     }
                     let data;
@@ -2330,6 +2367,12 @@
                         data = await res.json();
                     } catch (e) {
                         console.error("解析云端题库响应失败", e);
+                        this._cloudLoading = false;
+                        this._syncReady = true;
+                        if (this._deferredSave) {
+                            this._deferredSave = false;
+                            this.saveToCloudDebounced();
+                        }
                         return;
                     }
                     if (!data || !data.ok) {
@@ -2345,6 +2388,10 @@
                         }
                         this._syncReady = true;
                         this._cloudLoading = false;
+                        if (this._deferredSave) {
+                            this._deferredSave = false;
+                            this.saveToCloudDebounced();
+                        }
                         return;
                     }
                     this._suppressCloudSync = true;
@@ -2412,6 +2459,10 @@
                     this._cloudLoading = false;
                     if (window.App && App.router && typeof App.router.refresh === 'function') {
                         App.router.refresh();
+                    }
+                    if (this._deferredSave) {
+                        this._deferredSave = false;
+                        this.saveToCloudDebounced();
                     }
                 },
 
