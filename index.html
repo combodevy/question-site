@@ -6198,7 +6198,7 @@ ${rawText}
                         btn.classList.add('border-yellow-400');
                         icon.classList.add('bg-yellow-500','text-white');
                         icon.textContent = '!';
-                        titleText = '实时通道未连接';
+                        titleText = '实时通道未连接' + (this._lastMessage ? '（' + this._lastMessage + '）' : '');
                     } else {
                         btn.classList.add('border-emerald-400');
                         icon.classList.add('bg-emerald-500','text-white');
@@ -6400,30 +6400,56 @@ ${rawText}
         function setupAbly(user) {
           if (!window.Ably || !user) return;
           if (ablyClient) return;
-          ablyClient = new Ably.Realtime({
-            authUrl: "/api/ably-auth"
-          });
-          ablyClient.connection.on("connected", function() {
-            if (window.App && App.sync && typeof App.sync.render === "function") {
-              App.sync._realtimeDisconnected = false;
-              App.sync.render();
-            }
-            const userId = user.id || user.sub || "";
-            ablyChannel = ablyClient.channels.get("user:" + userId);
-            ablyChannel.subscribe("question-set-updated", function() {
-              if (window.App && App.data && typeof App.data.loadFromCloud === "function") {
-                App.data.loadFromCloud();
-              }
-            });
-          });
-          ["disconnected","suspended","closing","closed","failed"].forEach(function(evt){
-            ablyClient.connection.on(evt, function() {
+          try {
+            user.jwt().then(function(token){
+              ablyClient = new Ably.Realtime({
+                authUrl: "/api/ably-auth",
+                authHeaders: { Authorization: "Bearer " + token },
+                transports: ["web_socket","xhr_streaming","xhr_polling"],
+                connectTimeout: 15000,
+                tls: true
+              });
+              ablyClient.connection.on("connected", function() {
+                if (window.App && App.sync && typeof App.sync.render === "function") {
+                  App.sync._realtimeDisconnected = false;
+                  App.sync._lastMessage = '';
+                  App.sync.render();
+                }
+                const userId = user.id || user.sub || "";
+                ablyChannel = ablyClient.channels.get("user:" + userId);
+                ablyChannel.subscribe("question-set-updated", function() {
+                  if (window.App && App.data && typeof App.data.loadFromCloud === "function") {
+                    App.data.loadFromCloud();
+                  }
+                });
+              });
+              ["disconnected","suspended","closing","closed","failed"].forEach(function(evt){
+                ablyClient.connection.on(evt, function(stateChange) {
+                  if (window.App && App.sync && typeof App.sync.render === "function") {
+                    App.sync._realtimeDisconnected = true;
+                    var reasonMsg = '';
+                    if (stateChange && stateChange.reason) {
+                      reasonMsg = stateChange.reason.message || String(stateChange.reason);
+                    }
+                    App.sync._lastMessage = reasonMsg || '';
+                    App.sync.render();
+                  }
+                });
+              });
+            }).catch(function(){
               if (window.App && App.sync && typeof App.sync.render === "function") {
                 App.sync._realtimeDisconnected = true;
+                App.sync._lastMessage = '无法获取登录令牌';
                 App.sync.render();
               }
             });
-          });
+          } catch (e) {
+            if (window.App && App.sync && typeof App.sync.render === "function") {
+              App.sync._realtimeDisconnected = true;
+              App.sync._lastMessage = '初始化实时连接失败';
+              App.sync.render();
+            }
+          }
         }
         function teardownAbly() {
           if (ablyChannel) {
