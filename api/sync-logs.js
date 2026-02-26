@@ -1,5 +1,6 @@
 const { query } = require('./_db');
 const { getUserFromRequest } = require('./_auth');
+const { handleCors } = require('./_cors');
 
 async function ensureTables() {
     await query(`
@@ -15,6 +16,7 @@ async function ensureTables() {
 }
 
 module.exports = async (req, res) => {
+    if (handleCors(req, res)) return;
     const user = getUserFromRequest(req);
     if (!user) {
         res.status(401).json({ error: 'Unauthorized' });

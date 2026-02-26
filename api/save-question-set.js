@@ -1,6 +1,7 @@
 const Ably = require('ably');
 const { query } = require('./_db');
 const { getUserFromRequest } = require('./_auth');
+const { handleCors } = require('./_cors');
 
 const ablyApiKey = process.env.ABLY_API_KEY || '';
 const ablyClient = ablyApiKey ? new Ably.Rest(ablyApiKey) : null;
@@ -36,6 +37,7 @@ async function ensureTables() {
 }
 
 module.exports = async (req, res) => {
+    if (handleCors(req, res)) return;
     const user = getUserFromRequest(req);
     if (!user) {
         res.status(401).json({ error: 'Unauthorized' });
