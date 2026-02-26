@@ -77,11 +77,6 @@
         html.dark .opt-btn.wrong { background-color: rgba(239, 68, 68, 0.2) !important; color: #f87171 !important; }
         html.dark .opt-btn.missed { background-color: rgba(16, 185, 129, 0.1) !important; color: #34d399 !important; }
         .hidden-panel { display: none; }
-        .sync-arrow { font-weight: 800; }
-        .sync-arrow-up { animation: syncUp 1.1s ease; }
-        .sync-arrow-down { animation: syncDown 1.1s ease; }
-        @keyframes syncUp { 0% { transform: translateY(4px); opacity: 0.2; } 40% { transform: translateY(-2px); opacity: 1; } 100% { transform: translateY(0); opacity: 1; } }
-        @keyframes syncDown { 0% { transform: translateY(-4px); opacity: 0.2; } 40% { transform: translateY(2px); opacity: 1; } 100% { transform: translateY(0); opacity: 1; } }
         .visible-panel { display: block; animation: fade-in 0.3s ease-out; }
         .rank-1 { background: linear-gradient(135deg, #fbbf24, #d97706); color: white; border: none; }
         .rank-2 { background: linear-gradient(135deg, #e2e8f0, #94a3b8); color: white; border: none; }
@@ -104,7 +99,7 @@
                 </svg>
             </div>
             <button id="save-cloud-btn" class="ml-2 w-8 h-8 rounded-full border border-[var(--border)] flex items-center justify-center text-[var(--sub)] bg-[var(--card)] hover:bg-[var(--bg)] active:scale-95 transition-transform relative overflow-hidden">
-                <span id="sync-indicator-icon" class="w-6 h-6 rounded-full border border-[var(--border)] bg-[var(--card)] text-[11px] font-mono flex items-center justify-center select-none">↕</span>
+                <span id="sync-indicator-icon" class="w-6 h-6 rounded-full border border-[var(--border)] bg-[var(--card)] text-[10px] font-mono flex items-center justify-center select-none">0</span>
             </button>
             <div>
                 <h1 class="font-bold text-sm md:text-base leading-none tracking-tight">v3.0</h1>
@@ -1591,7 +1586,6 @@
                 _cloudLoading: false,
                 _pendingSaveState: null,
                 _deferredSave: false,
-                _saveQueueRunning: false,
                 remoteVersion: 0,
 
                 init() {
@@ -2073,31 +2067,11 @@
                     }
                 },
 
-                async _runSaveQueue() {
-                    if (this._saveQueueRunning) return;
-                    this._saveQueueRunning = true;
-                    try {
-                        while (this._deferredSave || this._cloudSaveTimer) {
-                            if (this._cloudSaveTimer) {
-                                clearTimeout(this._cloudSaveTimer);
-                                this._cloudSaveTimer = null;
-                            }
-                            this._deferredSave = false;
-                            await this.saveToCloud();
-                            if (this._deferredSave) continue;
-                            if (!this._cloudSaveTimer) break;
-                        }
-                    } finally {
-                        this._saveQueueRunning = false;
-                    }
-                },
-
                 async saveToCloud() {
                     if (!window.netlifyIdentity || !window.netlifyIdentity.currentUser) return;
                     const user = window.netlifyIdentity.currentUser();
                     if (!user) return;
                     if (!this._syncReady) {
-                        this._deferredSave = true;
                         if (!this._cloudLoading) {
                             this._cloudLoading = true;
                             try {
@@ -2106,7 +2080,6 @@
                                 this._cloudLoading = false;
                             }
                         }
-                        this._runSaveQueue();
                         return;
                     }
                     const token = await user.jwt();
@@ -2290,9 +2263,6 @@
                             if (window.App && App.sync && typeof App.sync.showSyncStatus === 'function') {
                                 App.sync.showSyncStatus('success', delta);
                             }
-                            if (window.App && App.sync && typeof App.sync.flashDirection === 'function') {
-                                App.sync.flashDirection('up');
-                            }
                             this._bankDirty = false;
                             this.bankName = inferredName;
                             this._safeSetItem(this.bankNameKey, this.bankName);
@@ -2330,9 +2300,8 @@
                     }
                     this._cloudSaveTimer = setTimeout(() => {
                         this._cloudSaveTimer = null;
-                        this._deferredSave = true;
-                        this._runSaveQueue();
-                    }, 200);
+                        this.saveToCloud();
+                    }, 400);
                 },
 
                 async loadFromCloud() {
@@ -2356,7 +2325,7 @@
                         this._syncReady = true;
                         if (this._deferredSave) {
                             this._deferredSave = false;
-                            this._runSaveQueue();
+                            this.saveToCloudDebounced();
                         }
                         return;
                     }
@@ -2366,7 +2335,7 @@
                         this._syncReady = true;
                         if (this._deferredSave) {
                             this._deferredSave = false;
-                            this._runSaveQueue();
+                            this.saveToCloudDebounced();
                         }
                         return;
                     }
@@ -2379,7 +2348,7 @@
                         this._syncReady = true;
                         if (this._deferredSave) {
                             this._deferredSave = false;
-                            this._runSaveQueue();
+                            this.saveToCloudDebounced();
                         }
                         return;
                     }
@@ -2396,12 +2365,9 @@
                         }
                         this._syncReady = true;
                         this._cloudLoading = false;
-                        if (window.App && App.sync && typeof App.sync.flashDirection === 'function') {
-                            App.sync.flashDirection('down');
-                        }
                         if (this._deferredSave) {
                             this._deferredSave = false;
-                            this._runSaveQueue();
+                            this.saveToCloudDebounced();
                         }
                         return;
                     }
@@ -2471,12 +2437,9 @@
                     if (window.App && App.router && typeof App.router.refresh === 'function') {
                         App.router.refresh();
                     }
-                    if (window.App && App.sync && typeof App.sync.flashDirection === 'function') {
-                        App.sync.flashDirection('down');
-                    }
                     if (this._deferredSave) {
                         this._deferredSave = false;
-                        this._runSaveQueue();
+                        this.saveToCloudDebounced();
                     }
                 },
 
@@ -2581,6 +2544,9 @@
                     if (!confirm("确定要清空回收站中的所有题目吗？该操作不可恢复。")) return;
                     this.trash = {};
                     this.persistTrash();
+                    if (window.App && App.ui && typeof App.ui.openTrashModal === 'function') {
+                        App.ui.openTrashModal();
+                    }
                 },
 
                 _idCounter: 0,
@@ -6387,14 +6353,12 @@ ${rawText}
                 _realtimeDisconnected: false,
                 _lastMessage: '',
                 _lastSyncDebug: null,
-                _syncDir: null,
-                _syncDirTimer: null,
                 render() {
                     const btn = App.dom.get('save-cloud-btn');
                     const icon = document.getElementById('sync-indicator-icon');
                     if (!btn || !icon) return;
                     btn.classList.remove('border-[var(--border)]','bg-[var(--card)]','border-primary-500','border-emerald-400','border-red-400','border-yellow-400');
-                    icon.classList.remove('bg-emerald-500','bg-red-500','bg-yellow-500','text-white','sync-arrow','sync-arrow-up','sync-arrow-down');
+                    icon.classList.remove('bg-emerald-500','bg-red-500','bg-yellow-500','text-white');
                     let titleText = '';
                     if (this._lastStatus === 'error') {
                         btn.classList.add('border-red-400');
@@ -6413,19 +6377,8 @@ ${rawText}
                     } else {
                         btn.classList.add('border-emerald-400');
                         icon.classList.add('bg-emerald-500','text-white');
-                        if (this._syncDir === 'up') {
-                            icon.textContent = '↑';
-                            icon.classList.add('sync-arrow','sync-arrow-up');
-                            titleText = '最近同步：上传完成';
-                        } else if (this._syncDir === 'down') {
-                            icon.textContent = '↓';
-                            icon.classList.add('sync-arrow','sync-arrow-down');
-                            titleText = '最近同步：下载完成';
-                        } else {
-                            icon.textContent = '↕';
-                            icon.classList.add('sync-arrow');
-                            titleText = '同步正常';
-                        }
+                        icon.textContent = '✓';
+                        titleText = '最近同步：成功';
                     }
                     btn.title = titleText;
                 },
@@ -6433,17 +6386,6 @@ ${rawText}
                     this._lastStatus = status || 'success';
                     this._lastMessage = message || '';
                     this.render();
-                },
-                flashDirection(dir) {
-                    this._syncDir = dir === 'up' || dir === 'down' ? dir : null;
-                    this.render();
-                    if (this._syncDirTimer) {
-                        clearTimeout(this._syncDirTimer);
-                    }
-                    this._syncDirTimer = setTimeout(() => {
-                        this._syncDir = null;
-                        this.render();
-                    }, 1200);
                 },
                 setDebug(info) {
                     this._lastSyncDebug = info;
