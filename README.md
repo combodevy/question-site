@@ -229,6 +229,7 @@ Netlify 新版 Dashboard 下：
    - `SUPABASE_JWT_SECRET`
    - `ABLY_API_KEY`
    - `CORS_ORIGIN`（例如 `https://combodevy.github.io`，可选但建议）
+   - `SUPABASE_URL`（用于服务端校验 JWT 的签名）
 3. 部署后端，Vercel 会自动识别 `/api/*.js` 路由
 
 ### 3. 前端托管（GitHub Pages 或 Cloudflare Pages）

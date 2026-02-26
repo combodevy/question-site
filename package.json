@@ -24,6 +24,7 @@
   "dependencies": {
     "@netlify/neon": "^0.1.2",
     "ably": "^2.0.0",
+    "jose": "^5.2.4",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.13.3",
     "drizzle-orm": "^0.45.1"

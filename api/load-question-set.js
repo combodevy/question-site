@@ -48,7 +48,7 @@ function countBank(bk) {
 
 module.exports = async (req, res) => {
     if (handleCors(req, res)) return;
-    const user = getUserFromRequest(req);
+    const user = await getUserFromRequest(req);
     if (!user) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
