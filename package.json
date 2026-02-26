@@ -1,0 +1,32 @@
+{
+  "name": "project",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "netlify dev:exec drizzle-kit migrate",
+    "db:studio": "netlify dev:exec drizzle-kit studio"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/combodevy/question-site.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/combodevy/question-site/issues"
+  },
+  "homepage": "https://github.com/combodevy/question-site#readme",
+  "dependencies": {
+    "@netlify/neon": "^0.1.2",
+    "drizzle-orm": "^0.45.1",
+    "ably": "^2.0.0"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.9"
+  }
+}
