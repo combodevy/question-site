@@ -176,9 +176,9 @@ export default async (request, context) => {
       ? body.version
       : 0;
 
-  if (!name || questions.length === 0) {
+  if (!name) {
     return new Response(
-      JSON.stringify({ error: "name 或 questions 不能为空" }),
+      JSON.stringify({ error: "name 不能为空" }),
       {
         status: 400,
         headers: { "Content-Type": "application/json" }

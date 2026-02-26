@@ -1731,92 +1731,80 @@
                             similarPairs: []   // id 不同但题干高度相似的记录
                         };
 
-                        for (const sub in sanitizedInput) {
-                            if (!this.bank[sub]) {
-                                this.bank[sub] = sanitizedInput[sub];
-                            } else {
-                                for (const chap in sanitizedInput[sub]) {
-                                    if (!this.bank[sub][chap]) {
-                                        this.bank[sub][chap] = sanitizedInput[sub][chap];
-                                    } else {
-                                        // 固定导入前已存在的题目快照，用于疑似相似题检测，避免新题之间互相比较
-                                        let existingArrSnapshot = Array.isArray(this.bank[sub][chap]) ? [...this.bank[sub][chap]] : [];
-                                        if (existingArrSnapshot.length > 500) {
-                                            existingArrSnapshot = existingArrSnapshot.slice(-500);
-                                        }
-
-                                        const existingMap = new Map(
-                                            this.bank[sub][chap].map(q => [q.id, q])
-                                        );
-                                        const toDeleteIds = new Set();
-
-                                        sanitizedInput[sub][chap].forEach(qNew => {
-                                            // 归一化多选题答案，避免顺序差异带来的误判
-                                            if (qNew.type === 'multi' && typeof qNew.a === 'string') {
-                                                qNew.a = qNew.a.split('').sort().join('');
-                                            }
-                                            const qOld = existingMap.get(qNew.id);
-                                            if (qOld) {
-                                                const same =
-                                                    qOld.type === qNew.type &&
-                                                    qOld.q === qNew.q &&
-                                                    JSON.stringify(qOld.o || []) === JSON.stringify(qNew.o || []) &&
-                                                    qOld.a === qNew.a;
-                                                if (same) {
-                                                    // 完全相同：忽略新题
-                                                    report.skippedSame++;
-                                                    return;
-                                                } else {
-                                                    // ID 相同但内容不同：记录覆盖关系，并将旧题软删到回收站
-                                                    toDeleteIds.add(qOld.id);
-                                                    existingMap.set(qNew.id, qNew);
-                                                    report.updated++;
-                                                    report.importPairs.push({
-                                                        sub,
-                                                        chap,
-                                                        oldId: qOld.id,
-                                                        newId: qNew.id,
-                                                        oldQ: qOld.q,
-                                                        newQ: qNew.q
-                                                    });
-                                                }
-                                            } else {
-                                                // 新 ID：直接加入，并在导入前的快照中寻找疑似相似题，避免与刚导入的新题互相比较
-                                                const normNew = App.utils.normalizeQuestionText(qNew.q);
-                                                let best = null;
-                                                let bestScore = 0;
-                                                existingArrSnapshot.forEach(qExist => {
-                                                    if (!qExist || qExist.type !== qNew.type) return;
-                                                    const score = App.utils.similarity(
-                                                        App.utils.normalizeQuestionText(qExist.q),
-                                                        normNew
-                                                    );
-                                                    if (score > bestScore) {
-                                                        bestScore = score;
-                                                        best = qExist;
-                                                    }
-                                                });
-                                                if (best && bestScore >= 0.82) {
-                                                    report.similarPairs.push({
-                                                        sub,
-                                                        chap,
-                                                        score: Number(bestScore.toFixed(2)),
-                                                        existing: { id: best.id, q: best.q, a: best.a, type: best.type },
-                                                        incoming: { id: qNew.id, q: qNew.q, a: qNew.a, type: qNew.type }
-                                                    });
-                                                }
-                                                report.added++;
-                                                existingMap.set(qNew.id, qNew);
-                                            }
-                                        });
-
-                                        if (toDeleteIds.size > 0) {
-                                            App.data.softDeleteByIds(toDeleteIds, 'import-duplicate');
-                                        }
-
-                                        this.bank[sub][chap] = Array.from(existingMap.values());
+                        const globalMap = new Map();
+                        for (const sub in this.bank) {
+                            for (const chap in (this.bank[sub] || {})) {
+                                const arr = this.bank[sub][chap] || [];
+                                arr.forEach(q => {
+                                    if (q && typeof q.id === 'string') {
+                                        globalMap.set(q.id, { sub, chap, q });
                                     }
-                                }
+                                });
+                            }
+                        }
+                        for (const sub in sanitizedInput) {
+                            if (!this.bank[sub]) this.bank[sub] = {};
+                            for (const chap in sanitizedInput[sub]) {
+                                if (!this.bank[sub][chap]) this.bank[sub][chap] = [];
+                                const targetArr = this.bank[sub][chap];
+                                const seen = new Set();
+                                sanitizedInput[sub][chap].forEach(qNew => {
+                                    if (!qNew || typeof qNew !== 'object') return;
+                                    if (qNew.type === 'multi' && typeof qNew.a === 'string') {
+                                        qNew.a = qNew.a.split('').sort().join('');
+                                    }
+                                    if (seen.has(qNew.id)) {
+                                        report.skippedSame++;
+                                        return;
+                                    }
+                                    seen.add(qNew.id);
+                                    const exist = globalMap.get(qNew.id);
+                                    if (exist) {
+                                        const qOld = exist.q;
+                                        const same =
+                                            qOld.type === qNew.type &&
+                                            qOld.q === qNew.q &&
+                                            JSON.stringify(qOld.o || []) === JSON.stringify(qNew.o || []) &&
+                                            qOld.a === qNew.a;
+                                        if (same) {
+                                            report.skippedSame++;
+                                            return;
+                                        } else {
+                                            const oldArr = this.bank[exist.sub] && this.bank[exist.sub][exist.chap];
+                                            if (Array.isArray(oldArr)) {
+                                                const idx = oldArr.findIndex(x => x.id === qNew.id);
+                                                if (idx !== -1) {
+                                                    const oldQ = oldArr[idx];
+                                                    if (!this.trash[exist.sub]) this.trash[exist.sub] = {};
+                                                    if (!this.trash[exist.sub][exist.chap]) this.trash[exist.sub][exist.chap] = [];
+                                                    this.trash[exist.sub][exist.chap].push({
+                                                        ...oldQ,
+                                                        deletedAt: Date.now(),
+                                                        deletedBy: 'import',
+                                                        reason: 'override',
+                                                        originalPath: { sub: exist.sub, chap: exist.chap }
+                                                    });
+                                                    oldArr.splice(idx, 1);
+                                                }
+                                            }
+                                            targetArr.push(qNew);
+                                            globalMap.set(qNew.id, { sub, chap, q: qNew });
+                                            report.updated++;
+                                            report.importPairs.push({
+                                                sub,
+                                                chap,
+                                                oldId: qOld.id,
+                                                newId: qNew.id,
+                                                oldQ: qOld.q,
+                                                newQ: qNew.q
+                                            });
+                                        }
+                                    } else {
+                                        targetArr.push(qNew);
+                                        globalMap.set(qNew.id, { sub, chap, q: qNew });
+                                        report.added++;
+                                    }
+                                });
                             }
                         }
                         this.persistBank();
