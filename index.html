@@ -1582,6 +1582,9 @@
                 _cloudSaveTimer: null,
                 _lastSyncedQuestionIds: null,
                 _bankDirty: false,
+                _syncReady: false,
+                _cloudLoading: false,
+                _pendingSaveState: null,
                 remoteVersion: 0,
 
                 init() {
@@ -1673,6 +1676,8 @@
                     this._lastSyncedCounts = null;
                     this._lastSyncedQuestionIds = null;
                     this._bankDirty = false;
+                    this._syncReady = false;
+                    this._cloudLoading = false;
                     this.remoteVersion = 0;
                     try {
                         localStorage.removeItem(this.bankKey);
@@ -2065,6 +2070,17 @@
                     if (!window.netlifyIdentity || !window.netlifyIdentity.currentUser) return;
                     const user = window.netlifyIdentity.currentUser();
                     if (!user) return;
+                    if (!this._syncReady) {
+                        if (!this._cloudLoading) {
+                            this._cloudLoading = true;
+                            try {
+                                await this.loadFromCloud();
+                            } finally {
+                                this._cloudLoading = false;
+                            }
+                        }
+                        return;
+                    }
                     const token = await user.jwt();
                     const bank = this.bank || {};
                     const history = Array.isArray(this.history) ? this.history : [];
@@ -2155,6 +2171,16 @@
                         if (window.App && App.sync && typeof App.sync.setStatus === 'function') {
                             App.sync.setStatus('pending', null, null);
                         }
+                        if (!this._pendingSaveState) {
+                            this._pendingSaveState = {
+                                bank: JSON.parse(JSON.stringify(this.bank || {})),
+                                history: Array.isArray(this.history) ? this.history.slice() : [],
+                                trash: JSON.parse(JSON.stringify(this.trash || {})),
+                                lastPracticeTime: this.lastPracticeTime || null,
+                                hiddenMistakeIds: Array.isArray(this.hiddenMistakeIds) ? this.hiddenMistakeIds.slice() : [],
+                                bankName: this.bankName || ''
+                            };
+                        }
                         res = await fetch("/api/save-question-set", {
                             method: "POST",
                             headers: {
@@ -2199,6 +2225,26 @@
                                     if (typeof this._retryAfterConflictOnce !== 'number') this._retryAfterConflictOnce = 0;
                                     if (this._retryAfterConflictOnce < 1) {
                                         this._retryAfterConflictOnce++;
+                                        if (this._pendingSaveState) {
+                                            this._suppressCloudSync = true;
+                                            const s = this._pendingSaveState;
+                                            this.bank = s.bank || {};
+                                            this.history = Array.isArray(s.history) ? s.history : [];
+                                            this.trash = s.trash || {};
+                                            this.lastPracticeTime = s.lastPracticeTime || null;
+                                            this.hiddenMistakeIds = Array.isArray(s.hiddenMistakeIds) ? s.hiddenMistakeIds : [];
+                                            this.bankName = s.bankName || this.bankName;
+                                            this._safeSetItem(this.bankKey, JSON.stringify(this.bank));
+                                            this._safeSetItem(this.historyKey, JSON.stringify({
+                                                history: this.history,
+                                                lastPracticeTime: this.lastPracticeTime,
+                                                hiddenMistakeIds: this.hiddenMistakeIds
+                                            }));
+                                            this._safeSetItem(this.trashKey, JSON.stringify(this.trash));
+                                            if (this.bankName) this._safeSetItem(this.bankNameKey, this.bankName);
+                                            this._bankDirty = true;
+                                            this._suppressCloudSync = false;
+                                        }
                                         await this.saveToCloud();
                                     } else {
                                         this._retryAfterConflictOnce = 0;
@@ -2220,6 +2266,7 @@
                             this.bankName = inferredName;
                             this._safeSetItem(this.bankNameKey, this.bankName);
                             this._retryAfterConflictOnce = 0;
+                            this._pendingSaveState = null;
                         }
                     } catch (e) {
                         console.error("解析云端保存响应失败", e);
@@ -2237,6 +2284,15 @@
                         clearTimeout(this._cloudSaveTimer);
                     }
                     if (!window.netlifyIdentity || !window.netlifyIdentity.currentUser) return;
+                    if (!this._syncReady) {
+                        if (!this._cloudLoading) {
+                            this._cloudLoading = true;
+                            this.loadFromCloud().finally(() => {
+                                this._cloudLoading = false;
+                            });
+                        }
+                        return;
+                    }
                     if (window.App && App.sync && typeof App.sync.setStatus === 'function') {
                         App.sync.setStatus('pending', null, null);
                     }
@@ -2250,6 +2306,8 @@
                     if (!window.netlifyIdentity || !window.netlifyIdentity.currentUser) return;
                     const user = window.netlifyIdentity.currentUser();
                     if (!user) return;
+                    if (this._cloudLoading) return;
+                    this._cloudLoading = true;
                     const token = await user.jwt();
                     let res;
                     try {
@@ -2275,10 +2333,18 @@
                         return;
                     }
                     if (!data || !data.ok) {
+                        this._cloudLoading = false;
                         return;
                     }
                     const state = data.state && typeof data.state === "object" ? data.state : null;
                     if (!state) {
+                        if (typeof data.version === "number" && Number.isFinite(data.version)) {
+                            this.remoteVersion = data.version;
+                        } else {
+                            this.remoteVersion = 0;
+                        }
+                        this._syncReady = true;
+                        this._cloudLoading = false;
                         return;
                     }
                     this._suppressCloudSync = true;
@@ -2341,7 +2407,12 @@
                     };
                     this._lastSyncedQuestionIds = allIds;
                     this._bankDirty = false;
+                    this._syncReady = true;
                     this._suppressCloudSync = false;
+                    this._cloudLoading = false;
+                    if (window.App && App.router && typeof App.router.refresh === 'function') {
+                        App.router.refresh();
+                    }
                 },
 
                 // 持久化回收站
@@ -3939,6 +4010,7 @@ ${rawText}
 
             router: {
                 validViews: ['dashboard', 'setup', 'library', 'quiz', 'result', 'analytics'],
+                currentView: 'dashboard',
                 
                 go(id) {
                     const targetId = id === 'mistake_book' ? 'library' : id;
@@ -3958,11 +4030,17 @@ ${rawText}
                     if(id === 'mistake_book') libMode = 'mistakes';
                     
                     targetEl.classList.remove('hidden');
+                    this.currentView = targetId;
                     
                     if(id === 'dashboard') App.views.dashboard.render();
                     if(id === 'setup') App.views.setup.render(); 
                     if(id === 'library' || id === 'mistake_book') App.views.library.render(libMode);
                     if(id === 'analytics') App.views.analytics.render();
+                },
+                refresh() {
+                    const view = this.currentView || 'dashboard';
+                    if (view === 'quiz' || view === 'result') return;
+                    this.go(view);
                 },
                 init() { this.go('dashboard'); }
             },
@@ -6554,6 +6632,7 @@ ${rawText}
         }
         window.netlifyIdentity.on("init", function(user) {
           if (user && window.App && App.data && typeof App.data.loadFromCloud === "function") {
+            App.data._syncReady = false;
             App.data.loadFromCloud();
             if (window.App && App.sync && typeof App.sync.startAutoPull === "function") {
               App.sync.startAutoPull();
@@ -6567,16 +6646,10 @@ ${rawText}
           if (window.App && App.data) {
             if (typeof App.data.loadFromCloud === "function") {
               try {
+                App.data._syncReady = false;
                 await App.data.loadFromCloud();
               } catch (e) {
                 console.error("loadFromCloud on login failed", e);
-              }
-            }
-            if (typeof App.data.saveToCloud === "function") {
-              try {
-                App.data.saveToCloud();
-              } catch (e) {
-                console.error("saveToCloud on login failed", e);
               }
             }
           }
