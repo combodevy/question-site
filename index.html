@@ -2104,6 +2104,9 @@
 
 
                     try {
+                        if (window.App && App.sync && typeof App.sync.setStatus === 'function') {
+                            App.sync.setStatus('pending', null, null);
+                        }
                         res = await fetch("/api/save-question-set", {
                             method: "POST",
                             headers: {
@@ -2174,10 +2177,13 @@
                         clearTimeout(this._cloudSaveTimer);
                     }
                     if (!window.netlifyIdentity || !window.netlifyIdentity.currentUser) return;
+                    if (window.App && App.sync && typeof App.sync.setStatus === 'function') {
+                        App.sync.setStatus('pending', null, null);
+                    }
                     this._cloudSaveTimer = setTimeout(() => {
                         this._cloudSaveTimer = null;
                         this.saveToCloud();
-                    }, 2000);
+                    }, 400);
                 },
 
                 async loadFromCloud() {
@@ -6169,37 +6175,60 @@ ${rawText}
                 _bankMgrCurrentSubject: ''
             },
             sync: {
-                setStatus(status, delta, message) {
+                _lastStatus: 'success',
+                _realtimeDisconnected: false,
+                _lastMessage: '',
+                render() {
                     const btn = App.dom.get('save-cloud-btn');
                     const icon = document.getElementById('sync-indicator-icon');
                     if (!btn || !icon) return;
-                    btn.classList.remove('border-[var(--border)]', 'bg-[var(--card)]', 'bg-emerald-500', 'bg-red-500', 'border-red-400', 'border-emerald-400', 'border-primary-500');
-                    icon.classList.remove('bg-emerald-500', 'bg-red-500', 'text-white');
-                    if (status === 'pending') {
-                        btn.classList.add('border-primary-500');
-                    } else if (status === 'success') {
-                        btn.classList.add('border-emerald-400');
-                        icon.classList.add('bg-emerald-500', 'text-white');
-                    } else if (status === 'error') {
+                    btn.classList.remove('border-[var(--border)]','bg-[var(--card)]','border-primary-500','border-emerald-400','border-red-400','border-yellow-400');
+                    icon.classList.remove('bg-emerald-500','bg-red-500','bg-yellow-500','text-white');
+                    let titleText = '';
+                    if (this._lastStatus === 'error') {
                         btn.classList.add('border-red-400');
-                        icon.classList.add('bg-red-500', 'text-white');
+                        icon.classList.add('bg-red-500','text-white');
+                        icon.textContent = '!';
+                        titleText = '最近同步：失败（' + (this._lastMessage || '同步失败') + '）';
+                    } else if (this._lastStatus === 'pending') {
+                        btn.classList.add('border-primary-500');
+                        icon.textContent = '…';
+                        titleText = '同步中...';
+                    } else if (this._realtimeDisconnected) {
+                        btn.classList.add('border-yellow-400');
+                        icon.classList.add('bg-yellow-500','text-white');
+                        icon.textContent = '!';
+                        titleText = '实时通道未连接';
+                    } else {
+                        btn.classList.add('border-emerald-400');
+                        icon.classList.add('bg-emerald-500','text-white');
+                        icon.textContent = '✓';
+                        titleText = '最近同步：成功';
                     }
-                    if (status === 'success' || status === 'error') {
-                        const current = typeof this._changeCount === 'number' ? this._changeCount : 0;
-                        const next = Math.min(current + 1, 999);
-                        this._changeCount = next;
-                        icon.textContent = String(next);
-                        const now = new Date();
-                        const timeStr = now.toLocaleString();
-                        const qd = delta && typeof delta.questions === 'number' ? delta.questions : 0;
-                        const hd = delta && typeof delta.history === 'number' ? delta.history : 0;
-                        const td = delta && typeof delta.trash === 'number' ? delta.trash : 0;
-                        const statusText = status === 'success' ? '成功' : '失败';
-                        btn.title = `最近同步：${timeStr}（${statusText}，题库变化 ${qd >= 0 ? '+' : ''}${qd}，记录变化 ${hd >= 0 ? '+' : ''}${hd}${td ? `，回收站变化 ${td >= 0 ? '+' : ''}${td}` : ''}）`;
-                    }
+                    btn.title = titleText;
+                },
+                setStatus(status, delta, message) {
+                    this._lastStatus = status || 'success';
+                    this._lastMessage = message || '';
+                    this.render();
                 },
                 showSyncStatus(status, delta, message) {
                     this.setStatus(status, delta, message);
+                    if (status === 'error') {
+                        const toast = document.getElementById('sync-toast');
+                        if (toast) {
+                            toast.textContent = message || '同步失败';
+                            toast.classList.remove('opacity-0');
+                            toast.classList.add('opacity-100');
+                            if (this._toastTimer) {
+                                clearTimeout(this._toastTimer);
+                            }
+                            this._toastTimer = setTimeout(() => {
+                                toast.classList.add('opacity-0');
+                                toast.classList.remove('opacity-100');
+                            }, 5000);
+                        }
+                    }
                 },
                 async openLogPanel() {
                     if (!window.netlifyIdentity || !window.netlifyIdentity.currentUser) return;
@@ -6281,14 +6310,7 @@ ${rawText}
                     }, 200);
                 },
                 startAutoPull() {
-                    if (this._pollTimer) return;
-                    const tick = () => {
-                        if (!window.netlifyIdentity || !window.netlifyIdentity.currentUser) return;
-                        if (!window.App || !App.data || typeof App.data.loadFromCloud !== 'function') return;
-                        App.data.loadFromCloud();
-                    };
-                    this._pollTimer = setInterval(tick, 8000);
-                    tick();
+                    return;
                 },
                 stopAutoPull() {
                     if (this._pollTimer) {
@@ -6382,11 +6404,23 @@ ${rawText}
             authUrl: "/api/ably-auth"
           });
           ablyClient.connection.on("connected", function() {
+            if (window.App && App.sync && typeof App.sync.render === "function") {
+              App.sync._realtimeDisconnected = false;
+              App.sync.render();
+            }
             const userId = user.id || user.sub || "";
             ablyChannel = ablyClient.channels.get("user:" + userId);
             ablyChannel.subscribe("question-set-updated", function() {
               if (window.App && App.data && typeof App.data.loadFromCloud === "function") {
                 App.data.loadFromCloud();
+              }
+            });
+          });
+          ["disconnected","suspended","closing","closed","failed"].forEach(function(evt){
+            ablyClient.connection.on(evt, function() {
+              if (window.App && App.sync && typeof App.sync.render === "function") {
+                App.sync._realtimeDisconnected = true;
+                App.sync.render();
               }
             });
           });
@@ -6451,20 +6485,6 @@ ${rawText}
         const saveBtn = document.getElementById("save-cloud-btn");
         const overlayLoginBtn = document.getElementById("auth-overlay-login-btn");
         if (saveBtn) {
-          saveBtn.addEventListener("click", function() {
-            if (!window.App || !App.data || typeof App.data.saveToCloud !== "function") return;
-            if (!window.netlifyIdentity || !window.netlifyIdentity.currentUser || !window.netlifyIdentity.currentUser()) {
-              alert("请先登录再保存题库");
-              if (window.netlifyIdentity) {
-                window.netlifyIdentity.open();
-              }
-              return;
-            }
-            if (App.sync && typeof App.sync.setStatus === "function") {
-              App.sync.setStatus('pending', null, null);
-            }
-            App.data.saveToCloud();
-          });
           saveBtn.addEventListener("contextmenu", function(e) {
             e.preventDefault();
             if (window.App && App.sync && typeof App.sync.openLogPanel === "function") {
