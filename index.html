@@ -2072,14 +2072,7 @@
                     const user = window.netlifyIdentity.currentUser();
                     if (!user) return;
                     if (!this._syncReady) {
-                        if (!this._cloudLoading) {
-                            this._cloudLoading = true;
-                            try {
-                                await this.loadFromCloud();
-                            } finally {
-                                this._cloudLoading = false;
-                            }
-                        }
+                        await this.loadFromCloud();
                         return;
                     }
                     const token = await user.jwt();
@@ -2287,12 +2280,7 @@
                     if (!window.netlifyIdentity || !window.netlifyIdentity.currentUser) return;
                     if (!this._syncReady) {
                         this._deferredSave = true;
-                        if (!this._cloudLoading) {
-                            this._cloudLoading = true;
-                            this.loadFromCloud().finally(() => {
-                                this._cloudLoading = false;
-                            });
-                        }
+                        this.loadFromCloud();
                         return;
                     }
                     if (window.App && App.sync && typeof App.sync.setStatus === 'function') {
