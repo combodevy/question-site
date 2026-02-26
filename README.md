@@ -210,12 +210,43 @@ Netlify 新版 Dashboard 下：
 
 ---
 
+## 部署到 Vercel + Supabase（方案 A）
+
+### 1. 创建 Supabase 项目
+
+1. 进入 Supabase 控制台并创建新项目  
+2. 记录以下信息：  
+   - Project URL  
+   - Anon Key  
+   - Database URL  
+   - JWT Secret
+
+### 2. 部署后端到 Vercel
+
+1. 将仓库导入 Vercel  
+2. 在 Vercel 环境变量中设置：
+   - `SUPABASE_DB_URL`
+   - `SUPABASE_JWT_SECRET`
+   - `ABLY_API_KEY`
+3. 部署后端，Vercel 会自动识别 `/api/*.js` 路由
+
+### 3. 前端托管（GitHub Pages 或 Cloudflare Pages）
+
+1. 打开 `config.js`，填写：
+   - `SUPABASE_URL`
+   - `SUPABASE_ANON_KEY`
+   - `API_BASE`（填 Vercel 后端域名，例如 `https://your-app.vercel.app`）
+2. 部署 `index.html` + `config.js` 到静态托管平台  
+3. 访问前端域名，即可登录并同步
+
+---
+
 ## 使用教程（面向最终用户）
 
 ### 1. 登录 / 账号
 
 - 打开站点后，首先看到的是一个「需要登录」的遮罩
-- 点击中间按钮或右上角头像 → 调出 Netlify Identity 登录框
+- 点击中间按钮或右上角头像 → 打开登录框
 - 完成注册/登录之后：
   - 遮罩消失
   - 系统会自动从云端拉取你账号下的题库和做题数据
@@ -343,4 +374,3 @@ Netlify 新版 Dashboard 下：
    - 仅用于提示频率，不代表题目总数。
 
 ---
-

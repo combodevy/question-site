@@ -147,8 +147,33 @@
                     </div>
                 </div>
                 <button id="auth-overlay-login-btn" class="mt-1 px-4 py-1.5 rounded-full bg-primary-600 text-white text-[11px] font-bold shadow-sm active:scale-95 transition-transform">
-                    使用 Netlify Identity 登录
+                    登录 / 注册
                 </button>
+            </div>
+        </div>
+        <div id="modal-auth" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm hidden opacity-0 pointer-events-none">
+            <div class="card w-full max-w-sm rounded-2xl shadow-2xl p-5 flex flex-col gap-4 bg-[var(--card)] border border-[var(--border)]">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-base">账号登录</h3>
+                    <button onclick="App.ui.closeModal('auth')" class="text-[var(--sub)] hover:text-[var(--text)] p-1">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <label class="text-[10px] text-[var(--sub)]">邮箱</label>
+                    <input id="auth-email" type="email" class="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none" placeholder="you@example.com">
+                </div>
+                <div class="flex flex-col gap-2">
+                    <label class="text-[10px] text-[var(--sub)]">密码</label>
+                    <input id="auth-password" type="password" class="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none" placeholder="••••••••">
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="auth-login-btn" class="flex-1 btn px-3 py-2.5 bg-primary-600 text-white rounded-xl text-xs font-bold active:scale-95">登录</button>
+                    <button id="auth-signup-btn" class="flex-1 btn px-3 py-2.5 bg-[var(--card)] border border-[var(--border)] text-[var(--text)] rounded-xl text-xs font-bold active:scale-95">注册</button>
+                </div>
+                <div id="auth-status" class="text-[10px] text-[var(--sub)]"></div>
             </div>
         </div>
         <div id="sync-toast" class="fixed left-4 top-16 z-40 pointer-events-none opacity-0 transition-opacity duration-300 text-xs md:text-sm"></div>
@@ -1152,8 +1177,10 @@
         </div>
     </div>
 
+    <script src="config.js"></script>
     <script>
         const App = {
+            apiBase: window.API_BASE || '',
             dom: {
                 get(id) { 
                     const el = document.getElementById(id);
@@ -1550,6 +1577,104 @@
                             ctx.fillText(day.label, x + cellW/2, cvs.height - 4);
                         }
                     });
+                }
+            },
+
+            auth: {
+                client: null,
+                session: null,
+                init() {
+                    if (!window.supabase || !window.supabase.createClient) return;
+                    const url = window.SUPABASE_URL || '';
+                    const key = window.SUPABASE_ANON_KEY || '';
+                    if (!url || !key) return;
+                    this.client = window.supabase.createClient(url, key);
+                    this.client.auth.getSession().then(({ data }) => {
+                        this.session = data && data.session ? data.session : null;
+                        this.applyAuthState();
+                    });
+                    this.client.auth.onAuthStateChange((event, session) => {
+                        this.session = session || null;
+                        this.applyAuthState();
+                    });
+                },
+                async getToken() {
+                    if (!this.client) return null;
+                    if (this.session && this.session.access_token) return this.session.access_token;
+                    const { data } = await this.client.auth.getSession();
+                    return data && data.session ? data.session.access_token : null;
+                },
+                getUserId() {
+                    return this.session && this.session.user ? this.session.user.id : '';
+                },
+                async login(email, password) {
+                    if (!this.client) return { error: { message: '未配置 Supabase' } };
+                    return await this.client.auth.signInWithPassword({ email, password });
+                },
+                async signup(email, password) {
+                    if (!this.client) return { error: { message: '未配置 Supabase' } };
+                    return await this.client.auth.signUp({ email, password });
+                },
+                async logout() {
+                    if (!this.client) return;
+                    await this.client.auth.signOut();
+                },
+                applyAuthState() {
+                    const btn = document.getElementById("auth-btn");
+                    const icon = document.getElementById("auth-icon");
+                    const overlay = document.getElementById("auth-overlay");
+                    if (!btn || !icon) return;
+                    btn.classList.remove(
+                        "bg-primary-600",
+                        "text-white",
+                        "border-emerald-400",
+                        "bg-emerald-50",
+                        "text-emerald-700",
+                        "shadow",
+                        "shadow-emerald-200"
+                    );
+                    btn.classList.add("border", "border-[var(--border)]", "bg-[var(--card)]", "text-[var(--sub)]");
+                    if (this.session) {
+                        btn.title = "退出登录";
+                        btn.classList.remove("border-[var(--border)]", "bg-[var(--card)]", "text-[var(--sub)]");
+                        btn.classList.add(
+                            "border-emerald-400",
+                            "bg-emerald-50",
+                            "text-emerald-700",
+                            "shadow",
+                            "shadow-emerald-200"
+                        );
+                        if (overlay) {
+                            overlay.classList.add("hidden");
+                            overlay.classList.add("opacity-0", "pointer-events-none");
+                        }
+                        if (window.App && App.data && typeof App.data.loadFromCloud === "function") {
+                            App.data._syncReady = false;
+                            App.data.loadFromCloud();
+                        }
+                        if (window.App && App.sync && typeof App.sync.startAutoPull === "function") {
+                            App.sync.startAutoPull();
+                        }
+                        if (window.App && App.realtime && typeof App.realtime.setup === "function") {
+                            const token = this.session.access_token;
+                            const uid = this.getUserId();
+                            App.realtime.setup(uid, token);
+                        }
+                    } else {
+                        btn.title = "登录";
+                        if (overlay) {
+                            overlay.classList.remove("hidden", "opacity-0", "pointer-events-none");
+                        }
+                        if (window.App && App.data && typeof App.data.clearAllForLogout === "function") {
+                            App.data.clearAllForLogout();
+                        }
+                        if (window.App && App.sync && typeof App.sync.stopAutoPull === "function") {
+                            App.sync.stopAutoPull();
+                        }
+                        if (window.App && App.realtime && typeof App.realtime.teardown === "function") {
+                            App.realtime.teardown();
+                        }
+                    }
                 }
             },
 
@@ -2068,14 +2193,13 @@
                 },
 
                 async saveToCloud() {
-                    if (!window.netlifyIdentity || !window.netlifyIdentity.currentUser) return;
-                    const user = window.netlifyIdentity.currentUser();
-                    if (!user) return;
+                    if (!App.auth || typeof App.auth.getToken !== 'function') return;
+                    const token = await App.auth.getToken();
+                    if (!token) return;
                     if (!this._syncReady) {
                         await this.loadFromCloud();
                         return;
                     }
-                    const token = await user.jwt();
                     const bank = this.bank || {};
                     const history = Array.isArray(this.history) ? this.history : [];
                     const trash = this.trash || {};
@@ -2175,7 +2299,7 @@
                                 bankName: this.bankName || ''
                             };
                         }
-                        res = await fetch("/api/save-question-set", {
+                        res = await fetch((App.apiBase || '') + "/api/save-question-set", {
                             method: "POST",
                             headers: {
                                 "Content-Type": "application/json",
@@ -2277,7 +2401,7 @@
                     if (this._cloudSaveTimer) {
                         clearTimeout(this._cloudSaveTimer);
                     }
-                    if (!window.netlifyIdentity || !window.netlifyIdentity.currentUser) return;
+                    if (!App.auth || !App.auth.session) return;
                     if (!this._syncReady) {
                         this._deferredSave = true;
                         this.loadFromCloud();
@@ -2293,15 +2417,14 @@
                 },
 
                 async loadFromCloud() {
-                    if (!window.netlifyIdentity || !window.netlifyIdentity.currentUser) return;
-                    const user = window.netlifyIdentity.currentUser();
-                    if (!user) return;
+                    if (!App.auth || typeof App.auth.getToken !== 'function') return;
+                    const token = await App.auth.getToken();
+                    if (!token) return;
                     if (this._cloudLoading) return;
                     this._cloudLoading = true;
-                    const token = await user.jwt();
                     let res;
                     try {
-                        res = await fetch("/api/load-question-set", {
+                        res = await fetch((App.apiBase || '') + "/api/load-question-set", {
                             method: "GET",
                             headers: {
                                 Authorization: "Bearer " + token
@@ -6397,13 +6520,12 @@ ${rawText}
                     }
                 },
                 async openLogPanel() {
-                    if (!window.netlifyIdentity || !window.netlifyIdentity.currentUser) return;
-                    const user = window.netlifyIdentity.currentUser();
-                    if (!user) return;
-                    const token = await user.jwt();
+                    if (!App.auth || typeof App.auth.getToken !== 'function') return;
+                    const token = await App.auth.getToken();
+                    if (!token) return;
                     let res;
                     try {
-                        res = await fetch('/api/sync-logs', {
+                        res = await fetch((App.apiBase || '') + '/api/sync-logs', {
                             method: 'GET',
                             headers: {
                                 Authorization: 'Bearer ' + token
@@ -6505,10 +6627,74 @@ ${rawText}
                 _toastTimer: null,
                 _pollTimer: null
             },
+            realtime: {
+                client: null,
+                channel: null,
+                setup(userId, token) {
+                    if (!window.Ably || !userId || !token) return;
+                    if (this.client) return;
+                    try {
+                        this.client = new Ably.Realtime({
+                            authUrl: (App.apiBase || "") + "/api/ably-auth",
+                            authHeaders: { Authorization: "Bearer " + token },
+                            transports: ["web_socket","xhr_streaming","xhr_polling"],
+                            connectTimeout: 15000,
+                            tls: true
+                        });
+                        this.client.connection.on("connected", () => {
+                            if (window.App && App.sync && typeof App.sync.render === "function") {
+                                App.sync._realtimeDisconnected = false;
+                                App.sync._lastMessage = '';
+                                App.sync.render();
+                            }
+                            this.channel = this.client.channels.get("user:" + userId);
+                            this.channel.subscribe("question-set-updated", () => {
+                                if (window.App && App.data && typeof App.data.loadFromCloud === "function") {
+                                    App.data.loadFromCloud();
+                                }
+                            });
+                        });
+                        ["disconnected","suspended","closing","closed","failed"].forEach((evt) => {
+                            this.client.connection.on(evt, (stateChange) => {
+                                if (window.App && App.sync && typeof App.sync.render === "function") {
+                                    App.sync._realtimeDisconnected = true;
+                                    let reasonMsg = '';
+                                    if (stateChange && stateChange.reason) {
+                                        reasonMsg = stateChange.reason.message || String(stateChange.reason);
+                                    }
+                                    App.sync._lastMessage = reasonMsg || '';
+                                    App.sync.render();
+                                }
+                            });
+                        });
+                    } catch (e) {
+                        if (window.App && App.sync && typeof App.sync.render === "function") {
+                            App.sync._realtimeDisconnected = true;
+                            App.sync._lastMessage = '初始化实时连接失败';
+                            App.sync.render();
+                        }
+                    }
+                },
+                teardown() {
+                    if (this.channel) {
+                        try {
+                            this.channel.unsubscribe();
+                        } catch (e) {}
+                        this.channel = null;
+                    }
+                    if (this.client) {
+                        try {
+                            this.client.close();
+                        } catch (e) {}
+                        this.client = null;
+                    }
+                }
+            },
             
             init() {
                 this.data.init();
                 this.ui.initTheme();
+                this.auth.init();
                 this.ai.init(); 
                 this.router.init();
                 this.ui._initGlobalBackTop();
@@ -6535,160 +6721,21 @@ ${rawText}
             });
         });
     </script>
-    <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.ably.com/lib/ably.min-2.js"></script>
     <script>
-      if (window.netlifyIdentity) {
-        function updateAuthButton(user) {
-          const btn = document.getElementById("auth-btn");
-          const icon = document.getElementById("auth-icon");
-          const overlay = document.getElementById("auth-overlay");
-          if (!btn || !icon) return;
-          // 重置到基础样式
-          btn.classList.remove(
-            "bg-primary-600",
-            "text-white",
-            "border-emerald-400",
-            "bg-emerald-50",
-            "text-emerald-700",
-            "shadow",
-            "shadow-emerald-200"
-          );
-          btn.classList.add("border", "border-[var(--border)]", "bg-[var(--card)]", "text-[var(--sub)]");
-          if (user) {
-            btn.title = "退出登录";
-            btn.classList.remove("border-[var(--border)]", "bg-[var(--card)]", "text-[var(--sub)]");
-            btn.classList.add(
-              "border-emerald-400",
-              "bg-emerald-50",
-              "text-emerald-700",
-              "shadow",
-              "shadow-emerald-200"
-            );
-            if (overlay) {
-              overlay.classList.add("hidden");
-              overlay.classList.add("opacity-0", "pointer-events-none");
-            }
-          } else {
-            btn.title = "登录";
-            if (overlay) {
-              overlay.classList.remove("hidden", "opacity-0", "pointer-events-none");
-            }
-            if (window.App && App.data && typeof App.data.clearAllForLogout === "function") {
-              App.data.clearAllForLogout();
-            }
-          }
-        }
-        let ablyClient = null;
-        let ablyChannel = null;
-        function setupAbly(user) {
-          if (!window.Ably || !user) return;
-          if (ablyClient) return;
-          try {
-            user.jwt().then(function(token){
-              ablyClient = new Ably.Realtime({
-                authUrl: "/api/ably-auth",
-                authHeaders: { Authorization: "Bearer " + token },
-                transports: ["web_socket","xhr_streaming","xhr_polling"],
-                connectTimeout: 15000,
-                tls: true
-              });
-              ablyClient.connection.on("connected", function() {
-                if (window.App && App.sync && typeof App.sync.render === "function") {
-                  App.sync._realtimeDisconnected = false;
-                  App.sync._lastMessage = '';
-                  App.sync.render();
-                }
-                const userId = user.id || user.sub || "";
-                ablyChannel = ablyClient.channels.get("user:" + userId);
-                ablyChannel.subscribe("question-set-updated", function() {
-                  if (window.App && App.data && typeof App.data.loadFromCloud === "function") {
-                    App.data.loadFromCloud();
-                  }
-                });
-              });
-              ["disconnected","suspended","closing","closed","failed"].forEach(function(evt){
-                ablyClient.connection.on(evt, function(stateChange) {
-                  if (window.App && App.sync && typeof App.sync.render === "function") {
-                    App.sync._realtimeDisconnected = true;
-                    var reasonMsg = '';
-                    if (stateChange && stateChange.reason) {
-                      reasonMsg = stateChange.reason.message || String(stateChange.reason);
-                    }
-                    App.sync._lastMessage = reasonMsg || '';
-                    App.sync.render();
-                  }
-                });
-              });
-            }).catch(function(){
-              if (window.App && App.sync && typeof App.sync.render === "function") {
-                App.sync._realtimeDisconnected = true;
-                App.sync._lastMessage = '无法获取登录令牌';
-                App.sync.render();
-              }
-            });
-          } catch (e) {
-            if (window.App && App.sync && typeof App.sync.render === "function") {
-              App.sync._realtimeDisconnected = true;
-              App.sync._lastMessage = '初始化实时连接失败';
-              App.sync.render();
-            }
-          }
-        }
-        function teardownAbly() {
-          if (ablyChannel) {
-            try {
-              ablyChannel.unsubscribe();
-            } catch (e) {}
-            ablyChannel = null;
-          }
-          if (ablyClient) {
-            try {
-              ablyClient.close();
-            } catch (e) {}
-            ablyClient = null;
-          }
-        }
-        window.netlifyIdentity.on("init", function(user) {
-          if (user && window.App && App.data && typeof App.data.loadFromCloud === "function") {
-            App.data._syncReady = false;
-            App.data.loadFromCloud();
-            if (window.App && App.sync && typeof App.sync.startAutoPull === "function") {
-              App.sync.startAutoPull();
-            }
-            setupAbly(user);
-          }
-          updateAuthButton(user);
-        });
-        window.netlifyIdentity.on("login", async function(user) {
-          updateAuthButton(user);
-          if (window.App && App.data) {
-            if (typeof App.data.loadFromCloud === "function") {
-              try {
-                App.data._syncReady = false;
-                await App.data.loadFromCloud();
-              } catch (e) {
-                console.error("loadFromCloud on login failed", e);
-              }
-            }
-          }
-          if (window.App && App.sync && typeof App.sync.startAutoPull === "function") {
-            App.sync.startAutoPull();
-          }
-          setupAbly(user);
-        });
-        window.netlifyIdentity.on("logout", function() {
-          updateAuthButton(null);
-          if (window.App && App.sync && typeof App.sync.stopAutoPull === "function") {
-            App.sync.stopAutoPull();
-          }
-          teardownAbly();
-        });
-        window.netlifyIdentity.init();
-      }
+      window.SUPABASE_URL = window.SUPABASE_URL || '';
+      window.SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || '';
       window.addEventListener("DOMContentLoaded", function() {
         const saveBtn = document.getElementById("save-cloud-btn");
         const overlayLoginBtn = document.getElementById("auth-overlay-login-btn");
+        const authBtn = document.getElementById("auth-btn");
+        const loginBtn = document.getElementById("auth-login-btn");
+        const signupBtn = document.getElementById("auth-signup-btn");
+        const emailInput = document.getElementById("auth-email");
+        const passwordInput = document.getElementById("auth-password");
+        const statusEl = document.getElementById("auth-status");
+        const showStatus = (msg) => { if (statusEl) statusEl.textContent = msg || ''; };
         if (saveBtn) {
           saveBtn.addEventListener("contextmenu", function(e) {
             e.preventDefault();
@@ -6697,22 +6744,60 @@ ${rawText}
             }
           });
         }
-
-        const authBtn = document.getElementById("auth-btn");
-        if (authBtn && window.netlifyIdentity) {
+        const openAuthModal = () => {
+          if (window.App && App.ui && typeof App.ui.toggleModal === "function") {
+            App.ui.toggleModal('auth');
+          }
+        };
+        if (authBtn) {
           authBtn.addEventListener("click", function() {
-            const user = window.netlifyIdentity.currentUser();
-            if (user) {
-              window.netlifyIdentity.logout();
+            if (window.App && App.auth && App.auth.session) {
+              App.auth.logout();
             } else {
-              window.netlifyIdentity.open();
+              openAuthModal();
             }
           });
         }
-
-        if (overlayLoginBtn && window.netlifyIdentity) {
+        if (overlayLoginBtn) {
           overlayLoginBtn.addEventListener("click", function() {
-            window.netlifyIdentity.open();
+            openAuthModal();
+          });
+        }
+        if (loginBtn) {
+          loginBtn.addEventListener("click", async function() {
+            const email = emailInput ? emailInput.value.trim() : '';
+            const password = passwordInput ? passwordInput.value : '';
+            if (!email || !password) {
+              showStatus('请输入邮箱和密码');
+              return;
+            }
+            showStatus('登录中...');
+            const { error } = await App.auth.login(email, password);
+            if (error) {
+              showStatus(error.message || '登录失败');
+              return;
+            }
+            showStatus('登录成功');
+            if (window.App && App.ui && typeof App.ui.closeModal === "function") {
+              App.ui.closeModal('auth');
+            }
+          });
+        }
+        if (signupBtn) {
+          signupBtn.addEventListener("click", async function() {
+            const email = emailInput ? emailInput.value.trim() : '';
+            const password = passwordInput ? passwordInput.value : '';
+            if (!email || !password) {
+              showStatus('请输入邮箱和密码');
+              return;
+            }
+            showStatus('注册中...');
+            const { error } = await App.auth.signup(email, password);
+            if (error) {
+              showStatus(error.message || '注册失败');
+              return;
+            }
+            showStatus('注册成功，请检查邮箱完成验证');
           });
         }
       });

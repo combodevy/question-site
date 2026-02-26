@@ -23,8 +23,10 @@
   "homepage": "https://github.com/combodevy/question-site#readme",
   "dependencies": {
     "@netlify/neon": "^0.1.2",
-    "drizzle-orm": "^0.45.1",
-    "ably": "^2.0.0"
+    "ably": "^2.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.3",
+    "drizzle-orm": "^0.45.1"
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.9"
