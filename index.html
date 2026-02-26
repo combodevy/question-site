@@ -1731,6 +1731,7 @@
                             similarPairs: []   // id 不同但题干高度相似的记录
                         };
 
+                        // 构建旧题全局索引（id -> 位置与题目）
                         const globalMap = new Map();
                         for (const sub in this.bank) {
                             for (const chap in (this.bank[sub] || {})) {
@@ -1742,69 +1743,84 @@
                                 });
                             }
                         }
+                        // 构建导入数据的全局索引（同 id 最后一次出现生效）
+                        const importMap = new Map();
                         for (const sub in sanitizedInput) {
-                            if (!this.bank[sub]) this.bank[sub] = {};
-                            for (const chap in sanitizedInput[sub]) {
-                                if (!this.bank[sub][chap]) this.bank[sub][chap] = [];
-                                const targetArr = this.bank[sub][chap];
-                                const seen = new Set();
-                                sanitizedInput[sub][chap].forEach(qNew => {
+                            const chapters = sanitizedInput[sub] || {};
+                            for (const chap in chapters) {
+                                const arr = Array.isArray(chapters[chap]) ? chapters[chap] : [];
+                                arr.forEach(qNew => {
                                     if (!qNew || typeof qNew !== 'object') return;
                                     if (qNew.type === 'multi' && typeof qNew.a === 'string') {
                                         qNew.a = qNew.a.split('').sort().join('');
                                     }
-                                    if (seen.has(qNew.id)) {
-                                        report.skippedSame++;
-                                        return;
-                                    }
-                                    seen.add(qNew.id);
-                                    const exist = globalMap.get(qNew.id);
-                                    if (exist) {
-                                        const qOld = exist.q;
-                                        const same =
-                                            qOld.type === qNew.type &&
-                                            qOld.q === qNew.q &&
-                                            JSON.stringify(qOld.o || []) === JSON.stringify(qNew.o || []) &&
-                                            qOld.a === qNew.a;
-                                        if (same) {
-                                            report.skippedSame++;
-                                            return;
-                                        } else {
-                                            const oldArr = this.bank[exist.sub] && this.bank[exist.sub][exist.chap];
-                                            if (Array.isArray(oldArr)) {
-                                                const idx = oldArr.findIndex(x => x.id === qNew.id);
-                                                if (idx !== -1) {
-                                                    const oldQ = oldArr[idx];
-                                                    if (!this.trash[exist.sub]) this.trash[exist.sub] = {};
-                                                    if (!this.trash[exist.sub][exist.chap]) this.trash[exist.sub][exist.chap] = [];
-                                                    this.trash[exist.sub][exist.chap].push({
-                                                        ...oldQ,
-                                                        deletedAt: Date.now(),
-                                                        deletedBy: 'import',
-                                                        reason: 'override',
-                                                        originalPath: { sub: exist.sub, chap: exist.chap }
-                                                    });
-                                                    oldArr.splice(idx, 1);
-                                                }
-                                            }
-                                            targetArr.push(qNew);
-                                            globalMap.set(qNew.id, { sub, chap, q: qNew });
-                                            report.updated++;
-                                            report.importPairs.push({
-                                                sub,
-                                                chap,
-                                                oldId: qOld.id,
-                                                newId: qNew.id,
-                                                oldQ: qOld.q,
-                                                newQ: qNew.q
+                                    if (typeof qNew.id !== 'string' || !qNew.id) return;
+                                    importMap.set(qNew.id, { sub, chap, q: qNew });
+                                });
+                            }
+                        }
+                        // 合并：逐 id 处理，避免在章节维度上反复 push
+                        importMap.forEach(({ sub, chap, q: qNew }, id) => {
+                            if (!this.bank[sub]) this.bank[sub] = {};
+                            if (!this.bank[sub][chap]) this.bank[sub][chap] = [];
+                            const targetArr = this.bank[sub][chap];
+                            const exist = globalMap.get(id);
+                            if (exist) {
+                                const qOld = exist.q;
+                                const same =
+                                    qOld.type === qNew.type &&
+                                    qOld.q === qNew.q &&
+                                    JSON.stringify(qOld.o || []) === JSON.stringify(qNew.o || []) &&
+                                    qOld.a === qNew.a;
+                                if (same) {
+                                    report.skippedSame++;
+                                } else {
+                                    const oldArr = this.bank[exist.sub] && this.bank[exist.sub][exist.chap];
+                                    if (Array.isArray(oldArr)) {
+                                        const idx = oldArr.findIndex(x => x.id === id);
+                                        if (idx !== -1) {
+                                            const oldQ = oldArr[idx];
+                                            if (!this.trash[exist.sub]) this.trash[exist.sub] = {};
+                                            if (!this.trash[exist.sub][exist.chap]) this.trash[exist.sub][exist.chap] = [];
+                                            this.trash[exist.sub][exist.chap].push({
+                                                ...oldQ,
+                                                deletedAt: Date.now(),
+                                                deletedBy: 'import',
+                                                reason: 'override',
+                                                originalPath: { sub: exist.sub, chap: exist.chap }
                                             });
+                                            oldArr.splice(idx, 1);
                                         }
-                                    } else {
-                                        targetArr.push(qNew);
-                                        globalMap.set(qNew.id, { sub, chap, q: qNew });
-                                        report.added++;
+                                    }
+                                    targetArr.push(qNew);
+                                    globalMap.set(id, { sub, chap, q: qNew });
+                                    report.updated++;
+                                    report.importPairs.push({
+                                        sub,
+                                        chap,
+                                        oldId: qOld.id,
+                                        newId: qNew.id,
+                                        oldQ: qOld.q,
+                                        newQ: qNew.q
+                                    });
+                                }
+                            } else {
+                                targetArr.push(qNew);
+                                globalMap.set(id, { sub, chap, q: qNew });
+                                report.added++;
+                            }
+                        });
+                        // 对每个章节进行一次去重（按 id 保留最后一个）
+                        for (const sub in this.bank) {
+                            for (const chap in (this.bank[sub] || {})) {
+                                const arr = this.bank[sub][chap] || [];
+                                const uniq = new Map();
+                                arr.forEach(q => {
+                                    if (q && typeof q.id === 'string') {
+                                        uniq.set(q.id, q);
                                     }
                                 });
+                                this.bank[sub][chap] = Array.from(uniq.values());
                             }
                         }
                         this.persistBank();
@@ -2135,6 +2151,13 @@
                             if (res.status === 409 && window.App && App.data && typeof App.data.loadFromCloud === "function") {
                                 try {
                                     await App.data.loadFromCloud();
+                                    if (typeof this._retryAfterConflictOnce !== 'number') this._retryAfterConflictOnce = 0;
+                                    if (this._retryAfterConflictOnce < 1) {
+                                        this._retryAfterConflictOnce++;
+                                        await this.saveToCloud();
+                                    } else {
+                                        this._retryAfterConflictOnce = 0;
+                                    }
                                 } catch (e) {
                                     console.error("loadFromCloud after conflict failed", e);
                                 }
@@ -2148,6 +2171,7 @@
                             if (window.App && App.sync && typeof App.sync.showSyncStatus === 'function') {
                                 App.sync.showSyncStatus('success', delta);
                             }
+                            this._retryAfterConflictOnce = 0;
                         }
                     } catch (e) {
                         console.error("解析云端保存响应失败", e);
