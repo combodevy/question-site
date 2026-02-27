@@ -136,6 +136,79 @@
         </div>
     </div>
 
+    <!-- 题目编辑弹窗 (从 index.html 移植) -->
+    <div id="modal-question-editor" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[60] flex items-center justify-center hidden">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-0 flex flex-col max-h-[85vh]">
+            <div class="p-4 md:p-5 border-b border-gray-200 flex justify-between items-center bg-gray-50 rounded-t-2xl">
+                <h3 id="qe-title" class="font-bold text-base text-gray-800">Edit Question</h3>
+                <button onclick="document.getElementById('modal-question-editor').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 p-1">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-4 md:p-5 space-y-3 overflow-y-auto flex-grow text-xs">
+                <input type="hidden" id="qe-index" />
+                
+                <div class="space-y-1">
+                    <label class="text-[11px] text-gray-500 font-bold">Subject</label>
+                    <div class="flex gap-2">
+                        <select id="qe-subject-select" class="flex-1 bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none"></select>
+                        <input id="qe-subject-input" placeholder="New Subject" class="w-32 bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none"/>
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-[11px] text-gray-500 font-bold">Chapter</label>
+                    <div class="flex gap-2">
+                        <select id="qe-chapter-select" class="flex-1 bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none"></select>
+                        <input id="qe-chapter-input" placeholder="New Chapter" class="w-32 bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none"/>
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-[11px] text-gray-500 font-bold">Type</label>
+                    <select id="qe-type" onchange="Admin.onQuestionTypeChange()" class="w-full bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none">
+                        <option value="mcq">Multiple Choice (MCQ)</option>
+                        <option value="multi">Multi-Select</option>
+                        <option value="tf">True/False</option>
+                    </select>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-[11px] text-gray-500 font-bold">Question Text</label>
+                    <textarea id="qe-q" rows="3" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none resize-none" placeholder="Enter question content..."></textarea>
+                </div>
+
+                <div id="qe-options-block" class="space-y-1">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[11px] text-gray-500 font-bold">Options</label>
+                        <button onclick="Admin.addQuestionOption()" class="text-[11px] text-blue-600 hover:underline font-bold">+ Add Option</button>
+                    </div>
+                    <div id="qe-options-list" class="space-y-2"></div>
+                </div>
+
+                <div id="qe-tf-block" class="space-y-1 hidden">
+                    <label class="text-[11px] text-gray-500 font-bold">Correct Answer</label>
+                    <div class="flex items-center gap-4">
+                        <label class="flex items-center gap-1">
+                            <input type="radio" name="qe-tf" value="T" class="accent-blue-600"/>
+                            <span>Correct (True)</span>
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="radio" name="qe-tf" value="F" class="accent-blue-600"/>
+                            <span>Incorrect (False)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="qe-error" class="text-[11px] text-red-500 font-bold"></div>
+            </div>
+            <div class="p-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3 rounded-b-2xl">
+                <button onclick="document.getElementById('modal-question-editor').classList.add('hidden')" class="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-100">Cancel</button>
+                <button onclick="Admin.saveQuestionFromEditor()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm">Save Question</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 主界面 -->
     <div id="admin-app" class="hidden flex h-screen overflow-hidden">
         <!-- 侧边栏 -->
@@ -405,9 +478,8 @@
                 const version = document.getElementById('modal-version');
                 const created = document.getElementById('modal-created');
 
-                // Reset modal state
                 modal.classList.remove('hidden');
-                this.switchView('visual'); // Default to visual view
+                this.switchView('visual'); 
                 title.innerText = 'Loading...';
                 subtitle.innerText = `Set ID: ${setId}`;
                 jsonContent.value = 'Fetching data...';
@@ -416,14 +488,11 @@
                 version.innerText = '-';
                 created.innerText = '-';
                 
-                // Store current Set ID for saving
                 this.currentEditingSetId = setId;
 
                 try {
                     const res = await fetch(`/api/admin/set-details?setId=${setId}`, {
-                        headers: {
-                            'Authorization': `Bearer ${this.token}`
-                        }
+                        headers: { 'Authorization': `Bearer ${this.token}` }
                     });
 
                     if (!res.ok) {
@@ -433,24 +502,17 @@
 
                     const data = await res.json();
                     
-                    // Update modal content
-                    title.innerText = data.bank_info?.name || 'Untitled Bank';
-                    totalQ.innerText = data.total_questions || 0;
-                    version.innerText = `v${data.bank_info?.version || 0}`;
-                    created.innerText = data.bank_info?.created_at ? new Date(data.bank_info.created_at).toLocaleString() : '-';
-                    
-                    // Store userId for update logic
+                    this.currentBankInfo = data.bank_info || {};
+                    this.currentQuestions = data.questions || [];
                     this.currentEditingUserId = data.user_id;
 
-                    // Format JSON for display
-                    const displayData = {
-                        info: data.bank_info,
-                        questions: data.questions
-                    };
-                    jsonContent.value = JSON.stringify(displayData, null, 2);
+                    title.innerText = this.currentBankInfo.name || 'Untitled Bank';
+                    totalQ.innerText = this.currentQuestions.length;
+                    version.innerText = `v${this.currentBankInfo.version || 0}`;
+                    created.innerText = this.currentBankInfo.created_at ? new Date(this.currentBankInfo.created_at).toLocaleString() : '-';
                     
-                    // Render Visual View
-                    this.renderVisualQuestions(data.questions);
+                    this.updateJsonView();
+                    this.renderVisualQuestions();
 
                 } catch (e) {
                     console.error(e);
@@ -460,44 +522,266 @@
                 }
             },
 
-            renderVisualQuestions(questions) {
+            updateJsonView() {
+                const displayData = {
+                    info: this.currentBankInfo,
+                    questions: this.currentQuestions
+                };
+                document.getElementById('modal-json-content').value = JSON.stringify(displayData, null, 2);
+            },
+
+            escapeHTML(text) {
+                if (text == null) return '';
+                return String(text).replace(/[&<>"']/g, function (m) {
+                    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m] || m;
+                });
+            },
+
+            renderVisualQuestions() {
                 const container = document.getElementById('view-visual');
-                if (!questions || questions.length === 0) {
+                if (!this.currentQuestions || this.currentQuestions.length === 0) {
                     container.innerHTML = '<div class="text-center text-gray-500 py-10">No questions in this set.</div>';
                     return;
                 }
 
-                container.innerHTML = questions.map((q, idx) => {
-                    // Try to detect question format (assuming common structure: title, options, answer)
-                    const title = q.title || q.question || JSON.stringify(q);
-                    const options = Array.isArray(q.options) ? q.options : [];
-                    const answer = q.answer || q.correctAnswer || 'N/A';
+                container.innerHTML = this.currentQuestions.map((q, idx) => {
+                    const safeQ = this.escapeHTML(q.q || '');
+                    const typeLabels = { mcq: 'Multiple Choice', multi: 'Multi-Select', tf: 'True/False' };
+                    const typeLabel = typeLabels[q.type] || q.type;
                     
+                    let optionsHtml = '';
+                    if (q.type === 'tf') {
+                        const isTrue = q.a === 'T';
+                        optionsHtml = `
+                            <div class="flex gap-4 mt-2 text-xs font-bold">
+                                <span class="${isTrue ? 'text-green-600 bg-green-50 px-2 py-1 rounded' : 'text-gray-400'}">True</span>
+                                <span class="${!isTrue ? 'text-green-600 bg-green-50 px-2 py-1 rounded' : 'text-gray-400'}">False</span>
+                            </div>
+                        `;
+                    } else {
+                        optionsHtml = `<div class="space-y-1 mt-2">` + 
+                            (q.o || []).map((opt, i) => {
+                                const char = String.fromCharCode(65 + i);
+                                const isCorrect = (q.a || '').includes(char);
+                                return `
+                                    <div class="flex items-start gap-2 text-xs ${isCorrect ? 'bg-green-50 text-green-800 font-bold border border-green-100' : 'text-gray-600'} p-1.5 rounded">
+                                        <span class="w-4">${char}.</span>
+                                        <span>${this.escapeHTML(opt)}</span>
+                                        ${isCorrect ? '<span class="ml-auto text-green-600">✔</span>' : ''}
+                                    </div>
+                                `;
+                            }).join('') + 
+                        `</div>`;
+                    }
+
                     return `
-                        <div class="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+                        <div class="bg-white border border-gray-200 rounded-xl p-4 mb-4 hover:shadow-md transition-all">
                             <div class="flex justify-between items-start mb-2">
-                                <span class="bg-gray-100 text-gray-600 text-xs font-bold px-2 py-1 rounded">#${idx + 1}</span>
-                                <span class="text-xs text-gray-400 font-mono">Type: ${q.type || 'unknown'}</span>
-                            </div>
-                            <div class="text-sm font-medium text-gray-800 mb-3">${typeof title === 'string' ? title : JSON.stringify(title)}</div>
-                            
-                            ${options.length > 0 ? `
-                                <div class="space-y-1 mb-3">
-                                    ${options.map((opt, i) => `
-                                        <div class="flex items-center gap-2 text-xs text-gray-600">
-                                            <span class="w-5 h-5 rounded-full border border-gray-300 flex items-center justify-center text-[10px]">${String.fromCharCode(65 + i)}</span>
-                                            <span>${opt}</span>
-                                        </div>
-                                    `).join('')}
+                                <div class="flex gap-2 items-center">
+                                    <span class="bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-0.5 rounded">#${idx + 1}</span>
+                                    <span class="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded">${typeLabel}</span>
+                                    <span class="text-[10px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">${this.escapeHTML(q.sub)} / ${this.escapeHTML(q.chap)}</span>
                                 </div>
-                            ` : ''}
-                            
-                            <div class="text-xs bg-green-50 text-green-700 px-3 py-2 rounded border border-green-100">
-                                <strong>Answer:</strong> ${answer}
+                                <button onclick="Admin.openQuestionEditor(${idx})" class="text-blue-600 hover:text-blue-800 text-xs font-bold px-3 py-1 rounded hover:bg-blue-50 transition-colors flex items-center gap-1">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 11l3 3L22.5 5.5 18.5 1.5 9 11zM3 21h4l11-11-4-4L3 17v4z"></path></svg>
+                                    Edit
+                                </button>
                             </div>
+                            <div class="text-sm font-medium text-gray-900 mb-2 leading-relaxed whitespace-pre-wrap">${safeQ}</div>
+                            ${optionsHtml}
                         </div>
                     `;
                 }).join('');
+            },
+
+            openQuestionEditor(index) {
+                const modal = document.getElementById('modal-question-editor');
+                const q = index === -1 ? null : this.currentQuestions[index];
+                document.getElementById('qe-index').value = index;
+                document.getElementById('qe-title').innerText = q ? 'Edit Question' : 'Add Question';
+                document.getElementById('qe-error').innerText = '';
+
+                const subjects = [...new Set(this.currentQuestions.map(x => x.sub))].filter(Boolean).sort();
+                const subSelect = document.getElementById('qe-subject-select');
+                subSelect.innerHTML = '<option value="">Select Subject...</option>';
+                subjects.forEach(s => subSelect.add(new Option(s, s)));
+
+                const updateChapters = (sub) => {
+                    const chapSelect = document.getElementById('qe-chapter-select');
+                    chapSelect.innerHTML = '<option value="">Select Chapter...</option>';
+                    if(!sub) return;
+                    const chaps = [...new Set(this.currentQuestions.filter(x => x.sub === sub).map(x => x.chap))].filter(Boolean).sort();
+                    chaps.forEach(c => chapSelect.add(new Option(c, c)));
+                };
+
+                subSelect.onchange = () => updateChapters(subSelect.value);
+
+                const typeSelect = document.getElementById('qe-type');
+                const qText = document.getElementById('qe-q');
+                const subInput = document.getElementById('qe-subject-input');
+                const chapSelect = document.getElementById('qe-chapter-select');
+                const chapInput = document.getElementById('qe-chapter-input');
+
+                subInput.value = '';
+                chapInput.value = '';
+
+                if (q) {
+                    typeSelect.value = q.type;
+                    qText.value = q.q;
+                    if (subjects.includes(q.sub)) {
+                        subSelect.value = q.sub;
+                        updateChapters(q.sub);
+                        if ([...new Set(this.currentQuestions.filter(x => x.sub === q.sub).map(x => x.chap))].includes(q.chap)) {
+                            chapSelect.value = q.chap;
+                        } else {
+                            chapInput.value = q.chap;
+                        }
+                    } else {
+                        subInput.value = q.sub;
+                        updateChapters('');
+                        chapInput.value = q.chap;
+                    }
+                    this.renderEditorOptions(q);
+                } else {
+                    typeSelect.value = 'mcq';
+                    qText.value = '';
+                    subSelect.value = subjects[0] || '';
+                    if(subjects[0]) updateChapters(subjects[0]);
+                    this.renderEditorOptions(null);
+                }
+
+                this.onQuestionTypeChange();
+                modal.classList.remove('hidden');
+            },
+
+            renderEditorOptions(q) {
+                const list = document.getElementById('qe-options-list');
+                const tfRadios = document.querySelectorAll('input[name="qe-tf"]');
+                
+                if (q && q.type === 'tf') {
+                    tfRadios.forEach(r => r.checked = r.value === q.a);
+                } else {
+                    tfRadios.forEach(r => r.checked = false);
+                    list.innerHTML = '';
+                    const opts = q ? (q.o || []) : ['', '', '', ''];
+                    opts.forEach((txt, i) => {
+                        this.addQuestionOption(txt, q ? (q.a || '').includes(String.fromCharCode(65+i)) : false);
+                    });
+                }
+            },
+
+            addQuestionOption(text = '', isCorrect = false) {
+                const list = document.getElementById('qe-options-list');
+                const idx = list.children.length;
+                const letter = String.fromCharCode(65 + idx);
+                const div = document.createElement('div');
+                div.className = 'flex items-center gap-2 mb-2';
+                div.innerHTML = `
+                    <span class="text-xs font-bold text-gray-500 w-4">${letter}.</span>
+                    <input type="text" class="flex-1 bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none text-xs" value="${this.escapeHTML(text)}" placeholder="Option content">
+                    <label class="flex items-center gap-1 cursor-pointer">
+                        <input type="checkbox" class="accent-blue-600 w-4 h-4" ${isCorrect ? 'checked' : ''}>
+                    </label>
+                    <button onclick="this.parentElement.remove(); Admin.renumberQuestionOptions()" class="text-gray-400 hover:text-red-500 p-1">✕</button>
+                `;
+                list.appendChild(div);
+            },
+
+            renumberQuestionOptions() {
+                const list = document.getElementById('qe-options-list');
+                Array.from(list.children).forEach((div, i) => {
+                    div.querySelector('span').innerText = `${String.fromCharCode(65 + i)}.`;
+                });
+            },
+
+            onQuestionTypeChange() {
+                const type = document.getElementById('qe-type').value;
+                const optBlock = document.getElementById('qe-options-block');
+                const tfBlock = document.getElementById('qe-tf-block');
+                
+                if (type === 'tf') {
+                    optBlock.classList.add('hidden');
+                    tfBlock.classList.remove('hidden');
+                } else {
+                    optBlock.classList.remove('hidden');
+                    tfBlock.classList.add('hidden');
+                }
+            },
+
+            saveQuestionFromEditor() {
+                const index = parseInt(document.getElementById('qe-index').value);
+                const type = document.getElementById('qe-type').value;
+                const qText = document.getElementById('qe-q').value.trim();
+                const subSelect = document.getElementById('qe-subject-select');
+                const subInput = document.getElementById('qe-subject-input');
+                const chapSelect = document.getElementById('qe-chapter-select');
+                const chapInput = document.getElementById('qe-chapter-input');
+                const errEl = document.getElementById('qe-error');
+
+                const sub = subInput.value.trim() || subSelect.value;
+                const chap = chapInput.value.trim() || chapSelect.value;
+
+                if (!sub || !chap || !qText) {
+                    errEl.innerText = 'Subject, Chapter, and Question Text are required.';
+                    return;
+                }
+
+                let newQ = {
+                    id: index !== -1 ? this.currentQuestions[index].id : Date.now().toString(),
+                    type,
+                    sub,
+                    chap,
+                    q: qText
+                };
+
+                if (type === 'tf') {
+                    const checked = document.querySelector('input[name="qe-tf"]:checked');
+                    if (!checked) {
+                        errEl.innerText = 'Please select True or False.';
+                        return;
+                    }
+                    newQ.a = checked.value;
+                } else {
+                    const list = document.getElementById('qe-options-list');
+                    const options = [];
+                    let answer = '';
+                    
+                    Array.from(list.children).forEach((div, i) => {
+                        const val = div.querySelector('input[type="text"]').value.trim();
+                        if (val) {
+                            options.push(val);
+                            if (div.querySelector('input[type="checkbox"]').checked) {
+                                answer += String.fromCharCode(65 + i);
+                            }
+                        }
+                    });
+
+                    if (options.length < 2) {
+                        errEl.innerText = 'At least 2 options required.';
+                        return;
+                    }
+                    if (!answer) {
+                        errEl.innerText = 'At least one correct answer required.';
+                        return;
+                    }
+                    if (type === 'mcq' && answer.length > 1) {
+                        errEl.innerText = 'MCQ can only have one correct answer.';
+                        return;
+                    }
+
+                    newQ.o = options;
+                    newQ.a = answer;
+                }
+
+                if (index !== -1) {
+                    this.currentQuestions[index] = { ...this.currentQuestions[index], ...newQ };
+                } else {
+                    this.currentQuestions.push(newQ);
+                }
+
+                document.getElementById('modal-question-editor').classList.add('hidden');
+                this.updateJsonView();
+                this.renderVisualQuestions();
             },
 
             switchView(mode) {
@@ -514,6 +798,20 @@
                     
                     visualView.classList.remove('hidden');
                     jsonView.classList.add('hidden');
+                    
+                    try {
+                         const jsonVal = document.getElementById('modal-json-content').value;
+                         if(jsonVal && jsonVal !== 'Fetching data...') {
+                             const parsed = JSON.parse(jsonVal);
+                             if(parsed.questions) {
+                                 this.currentQuestions = parsed.questions;
+                                 this.currentBankInfo = parsed.info || this.currentBankInfo;
+                                 this.renderVisualQuestions();
+                             }
+                         }
+                    } catch(e) {
+                        console.warn('Invalid JSON when switching to visual view');
+                    }
                 } else {
                     jsonBtn.classList.replace('text-gray-600', 'text-blue-700');
                     jsonBtn.classList.replace('hover:text-gray-900', 'bg-blue-100');
@@ -522,12 +820,18 @@
 
                     jsonView.classList.remove('hidden');
                     visualView.classList.add('hidden');
+                    
+                    this.updateJsonView();
                 }
             },
 
             async saveBank() {
                 if (!this.currentEditingUserId) return;
                 
+                if(!document.getElementById('view-visual').classList.contains('hidden')) {
+                     this.updateJsonView();
+                }
+
                 const jsonContent = document.getElementById('modal-json-content');
                 const btn = document.getElementById('btn-save-bank');
                 const originalText = btn.innerHTML;
@@ -567,9 +871,8 @@
                     const result = await res.json();
                     alert(`Success! User data updated to version ${result.version}. The user will receive the update instantly.`);
                     
-                    // Refresh the view
-                    this.viewBank(this.currentEditingUserId);
-                    this.fetchUsers(); // Refresh list to show new version
+                    this.viewBank(this.currentEditingSetId);
+                    this.fetchUsers(); 
 
                 } catch (e) {
                     console.error(e);
