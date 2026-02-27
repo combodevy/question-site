@@ -58,13 +58,13 @@
                 <!-- JSON 预览区域 -->
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[500px]">
                     <div class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-                        <span class="text-xs font-bold text-gray-600 uppercase">Raw JSON Data</span>
+                        <span class="text-xs font-bold text-gray-600 uppercase">Raw JSON Data (Editable)</span>
                         <div class="space-x-2">
-                            <button class="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-50">Copy</button>
+                            <button onclick="Admin.copyJson()" class="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-50">Copy</button>
                             <button class="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2 py-1 rounded hover:bg-blue-100 font-bold">Download</button>
                         </div>
                     </div>
-                    <textarea id="modal-json-content" class="flex-1 w-full p-4 font-mono text-xs text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500" readonly></textarea>
+                    <textarea id="modal-json-content" class="flex-1 w-full p-4 font-mono text-xs text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 bg-white" spellcheck="false"></textarea>
                 </div>
             </div>
             
@@ -72,8 +72,8 @@
                 <button onclick="document.getElementById('bank-modal').classList.add('hidden')" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors">
                     Close
                 </button>
-                <button class="px-4 py-2 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors shadow-sm">
-                    Edit Bank (Coming Soon)
+                <button onclick="Admin.saveBank()" id="btn-save-bank" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2">
+                    <span>Save Changes</span>
                 </button>
             </div>
         </div>
@@ -250,6 +250,9 @@
                 totalQ.innerText = '-';
                 version.innerText = '-';
                 created.innerText = '-';
+                
+                // Store current user ID for saving
+                this.currentEditingUserId = userId;
 
                 try {
                     const res = await fetch(`${window.API_BASE}/api/admin/users/get-bank?userId=${userId}`, {
@@ -283,6 +286,63 @@
                     jsonContent.value = `Error: ${e.message}`;
                     title.innerText = 'Error';
                 }
+            },
+
+            async saveBank() {
+                if (!this.currentEditingUserId) return;
+                
+                const jsonContent = document.getElementById('modal-json-content');
+                const btn = document.getElementById('btn-save-bank');
+                const originalText = btn.innerHTML;
+                
+                try {
+                    const bankData = JSON.parse(jsonContent.value);
+                    
+                    if (!confirm('Are you sure you want to OVERWRITE this user\'s data? This cannot be undone.')) return;
+                    
+                    btn.innerHTML = '<span>Saving...</span>';
+                    btn.disabled = true;
+                    btn.classList.add('opacity-50', 'cursor-not-allowed');
+
+                    const res = await fetch(`${window.API_BASE}/api/admin/users/update-bank`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${this.token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            userId: this.currentEditingUserId,
+                            bankData: bankData
+                        })
+                    });
+
+                    if (!res.ok) {
+                        const err = await res.json();
+                        throw new Error(err.error || 'Failed to save');
+                    }
+
+                    const result = await res.json();
+                    alert(`Success! User data updated to version ${result.version}. The user will receive the update instantly.`);
+                    
+                    // Refresh the view
+                    this.viewBank(this.currentEditingUserId);
+                    this.fetchUsers(); // Refresh list to show new version
+
+                } catch (e) {
+                    console.error(e);
+                    alert(`Error saving bank: ${e.message}`);
+                } finally {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            },
+            
+            copyJson() {
+                const jsonContent = document.getElementById('modal-json-content');
+                jsonContent.select();
+                document.execCommand('copy');
+                // Could add a toast notification here
             }
         };
 
