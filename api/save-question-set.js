@@ -175,9 +175,16 @@ module.exports = async (req, res) => {
 
         // 记录同步日志 (不影响主流程，忽略错误)
         try {
+            // 获取客户端 IP 和 User-Agent (Vercel headers)
+            const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+            const ua = req.headers['user-agent'] || 'unknown';
+            
+            // 将 IP 和 UA 合并到 delta 对象中，以便统一存储
+            const logDelta = delta && typeof delta === 'object' ? { ...delta, ip, ua } : { ip, ua };
+            
             await query(
                 'insert into sync_logs (user_id, delta, status, error) values ($1, $2, $3, $4)',
-                [userId, delta, 'success', null]
+                [userId, logDelta, 'success', null]
             );
         } catch (e) {}
 
