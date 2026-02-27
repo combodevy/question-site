@@ -61,17 +61,32 @@ module.exports = async (req, res) => {
         return;
     }
     try {
+        // Start transaction
+        await query('BEGIN');
+
         const existing = await query(
-            'select id, version from question_sets where user_id = $1 limit 1',
+            'select id, version from question_sets where user_id = $1 order by id desc',
             [userId]
         );
         let setId;
         let currentVersion = 0;
         let nextVersion = 1;
+
         if (existing.rows.length > 0) {
+            // Pick the latest one (by ID desc)
             setId = existing.rows[0].id;
             currentVersion = typeof existing.rows[0].version === 'number' ? existing.rows[0].version : 0;
+            
+            // If there are multiple sets, delete the older ones to prevent ambiguity
+            if (existing.rows.length > 1) {
+                const idsToDelete = existing.rows.slice(1).map(r => r.id);
+                if (idsToDelete.length > 0) {
+                     await query('delete from question_sets where id = any($1)', [idsToDelete]);
+                }
+            }
+
             if (clientVersion !== currentVersion) {
+                await query('ROLLBACK');
                 try {
                     await query(
                         'insert into sync_logs (user_id, delta, status, error) values ($1, $2, $3, $4)',
@@ -97,20 +112,35 @@ module.exports = async (req, res) => {
             );
             setId = inserted.rows[0].id;
         }
+
         if (!skipQuestionsUpdate || existing.rows.length === 0) {
-            for (const q of questions) {
-                await query(
-                    'insert into questions (question_set_id, content) values ($1, $2::jsonb)',
-                    [setId, JSON.stringify(q)]
-                );
+            if (questions.length > 0) {
+                // Bulk insert for better performance and atomicity
+                const values = [];
+                const params = [setId];
+                let paramIdx = 2;
+                
+                // Construct query: ($1, $2), ($1, $3), ...
+                for (const q of questions) {
+                    values.push(`($1, $${paramIdx}::jsonb)`);
+                    params.push(JSON.stringify(q));
+                    paramIdx++;
+                }
+                
+                const insertQuery = `insert into questions (question_set_id, content) values ${values.join(',')}`;
+                await query(insertQuery, params);
             }
         }
+        
+        await query('COMMIT');
+
         try {
             await query(
                 'insert into sync_logs (user_id, delta, status, error) values ($1, $2, $3, $4)',
                 [userId, delta, 'success', null]
             );
         } catch (e) {}
+
         if (ablyClient) {
             try {
                 const channel = ablyClient.channels.get(`user:${userId}`);
@@ -123,6 +153,7 @@ module.exports = async (req, res) => {
         }
         res.status(200).json({ ok: true, setId, version: nextVersion });
     } catch (err) {
+        await query('ROLLBACK');
         const detail = (err && err.message) || (typeof err === 'string' ? err : JSON.stringify(err));
         try {
             await query(

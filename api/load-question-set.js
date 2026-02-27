@@ -61,7 +61,7 @@ module.exports = async (req, res) => {
     const userId = user.sub || user.id;
     try {
         const sets = await query(
-            'select id, name, state, version from question_sets where user_id = $1 limit 1',
+            'select id, name, state, version from question_sets where user_id = $1 order by id desc limit 1',
             [userId]
         );
         if (sets.rows.length === 0) {
