@@ -106,13 +106,13 @@ module.exports = async (req, res) => {
             setId = existing.rows[0].id;
             currentVersion = typeof existing.rows[0].version === 'number' ? existing.rows[0].version : 0;
             
-            // 4. 数据清理：如果存在多个题库记录（脏数据），删除旧的，保留最新的
-            if (existing.rows.length > 1) {
-                const idsToDelete = existing.rows.slice(1).map(r => r.id);
-                if (idsToDelete.length > 0) {
-                     await query('delete from question_sets where id = any($1)', [idsToDelete]);
-                }
-            }
+            // 4. 数据清理：暂时保留历史题库记录，避免误删多科目数据
+            // if (existing.rows.length > 1) {
+            //     const idsToDelete = existing.rows.slice(1).map(r => r.id);
+            //     if (idsToDelete.length > 0) {
+            //          await query('delete from question_sets where id = any($1)', [idsToDelete]);
+            //     }
+            // }
 
             // 5. 版本冲突检测 (Optimistic Locking)
             // 如果客户端提交的版本与数据库当前版本不一致，说明有其他设备已更新数据
@@ -154,19 +154,50 @@ module.exports = async (req, res) => {
         // 6. 批量插入新题目 (Bulk Insert)
         if (!skipQuestionsUpdate || existing.rows.length === 0) {
             if (questions.length > 0) {
-                const values = [];
-                const params = [setId];
-                let paramIdx = 2;
+                // 6.1 在内存中去重 (Deduplication)
+                // 使用 Set 存储题目内容的字符串指纹，过滤掉完全重复的题目
+                const uniqueQuestions = [];
+                const seenFingerprints = new Set();
                 
-                // 构造批量插入语句: values ($1, $2), ($1, $3), ...
                 for (const q of questions) {
-                    values.push(`($1, $${paramIdx}::jsonb)`);
-                    params.push(JSON.stringify(q));
-                    paramIdx++;
+                    try {
+                        // 创建一个指纹：基于题目(q)、选项(o)、答案(a)、类型(type)
+                        // 忽略 id 和其他元数据，确保仅仅是内容重复才过滤
+                        const fingerprintObj = {
+                            q: q.q,
+                            o: q.o,
+                            a: q.a,
+                            type: q.type,
+                            sub: q.sub,
+                            chap: q.chap
+                        };
+                        const fingerprint = JSON.stringify(fingerprintObj);
+                        
+                        if (!seenFingerprints.has(fingerprint)) {
+                            seenFingerprints.add(fingerprint);
+                            uniqueQuestions.push(q);
+                        }
+                    } catch (err) {
+                        // 如果序列化失败，保守起见保留该题目
+                        uniqueQuestions.push(q);
+                    }
                 }
-                
-                const insertQuery = `insert into questions (question_set_id, content) values ${values.join(',')}`;
-                await query(insertQuery, params);
+
+                if (uniqueQuestions.length > 0) {
+                    const values = [];
+                    const params = [setId];
+                    let paramIdx = 2;
+                    
+                    // 构造批量插入语句: values ($1, $2), ($1, $3), ...
+                    for (const q of uniqueQuestions) {
+                        values.push(`($1, $${paramIdx}::jsonb)`);
+                        params.push(JSON.stringify(q));
+                        paramIdx++;
+                    }
+                    
+                    const insertQuery = `insert into questions (question_set_id, content) values ${values.join(',')}`;
+                    await query(insertQuery, params);
+                }
             }
         }
         
