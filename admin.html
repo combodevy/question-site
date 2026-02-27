@@ -3,15 +3,184 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>管理后台 - Question Site</title>
+    <title>管理后台 - Question Site Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
 </head>
-<body class="bg-gray-100 flex items-center justify-center h-screen">
-    <div class="bg-white p-8 rounded-lg shadow-md text-center">
-        <h1 class="text-2xl font-bold text-gray-800 mb-4">管理后台 (Admin Panel)</h1>
-        <p class="text-gray-600 mb-4">正在开发中... (Development in Progress)</p>
-        <p class="text-sm text-gray-500">当前分支: admin-panel</p>
-        <a href="/" class="mt-6 inline-block text-blue-600 hover:underline">返回主页</a>
+<body class="bg-gray-50 min-h-screen font-sans text-gray-900">
+
+    <!-- 登录遮罩 -->
+    <div id="login-overlay" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
+            <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">管理员登录</h2>
+            <div class="space-y-4">
+                <input type="email" id="email" placeholder="Email" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="password" id="password" placeholder="Password" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none">
+                <button onclick="Admin.login()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors">
+                    登录 (Login)
+                </button>
+                <div id="login-msg" class="text-sm text-red-500 text-center h-5"></div>
+            </div>
+        </div>
     </div>
+
+    <!-- 主界面 -->
+    <div id="admin-app" class="hidden flex h-screen overflow-hidden">
+        <!-- 侧边栏 -->
+        <aside class="w-64 bg-slate-900 text-white flex flex-col">
+            <div class="p-6 border-b border-slate-800">
+                <h1 class="text-xl font-bold">QS Admin Panel</h1>
+                <p class="text-xs text-slate-400 mt-1">v1.0.0 (Sidecar)</p>
+            </div>
+            <nav class="flex-1 p-4 space-y-2">
+                <a href="#" class="block px-4 py-2 rounded bg-blue-600 text-white">用户列表 (Users)</a>
+                <a href="#" class="block px-4 py-2 rounded hover:bg-slate-800 text-slate-300">全局广播 (Push)</a>
+                <a href="#" class="block px-4 py-2 rounded hover:bg-slate-800 text-slate-300">系统日志 (Logs)</a>
+            </nav>
+            <div class="p-4 border-t border-slate-800">
+                <button onclick="Admin.logout()" class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                    <span>退出登录</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- 内容区 -->
+        <main class="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <header class="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-8">
+                <h2 class="text-lg font-semibold text-gray-700">用户概览</h2>
+                <div class="flex items-center gap-4">
+                    <span id="admin-user-id" class="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded"></span>
+                    <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">A</div>
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-auto p-8">
+                <!-- 用户列表表格 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                        <div class="text-sm font-medium text-gray-600">Total Users: <span id="user-count">Loading...</span></div>
+                        <button onclick="Admin.fetchUsers()" class="text-blue-600 hover:text-blue-800 text-sm font-bold flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            刷新
+                        </button>
+                    </div>
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-gray-100 text-gray-600 font-semibold uppercase text-xs">
+                            <tr>
+                                <th class="px-6 py-3">User ID</th>
+                                <th class="px-6 py-3">Bank Name</th>
+                                <th class="px-6 py-3">Version</th>
+                                <th class="px-6 py-3">Last Active</th>
+                                <th class="px-6 py-3">IP / Device</th>
+                                <th class="px-6 py-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="user-table-body" class="divide-y divide-gray-200">
+                            <!-- JS 渲染 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const supabase = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+
+        const Admin = {
+            token: null,
+            
+            async init() {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                    this.token = session.access_token;
+                    document.getElementById('login-overlay').classList.add('hidden');
+                    document.getElementById('admin-app').classList.remove('hidden');
+                    document.getElementById('admin-user-id').innerText = session.user.id;
+                    this.fetchUsers();
+                } else {
+                    document.getElementById('login-overlay').classList.remove('hidden');
+                }
+
+                supabase.auth.onAuthStateChange((event, session) => {
+                    if (session) {
+                        this.token = session.access_token;
+                        document.getElementById('login-overlay').classList.add('hidden');
+                        document.getElementById('admin-app').classList.remove('hidden');
+                    } else {
+                        window.location.reload();
+                    }
+                });
+            },
+
+            async login() {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                const msg = document.getElementById('login-msg');
+                msg.innerText = 'Logging in...';
+                
+                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+                if (error) {
+                    msg.innerText = error.message;
+                } else {
+                    msg.innerText = '';
+                }
+            },
+
+            async logout() {
+                await supabase.auth.signOut();
+            },
+
+            async fetchUsers() {
+                const tbody = document.getElementById('user-table-body');
+                const countEl = document.getElementById('user-count');
+                tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Loading users...</td></tr>';
+                
+                try {
+                    const res = await fetch(`${window.API_BASE}/api/admin/users/list`, {
+                        headers: {
+                            'Authorization': `Bearer ${this.token}`
+                        }
+                    });
+                    
+                    if (!res.ok) {
+                        const err = await res.json();
+                        throw new Error(err.error || 'Failed to fetch');
+                    }
+
+                    const data = await res.json();
+                    countEl.innerText = data.meta ? data.meta.total : data.users.length;
+                    
+                    tbody.innerHTML = data.users.map(u => `
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-6 py-4 font-mono text-xs text-gray-500 select-all">${u.user_id}</td>
+                            <td class="px-6 py-4 font-bold text-gray-800">${u.bank_name || '未命名题库'}</td>
+                            <td class="px-6 py-4">
+                                <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">v${u.version}</span>
+                            </td>
+                            <td class="px-6 py-4 text-gray-600">
+                                ${new Date(u.last_active_at).toLocaleString()}
+                            </td>
+                            <td class="px-6 py-4 text-xs text-gray-500">
+                                <div class="truncate max-w-[150px]" title="${u.last_ip || 'N/A'}">${u.last_ip || '-'}</div>
+                                <div class="truncate max-w-[150px] opacity-70" title="${u.last_device || 'N/A'}">${u.last_device || '-'}</div>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <button class="text-blue-600 hover:underline text-xs font-bold mr-2">查看题库</button>
+                                <button class="text-red-500 hover:underline text-xs">强制覆盖</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                } catch (e) {
+                    console.error(e);
+                    tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-red-500">Error: ${e.message}</td></tr>`;
+                }
+            }
+        };
+
+        Admin.init();
+    </script>
 </body>
 </html>
