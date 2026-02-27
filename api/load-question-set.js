@@ -81,6 +81,8 @@ module.exports = async (req, res) => {
         }
         const rows = await query('select content from questions where question_set_id = $1', [setId]);
         const bank = {};
+        const seenIds = new Set();
+        
         for (const row of rows.rows) {
             let q = row.content;
             if (typeof q === 'string') {
@@ -91,6 +93,12 @@ module.exports = async (req, res) => {
                 }
             }
             if (!q || typeof q !== 'object') continue;
+            // Deduplication: if ID exists, skip
+            if (q.id && typeof q.id === 'string') {
+                if (seenIds.has(q.id)) continue;
+                seenIds.add(q.id);
+            }
+            
             const sub = q.sub || '默认科目';
             const chap = q.chap || '默认章节';
             if (!bank[sub]) bank[sub] = {};

@@ -2193,203 +2193,228 @@
                 },
 
                 async saveToCloud() {
+                    if (this._isSaving) {
+                        this._saveAgainPending = true;
+                        return;
+                    }
+                    if (this._cloudLoading) {
+                         this._saveAgainPending = true;
+                         return;
+                    }
+
                     if (!App.auth || typeof App.auth.getToken !== 'function') return;
-                    const token = await App.auth.getToken();
-                    if (!token) return;
-                    if (!this._syncReady) {
-                        await this.loadFromCloud();
-                        return;
-                    }
-                    const bank = this.bank || {};
-                    const history = Array.isArray(this.history) ? this.history : [];
-                    const trash = this.trash || {};
-                    const lastPracticeTime = this.lastPracticeTime || null;
-                    this.normalizeBankStructure();
-                    const questions = [];
-                    let totalTrash = 0;
-                    for (const sub in bank) {
-                        if (!bank[sub]) continue;
-                        for (const chap in bank[sub]) {
-                            const arr = bank[sub][chap];
-                            if (!Array.isArray(arr)) continue;
-                            arr.forEach(q => {
-                                if (q && typeof q === 'object') {
-                                    questions.push(q);
-                                }
-                            });
-                        }
-                    }
-                    for (const sub in trash) {
-                        if (!trash[sub]) continue;
-                        for (const chap in trash[sub]) {
-                            const arr = trash[sub][chap];
-                            if (!Array.isArray(arr)) continue;
-                            totalTrash += arr.length;
-                        }
-                    }
-                    if (!questions.length && !history.length && !totalTrash) return;
-
-                    const counts = {
-                        questions: questions.length,
-                        history: history.length,
-                        trash: totalTrash
-                    };
-                    const prev = this._lastSyncedCounts || { questions: 0, history: 0, trash: 0 };
-                    const delta = {
-                        questions: counts.questions - prev.questions,
-                        history: counts.history - prev.history,
-                        trash: counts.trash - prev.trash
-                    };
-                    const inferredName = this.bankName || Object.keys(bank || {})[0] || "默认题库";
-                    const skipQuestionsUpdate = !this._bankDirty && delta.questions === 0;
-                    if (window.App && App.sync && typeof App.sync.setDebug === 'function') {
-                        App.sync.setDebug({
-                            time: Date.now(),
-                            name: inferredName,
-                            questionsCount: questions.length,
-                            historyCount: history.length,
-                            trashCount: totalTrash,
-                            skipQuestionsUpdate,
-                            version: typeof this.remoteVersion === "number" ? this.remoteVersion : 0
-                        });
-                    }
-
-                    const state = {
-                        bank,
-                        bankName: this.bankName || null,
-                        history,
-                        lastPracticeTime,
-                        trash,
-                        hiddenMistakeIds: Array.isArray(this.hiddenMistakeIds) ? this.hiddenMistakeIds : []
-                    };
-                    const allIds = [];
-                    for (const sub in bank) {
-                        for (const chap in bank[sub]) {
-                            const arr = bank[sub][chap];
-                            if (!Array.isArray(arr)) continue;
-                            arr.forEach(q => {
-                                if (q && typeof q.id === 'string') allIds.push(q.id);
-                            });
-                        }
-                    }
-                    const prevIds = Array.isArray(this._lastSyncedQuestionIds) ? this._lastSyncedQuestionIds : [];
-                    const prevSet = new Set(prevIds);
-                    const currSet = new Set(allIds);
-                    const addedIds = [];
-                    const removedIds = [];
-                    currSet.forEach(id => {
-                        if (!prevSet.has(id)) addedIds.push(id);
-                    });
-                    prevSet.forEach(id => {
-                        if (!currSet.has(id)) removedIds.push(id);
-                    });
-
-
+                    this._isSaving = true;
                     try {
-                        if (window.App && App.sync && typeof App.sync.setStatus === 'function') {
-                            App.sync.setStatus('pending', null, null);
+                        const token = await App.auth.getToken();
+                        if (!token) return;
+                        if (!this._syncReady) {
+                            await this.loadFromCloud();
+                            // If load failed or is still pending (should be awaited), check ready again
+                            if (!this._syncReady) return;
                         }
-                        if (!this._pendingSaveState) {
-                            this._pendingSaveState = {
-                                bank: JSON.parse(JSON.stringify(this.bank || {})),
-                                history: Array.isArray(this.history) ? this.history.slice() : [],
-                                trash: JSON.parse(JSON.stringify(this.trash || {})),
-                                lastPracticeTime: this.lastPracticeTime || null,
-                                hiddenMistakeIds: Array.isArray(this.hiddenMistakeIds) ? this.hiddenMistakeIds.slice() : [],
-                                bankName: this.bankName || ''
-                            };
+                        const bank = this.bank || {};
+                        const history = Array.isArray(this.history) ? this.history : [];
+                        const trash = this.trash || {};
+                        const lastPracticeTime = this.lastPracticeTime || null;
+                        this.normalizeBankStructure();
+                        const questions = [];
+                        let totalTrash = 0;
+                        for (const sub in bank) {
+                            if (!bank[sub]) continue;
+                            for (const chap in bank[sub]) {
+                                const arr = bank[sub][chap];
+                                if (!Array.isArray(arr)) continue;
+                                arr.forEach(q => {
+                                    if (q && typeof q === 'object') {
+                                        questions.push(q);
+                                    }
+                                });
+                            }
                         }
-                        res = await fetch((App.apiBase || '') + "/api/save-question-set", {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                                Authorization: "Bearer " + token
-                            },
-                            body: JSON.stringify({
+                        for (const sub in trash) {
+                            if (!trash[sub]) continue;
+                            for (const chap in trash[sub]) {
+                                const arr = trash[sub][chap];
+                                if (!Array.isArray(arr)) continue;
+                                totalTrash += arr.length;
+                            }
+                        }
+                        if (!questions.length && !history.length && !totalTrash) return;
+
+                        const counts = {
+                            questions: questions.length,
+                            history: history.length,
+                            trash: totalTrash
+                        };
+                        const prev = this._lastSyncedCounts || { questions: 0, history: 0, trash: 0 };
+                        const delta = {
+                            questions: counts.questions - prev.questions,
+                            history: counts.history - prev.history,
+                            trash: counts.trash - prev.trash
+                        };
+                        const inferredName = this.bankName || Object.keys(bank || {})[0] || "默认题库";
+                        const skipQuestionsUpdate = !this._bankDirty && delta.questions === 0;
+                        if (window.App && App.sync && typeof App.sync.setDebug === 'function') {
+                            App.sync.setDebug({
+                                time: Date.now(),
                                 name: inferredName,
-                                questions,
-                                state,
+                                questionsCount: questions.length,
+                                historyCount: history.length,
+                                trashCount: totalTrash,
                                 skipQuestionsUpdate,
-                                version: typeof this.remoteVersion === "number" ? this.remoteVersion : 0,
-                                delta: {
-                                    questions: delta.questions,
-                                    history: delta.history,
-                                    trash: delta.trash,
-                                    questionIds: {
-                                        added: addedIds,
-                                        removed: removedIds
-                                    }
-                                }
-                            })
+                                version: typeof this.remoteVersion === "number" ? this.remoteVersion : 0
+                            });
+                        }
+
+                        const state = {
+                            bank,
+                            bankName: this.bankName || null,
+                            history,
+                            lastPracticeTime,
+                            trash,
+                            hiddenMistakeIds: Array.isArray(this.hiddenMistakeIds) ? this.hiddenMistakeIds : []
+                        };
+                        const allIds = [];
+                        for (const sub in bank) {
+                            for (const chap in bank[sub]) {
+                                const arr = bank[sub][chap];
+                                if (!Array.isArray(arr)) continue;
+                                arr.forEach(q => {
+                                    if (q && typeof q.id === 'string') allIds.push(q.id);
+                                });
+                            }
+                        }
+                        const prevIds = Array.isArray(this._lastSyncedQuestionIds) ? this._lastSyncedQuestionIds : [];
+                        const prevSet = new Set(prevIds);
+                        const currSet = new Set(allIds);
+                        const addedIds = [];
+                        const removedIds = [];
+                        currSet.forEach(id => {
+                            if (!prevSet.has(id)) addedIds.push(id);
                         });
-                    } catch (e) {
-                        console.error("保存题库到云端失败", e);
-                        if (window.App && App.sync && typeof App.sync.showSyncStatus === 'function') {
-                            App.sync.showSyncStatus('error', delta, '网络错误或无法连接服务器');
-                        }
-                        return;
-                    }
-                    try {
-                        const data = await res.json();
-                        if (!res.ok || !data) {
-                            console.error("保存题库到云端失败", data);
-                            if (window.App && App.sync && typeof App.sync.showSyncStatus === 'function') {
-                                const msg = (data && (data.error || data.detail)) || '未知错误';
-                                App.sync.showSyncStatus('error', delta, msg);
+                        prevSet.forEach(id => {
+                            if (!currSet.has(id)) removedIds.push(id);
+                        });
+
+
+                        try {
+                            if (window.App && App.sync && typeof App.sync.setStatus === 'function') {
+                                App.sync.setStatus('pending', null, null);
                             }
-                            if (res.status === 409 && window.App && App.data && typeof App.data.loadFromCloud === "function") {
-                                try {
-                                    await App.data.loadFromCloud();
-                                    if (typeof this._retryAfterConflictOnce !== 'number') this._retryAfterConflictOnce = 0;
-                                    if (this._retryAfterConflictOnce < 1) {
-                                        this._retryAfterConflictOnce++;
-                                        if (this._pendingSaveState) {
-                                            this._suppressCloudSync = true;
-                                            const s = this._pendingSaveState;
-                                            this.bank = s.bank || {};
-                                            this.history = Array.isArray(s.history) ? s.history : [];
-                                            this.trash = s.trash || {};
-                                            this.lastPracticeTime = s.lastPracticeTime || null;
-                                            this.hiddenMistakeIds = Array.isArray(s.hiddenMistakeIds) ? s.hiddenMistakeIds : [];
-                                            this.bankName = s.bankName || this.bankName;
-                                            this._safeSetItem(this.bankKey, JSON.stringify(this.bank));
-                                            this._safeSetItem(this.historyKey, JSON.stringify({
-                                                history: this.history,
-                                                lastPracticeTime: this.lastPracticeTime,
-                                                hiddenMistakeIds: this.hiddenMistakeIds
-                                            }));
-                                            this._safeSetItem(this.trashKey, JSON.stringify(this.trash));
-                                            if (this.bankName) this._safeSetItem(this.bankNameKey, this.bankName);
-                                            this._bankDirty = true;
-                                            this._suppressCloudSync = false;
+                            if (!this._pendingSaveState) {
+                                this._pendingSaveState = {
+                                    bank: JSON.parse(JSON.stringify(this.bank || {})),
+                                    history: Array.isArray(this.history) ? this.history.slice() : [],
+                                    trash: JSON.parse(JSON.stringify(this.trash || {})),
+                                    lastPracticeTime: this.lastPracticeTime || null,
+                                    hiddenMistakeIds: Array.isArray(this.hiddenMistakeIds) ? this.hiddenMistakeIds.slice() : [],
+                                    bankName: this.bankName || ''
+                                };
+                            }
+                            res = await fetch((App.apiBase || '') + "/api/save-question-set", {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                    Authorization: "Bearer " + token
+                                },
+                                body: JSON.stringify({
+                                    name: inferredName,
+                                    questions,
+                                    state,
+                                    skipQuestionsUpdate,
+                                    version: typeof this.remoteVersion === "number" ? this.remoteVersion : 0,
+                                    delta: {
+                                        questions: delta.questions,
+                                        history: delta.history,
+                                        trash: delta.trash,
+                                        questionIds: {
+                                            added: addedIds,
+                                            removed: removedIds
                                         }
-                                        await this.saveToCloud();
-                                    } else {
-                                        this._retryAfterConflictOnce = 0;
                                     }
-                                } catch (e) {
-                                    console.error("loadFromCloud after conflict failed", e);
-                                }
-                            }
-                        } else {
-                            this._lastSyncedCounts = counts;
-                            this._lastSyncedQuestionIds = allIds;
-                            if (typeof data.version === "number" && Number.isFinite(data.version)) {
-                                this.remoteVersion = data.version;
-                            }
+                                })
+                            });
+                        } catch (e) {
+                            console.error("保存题库到云端失败", e);
                             if (window.App && App.sync && typeof App.sync.showSyncStatus === 'function') {
-                                App.sync.showSyncStatus('success', delta);
+                                App.sync.showSyncStatus('error', delta, '网络错误或无法连接服务器');
                             }
-                            this._bankDirty = false;
-                            this.bankName = inferredName;
-                            this._safeSetItem(this.bankNameKey, this.bankName);
-                            this._retryAfterConflictOnce = 0;
-                            this._pendingSaveState = null;
+                            return;
                         }
-                    } catch (e) {
-                        console.error("解析云端保存响应失败", e);
-                        if (window.App && App.sync && typeof App.sync.showSyncStatus === 'function') {
-                            App.sync.showSyncStatus('error', delta, '解析服务器响应失败');
+                        try {
+                            const data = await res.json();
+                            if (!res.ok || !data) {
+                                console.error("保存题库到云端失败", data);
+                                if (window.App && App.sync && typeof App.sync.showSyncStatus === 'function') {
+                                    const msg = (data && (data.error || data.detail)) || '未知错误';
+                                    App.sync.showSyncStatus('error', delta, msg);
+                                }
+                                if (res.status === 409 && window.App && App.data && typeof App.data.loadFromCloud === "function") {
+                                    try {
+                                        // Temporarily release lock to allow loadFromCloud
+                                        this._isSaving = false;
+                                        await App.data.loadFromCloud();
+                                        this._isSaving = true;
+                                        
+                                        if (typeof this._retryAfterConflictOnce !== 'number') this._retryAfterConflictOnce = 0;
+                                        if (this._retryAfterConflictOnce < 1) {
+                                            this._retryAfterConflictOnce++;
+                                            if (this._pendingSaveState) {
+                                                this._suppressCloudSync = true;
+                                                const s = this._pendingSaveState;
+                                                this.bank = s.bank || {};
+                                                this.history = Array.isArray(s.history) ? s.history : [];
+                                                this.trash = s.trash || {};
+                                                this.lastPracticeTime = s.lastPracticeTime || null;
+                                                this.hiddenMistakeIds = Array.isArray(s.hiddenMistakeIds) ? s.hiddenMistakeIds : [];
+                                                this.bankName = s.bankName || this.bankName;
+                                                this._safeSetItem(this.bankKey, JSON.stringify(this.bank));
+                                                this._safeSetItem(this.historyKey, JSON.stringify({
+                                                    history: this.history,
+                                                    lastPracticeTime: this.lastPracticeTime,
+                                                    hiddenMistakeIds: this.hiddenMistakeIds
+                                                }));
+                                                this._safeSetItem(this.trashKey, JSON.stringify(this.trash));
+                                                if (this.bankName) this._safeSetItem(this.bankNameKey, this.bankName);
+                                                this._bankDirty = true;
+                                                this._suppressCloudSync = false;
+                                            }
+                                            // Trigger retry via saveAgainPending logic
+                                            this._saveAgainPending = true;
+                                        } else {
+                                            this._retryAfterConflictOnce = 0;
+                                        }
+                                    } catch (e) {
+                                        console.error("loadFromCloud after conflict failed", e);
+                                        this._isSaving = true; // Restore lock if it was released
+                                    }
+                                }
+                            } else {
+                                this._lastSyncedCounts = counts;
+                                this._lastSyncedQuestionIds = allIds;
+                                if (typeof data.version === "number" && Number.isFinite(data.version)) {
+                                    this.remoteVersion = data.version;
+                                }
+                                if (window.App && App.sync && typeof App.sync.showSyncStatus === 'function') {
+                                    App.sync.showSyncStatus('success', delta);
+                                }
+                                this._bankDirty = false;
+                                this.bankName = inferredName;
+                                this._safeSetItem(this.bankNameKey, this.bankName);
+                                this._retryAfterConflictOnce = 0;
+                                this._pendingSaveState = null;
+                            }
+                        } catch (e) {
+                            console.error("解析云端保存响应失败", e);
+                            if (window.App && App.sync && typeof App.sync.showSyncStatus === 'function') {
+                                App.sync.showSyncStatus('error', delta, '解析服务器响应失败');
+                            }
+                        }
+                    } finally {
+                        this._isSaving = false;
+                        if (this._saveAgainPending) {
+                            this._saveAgainPending = false;
+                            this.saveToCloudDebounced();
                         }
                     }
                 },
@@ -2418,140 +2443,148 @@
 
                 async loadFromCloud() {
                     if (!App.auth || typeof App.auth.getToken !== 'function') return;
-                    const token = await App.auth.getToken();
-                    if (!token) return;
-                    if (this._cloudLoading) return;
+                    
+                    if (this._cloudLoading) {
+                        if (this._loadPromise) return this._loadPromise;
+                        return;
+                    }
                     this._cloudLoading = true;
-                    let res;
-                    try {
-                        res = await fetch((App.apiBase || '') + "/api/load-question-set", {
-                            method: "GET",
-                            headers: {
-                                Authorization: "Bearer " + token
+                    this._loadPromise = (async () => {
+                        try {
+                            const token = await App.auth.getToken();
+                            if (!token) return;
+
+                            let res;
+                            try {
+                                res = await fetch((App.apiBase || '') + "/api/load-question-set", {
+                                    method: "GET",
+                                    headers: {
+                                        Authorization: "Bearer " + token
+                                    }
+                                });
+                            } catch (e) {
+                                console.error("从云端加载题库失败", e);
+                                this._syncReady = true;
+                                if (this._deferredSave) {
+                                    this._deferredSave = false;
+                                    this.saveToCloudDebounced();
+                                }
+                                return;
                             }
-                        });
-                    } catch (e) {
-                        console.error("从云端加载题库失败", e);
-                        this._cloudLoading = false;
-                        this._syncReady = true;
-                        if (this._deferredSave) {
-                            this._deferredSave = false;
-                            this.saveToCloudDebounced();
-                        }
-                        return;
-                    }
-                    if (!res.ok) {
-                        console.error("从云端加载题库失败", res.status);
-                        this._cloudLoading = false;
-                        this._syncReady = true;
-                        if (this._deferredSave) {
-                            this._deferredSave = false;
-                            this.saveToCloudDebounced();
-                        }
-                        return;
-                    }
-                    let data;
-                    try {
-                        data = await res.json();
-                    } catch (e) {
-                        console.error("解析云端题库响应失败", e);
-                        this._cloudLoading = false;
-                        this._syncReady = true;
-                        if (this._deferredSave) {
-                            this._deferredSave = false;
-                            this.saveToCloudDebounced();
-                        }
-                        return;
-                    }
-                    if (!data || !data.ok) {
-                        this._cloudLoading = false;
-                        return;
-                    }
-                    const state = data.state && typeof data.state === "object" ? data.state : null;
-                    if (!state) {
-                        if (typeof data.version === "number" && Number.isFinite(data.version)) {
-                            this.remoteVersion = data.version;
-                        } else {
-                            this.remoteVersion = 0;
-                        }
-                        this._syncReady = true;
-                        this._cloudLoading = false;
-                        if (this._deferredSave) {
-                            this._deferredSave = false;
-                            this.saveToCloudDebounced();
-                        }
-                        return;
-                    }
-                    this._suppressCloudSync = true;
-                    if (typeof data.version === "number" && Number.isFinite(data.version)) {
-                        this.remoteVersion = data.version;
-                    } else {
-                        this.remoteVersion = 0;
-                    }
-                    this.bank = state.bank && typeof state.bank === "object" ? state.bank : {};
-                    this.history = Array.isArray(state.history) ? state.history : [];
-                    this.lastPracticeTime =
-                        typeof state.lastPracticeTime === "number" ? state.lastPracticeTime : null;
-                    this.trash = state.trash && typeof state.trash === "object" ? state.trash : {};
-                    this.hiddenMistakeIds = Array.isArray(state.hiddenMistakeIds) ? state.hiddenMistakeIds : [];
-                    this.bankName = typeof data.name === "string" && data.name ? data.name : (state.bankName || this.bankName || '');
-                    if (this.bankName) {
-                        this._safeSetItem(this.bankNameKey, this.bankName);
-                    }
-                    this._safeSetItem(this.bankKey, JSON.stringify(this.bank));
-                    this._safeSetItem(this.historyKey, JSON.stringify({
-                        history: this.history,
-                        lastPracticeTime: this.lastPracticeTime,
-                        hiddenMistakeIds: this.hiddenMistakeIds
-                    }));
-                    this._safeSetItem(this.trashKey, JSON.stringify(this.trash));
-                    const bankCount = (() => {
-                        let n = 0;
-                        for (const sub in this.bank) {
-                            for (const chap in this.bank[sub] || {}) {
-                                const arr = this.bank[sub][chap];
-                                if (Array.isArray(arr)) n += arr.length;
+                            if (!res.ok) {
+                                console.error("从云端加载题库失败", res.status);
+                                this._syncReady = true;
+                                if (this._deferredSave) {
+                                    this._deferredSave = false;
+                                    this.saveToCloudDebounced();
+                                }
+                                return;
                             }
+                            let data;
+                            try {
+                                data = await res.json();
+                            } catch (e) {
+                                console.error("解析云端题库响应失败", e);
+                                this._syncReady = true;
+                                if (this._deferredSave) {
+                                    this._deferredSave = false;
+                                    this.saveToCloudDebounced();
+                                }
+                                return;
+                            }
+                            if (!data || !data.ok) {
+                                return;
+                            }
+                            const state = data.state && typeof data.state === "object" ? data.state : null;
+                            if (!state) {
+                                if (typeof data.version === "number" && Number.isFinite(data.version)) {
+                                    this.remoteVersion = data.version;
+                                } else {
+                                    this.remoteVersion = 0;
+                                }
+                                this._syncReady = true;
+                                if (this._deferredSave) {
+                                    this._deferredSave = false;
+                                    this.saveToCloudDebounced();
+                                }
+                                return;
+                            }
+                            this._suppressCloudSync = true;
+                            if (typeof data.version === "number" && Number.isFinite(data.version)) {
+                                this.remoteVersion = data.version;
+                            } else {
+                                this.remoteVersion = 0;
+                            }
+                            this.bank = state.bank && typeof state.bank === "object" ? state.bank : {};
+                            this.history = Array.isArray(state.history) ? state.history : [];
+                            this.lastPracticeTime =
+                                typeof state.lastPracticeTime === "number" ? state.lastPracticeTime : null;
+                            this.trash = state.trash && typeof state.trash === "object" ? state.trash : {};
+                            this.hiddenMistakeIds = Array.isArray(state.hiddenMistakeIds) ? state.hiddenMistakeIds : [];
+                            this.bankName = typeof data.name === "string" && data.name ? data.name : (state.bankName || this.bankName || '');
+                            if (this.bankName) {
+                                this._safeSetItem(this.bankNameKey, this.bankName);
+                            }
+                            this._safeSetItem(this.bankKey, JSON.stringify(this.bank));
+                            this._safeSetItem(this.historyKey, JSON.stringify({
+                                history: this.history,
+                                lastPracticeTime: this.lastPracticeTime,
+                                hiddenMistakeIds: this.hiddenMistakeIds
+                            }));
+                            this._safeSetItem(this.trashKey, JSON.stringify(this.trash));
+                            const bankCount = (() => {
+                                let n = 0;
+                                for (const sub in this.bank) {
+                                    for (const chap in this.bank[sub] || {}) {
+                                        const arr = this.bank[sub][chap];
+                                        if (Array.isArray(arr)) n += arr.length;
+                                    }
+                                }
+                                return n;
+                            })();
+                            const allIds = [];
+                            for (const sub in this.bank) {
+                                for (const chap in this.bank[sub]) {
+                                    const arr = this.bank[sub][chap];
+                                    if (!Array.isArray(arr)) continue;
+                                    arr.forEach(q => {
+                                        if (q && typeof q.id === 'string') allIds.push(q.id);
+                                    });
+                                }
+                            }
+                            const trashCount = (() => {
+                                let n = 0;
+                                for (const sub in this.trash) {
+                                    for (const chap in this.trash[sub] || {}) {
+                                        const arr = this.trash[sub][chap];
+                                        if (Array.isArray(arr)) n += arr.length;
+                                    }
+                                }
+                                return n;
+                            })();
+                            this._lastSyncedCounts = {
+                                questions: bankCount,
+                                history: this.history.length,
+                                trash: trashCount
+                            };
+                            this._lastSyncedQuestionIds = allIds;
+                            this._bankDirty = false;
+                            this._syncReady = true;
+                            this._suppressCloudSync = false;
+                            if (window.App && App.router && typeof App.router.refresh === 'function') {
+                                App.router.refresh();
+                            }
+                            if (this._deferredSave) {
+                                this._deferredSave = false;
+                                this.saveToCloudDebounced();
+                            }
+                        } finally {
+                            this._cloudLoading = false;
+                            this._loadPromise = null;
                         }
-                        return n;
                     })();
-                    const allIds = [];
-                    for (const sub in this.bank) {
-                        for (const chap in this.bank[sub]) {
-                            const arr = this.bank[sub][chap];
-                            if (!Array.isArray(arr)) continue;
-                            arr.forEach(q => {
-                                if (q && typeof q.id === 'string') allIds.push(q.id);
-                            });
-                        }
-                    }
-                    const trashCount = (() => {
-                        let n = 0;
-                        for (const sub in this.trash) {
-                            for (const chap in this.trash[sub] || {}) {
-                                const arr = this.trash[sub][chap];
-                                if (Array.isArray(arr)) n += arr.length;
-                            }
-                        }
-                        return n;
-                    })();
-                    this._lastSyncedCounts = {
-                        questions: bankCount,
-                        history: this.history.length,
-                        trash: trashCount
-                    };
-                    this._lastSyncedQuestionIds = allIds;
-                    this._bankDirty = false;
-                    this._syncReady = true;
-                    this._suppressCloudSync = false;
-                    this._cloudLoading = false;
-                    if (window.App && App.router && typeof App.router.refresh === 'function') {
-                        App.router.refresh();
-                    }
-                    if (this._deferredSave) {
-                        this._deferredSave = false;
-                        this.saveToCloudDebounced();
-                    }
+                    
+                    return this._loadPromise;
                 },
 
                 // 持久化回收站
