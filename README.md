@@ -12,12 +12,12 @@
 
 ```mermaid
 graph TD
-    User[用户 (Browser/Mobile)] -->|HTTPS| Frontend[前端 (GitHub Pages)]
-    Frontend -->|REST API| Backend[后端 API (Vercel Functions)]
-    Frontend -->|WebSocket| Ably[Ably Realtime (实时同步)]
-    Backend -->|SQL| DB[(Supabase PostgreSQL)]
-    Backend -->|Verify Token| Auth[Supabase Auth (身份验证)]
-    Frontend -->|Store| Local[LocalStorage (本地缓存)]
+    User["用户 (Browser/Mobile)"] -->|HTTPS| Frontend["前端 (GitHub Pages)"]
+    Frontend -->|REST API| Backend["后端 API (Vercel Functions)"]
+    Frontend -->|WebSocket| Ably["Ably Realtime (实时同步)"]
+    Backend -->|SQL| DB[("Supabase PostgreSQL")]
+    Backend -->|Verify Token| Auth["Supabase Auth (身份验证)"]
+    Frontend -->|Store| Local["LocalStorage (本地缓存)"]
 ```
 
 ### 核心技术栈 (Tech Stack)
