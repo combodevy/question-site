@@ -30,20 +30,59 @@
         </div>
     </div>
 
-    <!-- 题库详情弹窗 -->
-    <div id="bank-modal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <!-- 题库列表弹窗 -->
+    <div id="sets-modal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
                 <div>
-                    <h3 class="text-lg font-bold text-gray-800" id="modal-title">User Bank Details</h3>
-                    <p class="text-xs text-gray-500" id="modal-subtitle">User ID: ...</p>
+                    <h3 class="text-lg font-bold text-gray-800">User's Question Sets</h3>
+                    <p class="text-xs text-gray-500" id="sets-modal-subtitle">User ID: ...</p>
+                </div>
+                <button onclick="document.getElementById('sets-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-auto p-6 bg-gray-100">
+                <table class="w-full text-left text-sm bg-white rounded-lg shadow-sm overflow-hidden">
+                    <thead class="bg-gray-50 text-gray-600 font-semibold uppercase text-xs">
+                        <tr>
+                            <th class="px-6 py-3">ID</th>
+                            <th class="px-6 py-3">Bank Name</th>
+                            <th class="px-6 py-3">Version</th>
+                            <th class="px-6 py-3">Questions</th>
+                            <th class="px-6 py-3">Created At</th>
+                            <th class="px-6 py-3 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sets-table-body" class="divide-y divide-gray-200">
+                        <!-- JS 渲染 -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="px-6 py-4 border-t border-gray-200 bg-white flex justify-end gap-3">
+                <button onclick="document.getElementById('sets-modal').classList.add('hidden')" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 题库详情弹窗 -->
+    <div id="bank-modal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[60] flex items-center justify-center hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800" id="modal-title">Bank Details</h3>
+                    <p class="text-xs text-gray-500" id="modal-subtitle">Set ID: ...</p>
                 </div>
                 <button onclick="document.getElementById('bank-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 transition-colors">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
             
-            <div class="flex-1 overflow-auto p-6 bg-gray-100">
+            <div class="flex-1 overflow-auto p-6 bg-gray-100 flex flex-col">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                     <!-- 概览卡片 -->
                     <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
@@ -60,13 +99,26 @@
                     </div>
                 </div>
 
-                <!-- JSON 预览区域 -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[500px]">
+                <!-- 视图切换 -->
+                <div class="flex justify-end mb-4">
+                    <div class="bg-white rounded-lg p-1 border border-gray-200 inline-flex">
+                        <button onclick="Admin.switchView('visual')" id="btn-view-visual" class="px-4 py-1.5 rounded text-sm font-medium transition-colors bg-blue-100 text-blue-700">Visual View</button>
+                        <button onclick="Admin.switchView('json')" id="btn-view-json" class="px-4 py-1.5 rounded text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">JSON Source</button>
+                    </div>
+                </div>
+
+                <!-- 可视化视图 -->
+                <div id="view-visual" class="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-auto p-6 space-y-6">
+                    <!-- JS Render Questions -->
+                    <div class="text-center text-gray-500 py-10">Loading questions...</div>
+                </div>
+
+                <!-- JSON 视图 -->
+                <div id="view-json" class="hidden flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[500px]">
                     <div class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
                         <span class="text-xs font-bold text-gray-600 uppercase">Raw JSON Data (Editable)</span>
                         <div class="space-x-2">
                             <button onclick="Admin.copyJson()" class="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-50">Copy</button>
-                            <button class="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2 py-1 rounded hover:bg-blue-100 font-bold">Download</button>
                         </div>
                     </div>
                     <textarea id="modal-json-content" class="flex-1 w-full p-4 font-mono text-xs text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 bg-white" spellcheck="false"></textarea>
@@ -129,8 +181,7 @@
                         <thead class="bg-gray-100 text-gray-600 font-semibold uppercase text-xs">
                             <tr>
                                 <th class="px-6 py-3">User ID</th>
-                                <th class="px-6 py-3">Bank Name</th>
-                                <th class="px-6 py-3">Version</th>
+                                <th class="px-6 py-3">Bank Count</th>
                                 <th class="px-6 py-3">Last Active</th>
                                 <th class="px-6 py-3">IP / Device</th>
                                 <th class="px-6 py-3 text-right">Actions</th>
@@ -282,9 +333,8 @@
                     tbody.innerHTML = data.users.map(u => `
                         <tr class="hover:bg-gray-50 transition-colors">
                             <td class="px-6 py-4 font-mono text-xs text-gray-500 select-all">${u.user_id}</td>
-                            <td class="px-6 py-4 font-bold text-gray-800">${u.bank_name || '未命名题库'}</td>
                             <td class="px-6 py-4">
-                                <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">v${u.version || 0}</span>
+                                <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">${u.bank_count} sets</span>
                             </td>
                             <td class="px-6 py-4 text-gray-600 text-xs">
                                 ${u.last_active_at ? new Date(u.last_active_at).toLocaleString() : '-'}
@@ -294,7 +344,7 @@
                                 <div class="truncate max-w-[150px] opacity-70" title="${u.last_device || 'N/A'}">${u.last_device || '-'}</div>
                             </td>
                             <td class="px-6 py-4 text-right">
-                                <button onclick="Admin.viewBank('${u.user_id}')" class="text-blue-600 hover:underline text-xs font-bold mr-2">查看题库</button>
+                                <button onclick="Admin.viewSets('${u.user_id}')" class="text-blue-600 hover:underline text-xs font-bold mr-2">Manage Banks</button>
                             </td>
                         </tr>
                     `).join('');
@@ -304,29 +354,73 @@
                 }
             },
 
-            async viewBank(userId) {
+            async viewSets(userId) {
+                const modal = document.getElementById('sets-modal');
+                const subtitle = document.getElementById('sets-modal-subtitle');
+                const tbody = document.getElementById('sets-table-body');
+                
+                modal.classList.remove('hidden');
+                subtitle.innerText = `User ID: ${userId}`;
+                tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Loading sets...</td></tr>';
+                
+                try {
+                    const res = await fetch(`/api/admin/users-sets?userId=${userId}`, {
+                        headers: {
+                            'Authorization': `Bearer ${this.token}`
+                        }
+                    });
+
+                    if (!res.ok) throw new Error('Failed to fetch sets');
+                    const data = await res.json();
+                    
+                    if (!data.sets || data.sets.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">No question sets found for this user.</td></tr>';
+                        return;
+                    }
+
+                    tbody.innerHTML = data.sets.map(s => `
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-6 py-4 font-mono text-xs text-gray-500">${s.id}</td>
+                            <td class="px-6 py-4 font-bold text-gray-800">${s.name || 'Untitled'}</td>
+                            <td class="px-6 py-4"><span class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold">v${s.version || 0}</span></td>
+                            <td class="px-6 py-4 text-gray-600">${s.question_count || 0}</td>
+                            <td class="px-6 py-4 text-xs text-gray-500">${new Date(s.created_at).toLocaleString()}</td>
+                            <td class="px-6 py-4 text-right">
+                                <button onclick="Admin.viewBank(${s.id})" class="text-blue-600 hover:underline text-xs font-bold">Edit Details</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                } catch (e) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="text-red-500 text-center py-4">Error: ${e.message}</td></tr>`;
+                }
+            },
+
+            async viewBank(setId) {
                 const modal = document.getElementById('bank-modal');
                 const title = document.getElementById('modal-title');
                 const subtitle = document.getElementById('modal-subtitle');
                 const jsonContent = document.getElementById('modal-json-content');
+                const visualView = document.getElementById('view-visual');
                 const totalQ = document.getElementById('modal-total-q');
                 const version = document.getElementById('modal-version');
                 const created = document.getElementById('modal-created');
 
                 // Reset modal state
                 modal.classList.remove('hidden');
+                this.switchView('visual'); // Default to visual view
                 title.innerText = 'Loading...';
-                subtitle.innerText = `User ID: ${userId}`;
+                subtitle.innerText = `Set ID: ${setId}`;
                 jsonContent.value = 'Fetching data...';
+                visualView.innerHTML = '<div class="text-center text-gray-500 py-10">Loading questions...</div>';
                 totalQ.innerText = '-';
                 version.innerText = '-';
                 created.innerText = '-';
                 
-                // Store current user ID for saving
-                this.currentEditingUserId = userId;
+                // Store current Set ID for saving
+                this.currentEditingSetId = setId;
 
                 try {
-                    const res = await fetch(`/api/admin/users-get-bank?userId=${userId}`, {
+                    const res = await fetch(`/api/admin/set-details?setId=${setId}`, {
                         headers: {
                             'Authorization': `Bearer ${this.token}`
                         }
@@ -345,20 +439,89 @@
                     version.innerText = `v${data.bank_info?.version || 0}`;
                     created.innerText = data.bank_info?.created_at ? new Date(data.bank_info.created_at).toLocaleString() : '-';
                     
+                    // Store userId for update logic
+                    this.currentEditingUserId = data.user_id;
+
                     // Format JSON for display
-                    // We only want to show editable fields or important debug info
-                    // data.questions is the array of questions
-                    // data.bank_info is the metadata
                     const displayData = {
                         info: data.bank_info,
                         questions: data.questions
                     };
                     jsonContent.value = JSON.stringify(displayData, null, 2);
+                    
+                    // Render Visual View
+                    this.renderVisualQuestions(data.questions);
 
                 } catch (e) {
                     console.error(e);
                     jsonContent.value = `Error: ${e.message}`;
                     title.innerText = 'Error';
+                    visualView.innerHTML = `<div class="text-red-500 text-center py-10">Error loading questions: ${e.message}</div>`;
+                }
+            },
+
+            renderVisualQuestions(questions) {
+                const container = document.getElementById('view-visual');
+                if (!questions || questions.length === 0) {
+                    container.innerHTML = '<div class="text-center text-gray-500 py-10">No questions in this set.</div>';
+                    return;
+                }
+
+                container.innerHTML = questions.map((q, idx) => {
+                    // Try to detect question format (assuming common structure: title, options, answer)
+                    const title = q.title || q.question || JSON.stringify(q);
+                    const options = Array.isArray(q.options) ? q.options : [];
+                    const answer = q.answer || q.correctAnswer || 'N/A';
+                    
+                    return `
+                        <div class="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+                            <div class="flex justify-between items-start mb-2">
+                                <span class="bg-gray-100 text-gray-600 text-xs font-bold px-2 py-1 rounded">#${idx + 1}</span>
+                                <span class="text-xs text-gray-400 font-mono">Type: ${q.type || 'unknown'}</span>
+                            </div>
+                            <div class="text-sm font-medium text-gray-800 mb-3">${typeof title === 'string' ? title : JSON.stringify(title)}</div>
+                            
+                            ${options.length > 0 ? `
+                                <div class="space-y-1 mb-3">
+                                    ${options.map((opt, i) => `
+                                        <div class="flex items-center gap-2 text-xs text-gray-600">
+                                            <span class="w-5 h-5 rounded-full border border-gray-300 flex items-center justify-center text-[10px]">${String.fromCharCode(65 + i)}</span>
+                                            <span>${opt}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                            
+                            <div class="text-xs bg-green-50 text-green-700 px-3 py-2 rounded border border-green-100">
+                                <strong>Answer:</strong> ${answer}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            },
+
+            switchView(mode) {
+                const visualBtn = document.getElementById('btn-view-visual');
+                const jsonBtn = document.getElementById('btn-view-json');
+                const visualView = document.getElementById('view-visual');
+                const jsonView = document.getElementById('view-json');
+
+                if (mode === 'visual') {
+                    visualBtn.classList.replace('text-gray-600', 'text-blue-700');
+                    visualBtn.classList.replace('hover:text-gray-900', 'bg-blue-100');
+                    jsonBtn.classList.replace('text-blue-700', 'text-gray-600');
+                    jsonBtn.classList.replace('bg-blue-100', 'hover:text-gray-900');
+                    
+                    visualView.classList.remove('hidden');
+                    jsonView.classList.add('hidden');
+                } else {
+                    jsonBtn.classList.replace('text-gray-600', 'text-blue-700');
+                    jsonBtn.classList.replace('hover:text-gray-900', 'bg-blue-100');
+                    visualBtn.classList.replace('text-blue-700', 'text-gray-600');
+                    visualBtn.classList.replace('bg-blue-100', 'hover:text-gray-900');
+
+                    jsonView.classList.remove('hidden');
+                    visualView.classList.add('hidden');
                 }
             },
 
