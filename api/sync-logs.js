@@ -1,3 +1,14 @@
+/**
+ * @file sync-logs.js
+ * @description 同步日志查询接口 (Sync Logs API)
+ * @author Engineer
+ * @date 2026-02-27
+ * 
+ * 职责：
+ * 1. 查询用户的历史同步记录 (最近 50 条)
+ * 2. 用于前端 "同步诊断面板" 展示同步状态、错误信息和变更量
+ */
+
 const { query } = require('./_db');
 const { getUserFromRequest } = require('./_auth');
 const { handleCors } = require('./_cors');
@@ -29,6 +40,7 @@ module.exports = async (req, res) => {
     await ensureTables();
     const userId = user.sub || user.id;
     try {
+        // 仅查询最近 50 条记录，按时间倒序
         const rows = await query(
             'select id, delta, status, error, created_at from sync_logs where user_id = $1 order by created_at desc limit 50',
             [userId]

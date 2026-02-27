@@ -1,3 +1,26 @@
+<!--
+  @file index.html
+  @description 项目主入口文件 (Main Entry Point)
+  @author Engineer
+  @date 2026-02-27
+  
+  架构说明 (Architecture):
+  这是一个单页应用 (SPA)，不依赖构建工具 (No-Build)，直接使用原生 ES6+ JavaScript 编写。
+  
+  核心模块 (Core Modules):
+  - App.auth: 处理 Supabase 身份验证 (Login/Logout)
+  - App.data: 管理题库数据结构、本地存储 (LocalStorage) 和云端同步
+  - App.sync: 处理与后端的实时同步和冲突解决
+  - App.ai: 集成大模型 API，用于题目解析和文档导入
+  - App.ui: 处理所有 DOM 操作、弹窗管理和视图渲染
+  - App.router: 简单的 Hash 路由实现页面切换
+  
+  技术栈 (Tech Stack):
+  - Frontend: HTML5, Tailwind CSS (CDN), Alpine.js (Implicit via vanilla JS), Ably Realtime
+  - Backend: Vercel Serverless Functions (/api/*)
+  - Database: Supabase (PostgreSQL)
+-->
+<!DOCTYPE html>
 <html lang="zh-CN" class="light">
 <head>
     <meta charset="UTF-8">
@@ -2192,7 +2215,13 @@
                     }
                 },
 
+                /**
+                 * 核心方法：保存数据到云端 (Core: Save to Cloud)
+                 * 包含防抖 (Debounce)、锁机制 (Locking) 和增量更新逻辑
+                 */
                 async saveToCloud() {
+                    // 1. 并发锁：如果正在保存或正在加载，则标记为"需要再次保存"并返回
+                    // 这防止了多个并发请求导致的版本冲突 (409 Error)
                     if (this._isSaving) {
                         this._saveAgainPending = true;
                         return;
@@ -2207,6 +2236,8 @@
                     try {
                         const token = await App.auth.getToken();
                         if (!token) return;
+                        
+                        // 2. 确保在保存前已经从云端加载过最新数据
                         if (!this._syncReady) {
                             await this.loadFromCloud();
                             // If load failed or is still pending (should be awaited), check ready again
@@ -2219,6 +2250,8 @@
                         this.normalizeBankStructure();
                         const questions = [];
                         let totalTrash = 0;
+                        
+                        // 3. 扁平化题库结构，便于统计和传输
                         for (const sub in bank) {
                             if (!bank[sub]) continue;
                             for (const chap in bank[sub]) {
@@ -2253,6 +2286,9 @@
                             trash: counts.trash - prev.trash
                         };
                         const inferredName = this.bankName || Object.keys(bank || {})[0] || "默认题库";
+                        
+                        // 4. 优化：如果题库内容没有变动（Dirty Flag 为 false），则跳过全量题目上传
+                        // 仅更新元数据 (State) 和历史记录，节省带宽
                         const skipQuestionsUpdate = !this._bankDirty && delta.questions === 0;
                         if (window.App && App.sync && typeof App.sync.setDebug === 'function') {
                             App.sync.setDebug({
@@ -2266,6 +2302,7 @@
                             });
                         }
 
+                        // 5. 构造要保存的完整状态树
                         const state = {
                             bank,
                             bankName: this.bankName || null,
@@ -2441,9 +2478,15 @@
                     }, 400);
                 },
 
+                /**
+                 * 核心方法：从云端加载数据 (Core: Load from Cloud)
+                 * 处理数据合并、版本校验和状态恢复
+                 */
                 async loadFromCloud() {
                     if (!App.auth || typeof App.auth.getToken !== 'function') return;
                     
+                    // 1. 并发控制：如果已经在加载中，直接返回当前的 Promise
+                    // 避免重复请求浪费资源
                     if (this._cloudLoading) {
                         if (this._loadPromise) return this._loadPromise;
                         return;
@@ -2495,8 +2538,11 @@
                             if (!data || !data.ok) {
                                 return;
                             }
+                            
+                            // 2. 解析云端返回的数据包
                             const state = data.state && typeof data.state === "object" ? data.state : null;
                             if (!state) {
+                                // 如果云端是空的（新用户），初始化版本号
                                 if (typeof data.version === "number" && Number.isFinite(data.version)) {
                                     this.remoteVersion = data.version;
                                 } else {
@@ -2509,6 +2555,9 @@
                                 }
                                 return;
                             }
+                            
+                            // 3. 应用数据到本地
+                            // _suppressCloudSync 标志位防止应用数据时触发不必要的自动保存
                             this._suppressCloudSync = true;
                             if (typeof data.version === "number" && Number.isFinite(data.version)) {
                                 this.remoteVersion = data.version;
@@ -2525,6 +2574,7 @@
                             if (this.bankName) {
                                 this._safeSetItem(this.bankNameKey, this.bankName);
                             }
+                            // 持久化到 LocalStorage
                             this._safeSetItem(this.bankKey, JSON.stringify(this.bank));
                             this._safeSetItem(this.historyKey, JSON.stringify({
                                 history: this.history,
