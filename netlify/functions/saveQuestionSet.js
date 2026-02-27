@@ -188,6 +188,19 @@ export default async (request, context) => {
   }
 
   try {
+    const ipHeader =
+      request.headers.get("x-forwarded-for") ||
+      request.headers.get("x-real-ip") ||
+      request.headers.get("remote-addr") ||
+      "";
+    const ip =
+      (ipHeader && ipHeader.split(",")[0].trim()) || "unknown";
+    const ua = request.headers.get("user-agent") || "unknown";
+    const logDelta =
+      delta && typeof delta === "object"
+        ? { ...delta, ip, ua }
+        : { ip, ua };
+
     const existing = await sql`
       select id, version from question_sets
       where user_id = ${userId}
@@ -206,7 +219,7 @@ export default async (request, context) => {
         try {
           await sql`
             insert into sync_logs (user_id, delta, status, error)
-            values (${userId}, ${delta}, ${"error"}, ${"version_conflict"})
+            values (${userId}, ${logDelta}, ${"error"}, ${"version_conflict"})
           `;
         } catch (e) {
           console.error(e);
@@ -256,7 +269,7 @@ export default async (request, context) => {
     try {
       await sql`
         insert into sync_logs (user_id, delta, status, error)
-        values (${userId}, ${delta}, ${"success"}, ${null})
+        values (${userId}, ${logDelta}, ${"success"}, ${null})
       `;
     } catch (e) {
       console.error(e);
@@ -290,7 +303,7 @@ export default async (request, context) => {
     try {
       await sql`
         insert into sync_logs (user_id, delta, status, error)
-        values (${userId}, ${delta}, ${"error"}, ${detail})
+        values (${userId}, ${logDelta}, ${"error"}, ${detail})
       `;
     } catch (e2) {
       console.error(e2);
