@@ -24,32 +24,26 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // 查询 question_sets 表获取所有用户
-        // 关联 sync_logs 获取最后活跃时间和 IP 信息 (稍后会增强 sync_logs)
-        // 目前先从 question_sets 获取基础信息
-        const result = await query(`
-            SELECT 
-                qs.user_id,
-                qs.name as bank_name,
-                qs.updated_at as last_active_at,
-                qs.version,
-                (SELECT count(*) FROM questions q WHERE q.question_set_id = qs.id) as question_count
-            FROM question_sets qs
-            ORDER BY qs.updated_at DESC
-            LIMIT 100
+        // Ensure sync_logs table exists to prevent errors on first run
+        await query(`
+            create table if not exists sync_logs (
+                id serial primary key,
+                user_id text not null,
+                delta jsonb,
+                status text not null,
+                error text,
+                created_at timestamptz default now()
+            )
         `);
 
-        // 由于 question_sets 表没有 updated_at 字段，我们需要先去数据库添加，或者暂时用 created_at 代替
-        // 为了稳健性，我们先检查 sync_logs 表来获取更准确的活跃时间
-        
-        // 修正后的查询：聚合 sync_logs 获取最后一次同步时间
+        // 聚合 sync_logs 获取最后一次同步时间
         const usersQuery = `
             WITH LastSync AS (
                 SELECT DISTINCT ON (user_id) 
                     user_id, 
                     created_at as last_sync_at,
-                    delta->>'ip' as last_ip,       -- 预留字段
-                    delta->>'ua' as last_device    -- 预留字段
+                    delta->>'ip' as last_ip,
+                    delta->>'ua' as last_device
                 FROM sync_logs 
                 ORDER BY user_id, created_at DESC
             )
