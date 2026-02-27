@@ -218,9 +218,9 @@
                 <p class="text-xs text-slate-400 mt-1">v1.1.0 (Visual Editor)</p>
             </div>
             <nav class="flex-1 p-4 space-y-2">
-                <a href="#" class="block px-4 py-2 rounded bg-blue-600 text-white">用户列表 (Users)</a>
-                <a href="#" class="block px-4 py-2 rounded hover:bg-slate-800 text-slate-300">全局广播 (Push)</a>
-                <a href="#" class="block px-4 py-2 rounded hover:bg-slate-800 text-slate-300">系统日志 (Logs)</a>
+                <button onclick="Admin.switchSection('users')" id="nav-users" class="w-full text-left px-4 py-2 rounded bg-blue-600 text-white transition-colors">用户列表 (Users)</button>
+                <button onclick="Admin.switchSection('push')" id="nav-push" class="w-full text-left px-4 py-2 rounded hover:bg-slate-800 text-slate-300 transition-colors">全局广播 (Push)</button>
+                <button onclick="Admin.switchSection('logs')" id="nav-logs" class="w-full text-left px-4 py-2 rounded hover:bg-slate-800 text-slate-300 transition-colors">系统日志 (Logs)</button>
             </nav>
             <div class="p-4 border-t border-slate-800">
                 <button onclick="Admin.logout()" class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
@@ -233,37 +233,104 @@
         <!-- 内容区 -->
         <main class="flex-1 flex flex-col min-w-0 overflow-hidden">
             <header class="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-8">
-                <h2 class="text-lg font-semibold text-gray-700">用户概览</h2>
+                <h2 id="page-title" class="text-lg font-semibold text-gray-700">用户概览</h2>
                 <div class="flex items-center gap-4">
                     <span id="admin-user-id" class="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded"></span>
                     <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">A</div>
                 </div>
             </header>
 
-            <div class="flex-1 overflow-auto p-8">
-                <!-- 用户列表表格 -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                        <div class="text-sm font-medium text-gray-600">Total Users: <span id="user-count">Loading...</span></div>
-                        <button onclick="Admin.fetchUsers()" class="text-blue-600 hover:text-blue-800 text-sm font-bold flex items-center gap-1">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                            刷新
-                        </button>
+            <div class="flex-1 overflow-auto p-8 relative">
+                <!-- 用户列表 (Users) -->
+                <div id="section-users" class="space-y-6">
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                            <div class="text-sm font-medium text-gray-600">Total Users: <span id="user-count">Loading...</span></div>
+                            <button onclick="Admin.fetchUsers()" class="text-blue-600 hover:text-blue-800 text-sm font-bold flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                刷新
+                            </button>
+                        </div>
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-gray-100 text-gray-600 font-semibold uppercase text-xs">
+                                <tr>
+                                    <th class="px-6 py-3">User Info</th>
+                                    <th class="px-6 py-3">Bank Count</th>
+                                    <th class="px-6 py-3">Last Active</th>
+                                    <th class="px-6 py-3">IP / Device</th>
+                                    <th class="px-6 py-3 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="user-table-body" class="divide-y divide-gray-200">
+                                <!-- JS 渲染 -->
+                            </tbody>
+                        </table>
                     </div>
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-gray-100 text-gray-600 font-semibold uppercase text-xs">
-                            <tr>
-                                <th class="px-6 py-3">User ID</th>
-                                <th class="px-6 py-3">Bank Count</th>
-                                <th class="px-6 py-3">Last Active</th>
-                                <th class="px-6 py-3">IP / Device</th>
-                                <th class="px-6 py-3 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="user-table-body" class="divide-y divide-gray-200">
-                            <!-- JS 渲染 -->
-                        </tbody>
-                    </table>
+                </div>
+
+                <!-- 全局广播 (Push) -->
+                <div id="section-push" class="hidden max-w-4xl mx-auto space-y-6">
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">Push Question Bank</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Target Audience</label>
+                                <select id="push-target" onchange="Admin.togglePushTarget()" class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 outline-none">
+                                    <option value="all">All Users (Broadcast)</option>
+                                    <option value="user">Specific User ID</option>
+                                </select>
+                            </div>
+                            <div id="push-user-input-group" class="hidden">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">User ID</label>
+                                <input id="push-user-id" type="text" placeholder="Enter User UUID" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none font-mono text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
+                                <input id="push-bank-name" type="text" placeholder="e.g. Weekly Quiz 01" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Questions JSON</label>
+                                <textarea id="push-json" rows="10" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none font-mono text-xs" placeholder='[{"q":"Question?","o":["A","B"],"a":"A","type":"mcq","sub":"Math","chap":"1"}]'></textarea>
+                                <p class="text-xs text-gray-500 mt-1">Paste a JSON array of question objects.</p>
+                            </div>
+                            <div class="pt-4 flex justify-end">
+                                <button onclick="Admin.pushBroadcast()" id="btn-push" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-sm">
+                                    Push to Users
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="push-result" class="hidden bg-green-50 border border-green-200 rounded-xl p-4 text-green-800 text-sm"></div>
+                </div>
+
+                <!-- 系统日志 (Logs) -->
+                <div id="section-logs" class="hidden space-y-6">
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                            <h3 class="text-sm font-bold text-gray-700">System Sync Logs (Latest 50)</h3>
+                            <button onclick="Admin.fetchLogs()" class="text-blue-600 hover:text-blue-800 text-sm font-bold flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                Refresh
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs font-mono">
+                                <thead class="bg-gray-900 text-gray-300 uppercase">
+                                    <tr>
+                                        <th class="px-4 py-2">Time</th>
+                                        <th class="px-4 py-2">User ID</th>
+                                        <th class="px-4 py-2">Status</th>
+                                        <th class="px-4 py-2">IP Addr</th>
+                                        <th class="px-4 py-2">User Agent</th>
+                                        <th class="px-4 py-2">Error Detail</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="logs-table-body" class="divide-y divide-gray-800 bg-gray-800 text-gray-300">
+                                    <!-- JS Render -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -382,12 +449,8 @@
                 tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Loading users...</td></tr>';
                 
                 try {
-                    // Use relative path to avoid CORS issues and match deployed API structure
-                    // Files are: api/admin/users-list.js -> /api/admin/users-list
                     const res = await fetch(`/api/admin/users-list`, {
-                        headers: {
-                            'Authorization': `Bearer ${this.token}`
-                        }
+                        headers: { 'Authorization': `Bearer ${this.token}` }
                     });
 
                     if (!res.ok) {
@@ -405,7 +468,12 @@
 
                     tbody.innerHTML = data.users.map(u => `
                         <tr class="hover:bg-gray-50 transition-colors">
-                            <td class="px-6 py-4 font-mono text-xs text-gray-500 select-all">${u.user_id}</td>
+                            <td class="px-6 py-4">
+                                <div class="flex flex-col">
+                                    <span class="font-bold text-gray-900">${u.email || 'No Email'}</span>
+                                    <span class="font-mono text-[10px] text-gray-400 select-all">${u.user_id}</span>
+                                </div>
+                            </td>
                             <td class="px-6 py-4">
                                 <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">${u.bank_count} sets</span>
                             </td>
@@ -424,6 +492,144 @@
                 } catch (e) {
                     console.error(e);
                     tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-red-500">Error: ${e.message}</td></tr>`;
+                }
+            },
+
+            switchSection(id) {
+                // Update nav styles
+                ['users', 'push', 'logs'].forEach(s => {
+                    const btn = document.getElementById(`nav-${s}`);
+                    const section = document.getElementById(`section-${s}`);
+                    
+                    if (s === id) {
+                        btn.classList.remove('hover:bg-slate-800', 'text-slate-300');
+                        btn.classList.add('bg-blue-600', 'text-white');
+                        section.classList.remove('hidden');
+                    } else {
+                        btn.classList.add('hover:bg-slate-800', 'text-slate-300');
+                        btn.classList.remove('bg-blue-600', 'text-white');
+                        section.classList.add('hidden');
+                    }
+                });
+
+                if (id === 'logs') {
+                    this.fetchLogs();
+                } else if (id === 'users') {
+                    this.fetchUsers();
+                }
+            },
+
+            togglePushTarget() {
+                const target = document.getElementById('push-target').value;
+                const group = document.getElementById('push-user-input-group');
+                if (target === 'user') {
+                    group.classList.remove('hidden');
+                } else {
+                    group.classList.add('hidden');
+                }
+            },
+
+            async pushBroadcast() {
+                const target = document.getElementById('push-target').value;
+                const userId = document.getElementById('push-user-id').value.trim();
+                const bankName = document.getElementById('push-bank-name').value.trim();
+                const jsonStr = document.getElementById('push-json').value.trim();
+                const btn = document.getElementById('btn-push');
+                const resultEl = document.getElementById('push-result');
+
+                if (target === 'user' && !userId) {
+                    alert('Please enter a User ID');
+                    return;
+                }
+                if (!bankName) {
+                    alert('Please enter a Bank Name');
+                    return;
+                }
+                
+                let questions;
+                try {
+                    questions = JSON.parse(jsonStr);
+                    if (!Array.isArray(questions)) throw new Error('Root must be an array');
+                } catch (e) {
+                    alert('Invalid JSON: ' + e.message);
+                    return;
+                }
+
+                if (!confirm(`Are you sure you want to push this bank to ${target === 'all' ? 'ALL USERS' : 'User ' + userId}?`)) return;
+
+                btn.disabled = true;
+                btn.innerText = 'Pushing...';
+                resultEl.classList.add('hidden');
+
+                try {
+                    const res = await fetch('/api/admin/push-broadcast', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${this.token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            target,
+                            userId: target === 'user' ? userId : undefined,
+                            bankName,
+                            questions,
+                            type: 'bank'
+                        })
+                    });
+
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'Failed to push');
+
+                    resultEl.innerHTML = `
+                        <strong>Success!</strong><br>
+                        Target: ${data.summary.target}<br>
+                        Total Users: ${data.summary.total}<br>
+                        Success: ${data.summary.success}<br>
+                        Failed: ${data.summary.failed}
+                    `;
+                    resultEl.classList.remove('hidden');
+
+                } catch (e) {
+                    alert('Error: ' + e.message);
+                } finally {
+                    btn.disabled = false;
+                    btn.innerText = 'Push to Users';
+                }
+            },
+
+            async fetchLogs() {
+                const tbody = document.getElementById('logs-table-body');
+                tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">Loading logs...</td></tr>';
+                
+                try {
+                    const res = await fetch('/api/admin/system-logs?limit=50', {
+                        headers: { 'Authorization': `Bearer ${this.token}` }
+                    });
+                    
+                    if (!res.ok) throw new Error('Failed to fetch logs');
+                    const data = await res.json();
+                    
+                    if (!data.logs || data.logs.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">No logs found.</td></tr>';
+                        return;
+                    }
+
+                    tbody.innerHTML = data.logs.map(log => {
+                        const statusColor = log.status === 'success' ? 'text-green-400' : 'text-red-400';
+                        return `
+                            <tr class="hover:bg-gray-700 transition-colors">
+                                <td class="px-4 py-2 text-gray-500">${new Date(log.created_at).toLocaleString()}</td>
+                                <td class="px-4 py-2 text-gray-400 text-[10px]">${log.user_id}</td>
+                                <td class="px-4 py-2 font-bold ${statusColor}">${log.status}</td>
+                                <td class="px-4 py-2 text-gray-400">${log.ip || '-'}</td>
+                                <td class="px-4 py-2 text-gray-500 truncate max-w-[200px]" title="${log.ua || ''}">${log.ua || '-'}</td>
+                                <td class="px-4 py-2 text-red-300 truncate max-w-[200px]" title="${log.error || ''}">${log.error || '-'}</td>
+                            </tr>
+                        `;
+                    }).join('');
+
+                } catch (e) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-red-500">Error: ${e.message}</td></tr>`;
                 }
             },
 

@@ -1,0 +1,121 @@
+/**
+ * @file api/admin/push-broadcast.js
+ * @description 全局广播/推送题库 (Global Broadcast)
+ * @author Engineer
+ * @date 2026-02-27
+ */
+
+const { query } = require('../_db');
+const { verifyAdmin } = require('./_middleware');
+const { handleCors } = require('../_cors');
+
+module.exports = async (req, res) => {
+    if (handleCors(req, res)) return;
+
+    if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
+    }
+
+    const admin = await verifyAdmin(req);
+    if (!admin) {
+        res.status(403).json({ error: 'Forbidden: Admin access required' });
+        return;
+    }
+
+    const { target, userId, bankName, questions, type } = req.body;
+    // target: 'all' | 'user'
+    // type: 'notification' | 'bank' (目前仅支持 'bank')
+    
+    if (!questions || !Array.isArray(questions)) {
+        res.status(400).json({ error: 'Invalid payload: questions array is required' });
+        return;
+    }
+
+    const safeName = bankName || 'Global Broadcast Bank';
+
+    try {
+        let targetUserIds = [];
+
+        if (target === 'user') {
+            if (!userId) {
+                res.status(400).json({ error: 'UserId is required for target=user' });
+                return;
+            }
+            targetUserIds = [userId];
+        } else if (target === 'all') {
+            // 获取所有活跃用户 ID
+            // 这里我们只推送给已经在 question_sets 或 sync_logs 中出现过的用户
+            const sql = `
+                SELECT DISTINCT user_id FROM question_sets
+                UNION
+                SELECT DISTINCT user_id FROM sync_logs
+            `;
+            const result = await query(sql);
+            targetUserIds = result.rows.map(r => r.user_id);
+        } else {
+            res.status(400).json({ error: 'Invalid target' });
+            return;
+        }
+
+        if (targetUserIds.length === 0) {
+            res.json({ ok: true, message: 'No users found to push to.' });
+            return;
+        }
+
+        // 批量插入操作
+        // 注意：为了性能，我们可以分批次插入，但这里假设用户量不大，直接循环插入
+        // 或者使用 Postgres 的 INSERT INTO ... SELECT ... 语法更高效
+        
+        let successCount = 0;
+        let failCount = 0;
+
+        // 准备题目数据 (JSONB)
+        // 实际上我们是在为每个用户创建一个新的 question_set
+        
+        for (const uid of targetUserIds) {
+            try {
+                // 1. 创建 question_set
+                const insertSet = await query(
+                    'INSERT INTO question_sets (user_id, name, state, version) VALUES ($1, $2, $3, $4) RETURNING id',
+                    [uid, safeName, { currentQuestionIndex: 0, answers: {} }, 1]
+                );
+                const setId = insertSet.rows[0].id;
+
+                // 2. 插入题目
+                if (questions.length > 0) {
+                    const values = [];
+                    const params = [setId];
+                    let paramIdx = 2;
+                    
+                    for (const q of questions) {
+                        values.push(`($1, $${paramIdx}::jsonb)`);
+                        params.push(JSON.stringify(q));
+                        paramIdx++;
+                    }
+                    
+                    const insertQ = `INSERT INTO questions (question_set_id, content) VALUES ${values.join(',')}`;
+                    await query(insertQ, params);
+                }
+                successCount++;
+            } catch (e) {
+                console.error(`Failed to push to user ${uid}:`, e);
+                failCount++;
+            }
+        }
+
+        res.json({ 
+            ok: true, 
+            summary: {
+                target,
+                total: targetUserIds.length,
+                success: successCount,
+                failed: failCount
+            }
+        });
+
+    } catch (err) {
+        console.error('Broadcast Error:', err);
+        res.status(500).json({ error: 'Internal Server Error', detail: err.message });
+    }
+};
