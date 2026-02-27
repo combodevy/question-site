@@ -93,66 +93,82 @@ module.exports = async (req, res) => {
         await query('BEGIN');
 
         // 查询该用户现有的题库记录
-        const existing = await query(
-            'select id, version from question_sets where user_id = $1 order by id desc',
-            [userId]
-        );
-        let setId;
+        // 注意：这里我们查询所有题库，以便后续判断是更新特定 ID 还是插入新记录
+        // 如果前端没有传 setId (或为 0)，则视为新建题库
+        // 如果前端传了 setId，则尝试更新该 ID
+        
+        let setId = body.setId; // 前端需要显式传递 setId，如果想更新特定题库
+        
+        // 如果没有 setId，尝试根据 name 匹配现有题库 (兼容旧逻辑)
+        if (!setId) {
+            const existing = await query(
+                'select id, version from question_sets where user_id = $1 and name = $2 order by id desc limit 1',
+                [userId, name]
+            );
+            if (existing.rows.length > 0) {
+                setId = existing.rows[0].id;
+            }
+        }
+        
+        // 获取当前版本号 (如果 setId 存在)
         let currentVersion = 0;
+        if (setId) {
+            const setRecord = await query('select version from question_sets where id = $1', [setId]);
+            if (setRecord.rows.length > 0) {
+                currentVersion = setRecord.rows[0].version || 0;
+            } else {
+                // ID 不存在，视为新建
+                setId = null;
+            }
+        }
+       
         let nextVersion = 1;
 
-        if (existing.rows.length > 0) {
-            // 取最新的一个题库 ID
-            setId = existing.rows[0].id;
-            currentVersion = typeof existing.rows[0].version === 'number' ? existing.rows[0].version : 0;
+        if (setId) {
+            // 更新现有题库
             
-            // 4. 数据清理：暂时保留历史题库记录，避免误删多科目数据
-            // if (existing.rows.length > 1) {
-            //     const idsToDelete = existing.rows.slice(1).map(r => r.id);
-            //     if (idsToDelete.length > 0) {
-            //          await query('delete from question_sets where id = any($1)', [idsToDelete]);
-            //     }
-            // }
-
             // 5. 版本冲突检测 (Optimistic Locking)
-            // 如果客户端提交的版本与数据库当前版本不一致，说明有其他设备已更新数据
             if (clientVersion !== currentVersion) {
                 await query('ROLLBACK');
                 try {
                     await query(
                         'insert into sync_logs (user_id, delta, status, error) values ($1, $2, $3, $4)',
-                        [userId, delta, 'error', 'version_conflict']
+                        [userId, { clientVersion, currentVersion }, 'conflict', 'Version Mismatch']
                     );
                 } catch (e) {}
-                res.status(409).json({ error: 'Version conflict', currentVersion });
+                res.status(409).json({ 
+                    error: 'Version Conflict', 
+                    serverVersion: currentVersion,
+                    yourVersion: clientVersion
+                });
                 return;
             }
-            
-            // 版本号自增
+
             nextVersion = currentVersion + 1;
-            
-            // 更新题库元数据
+
+            // 更新元数据
             await query(
                 'update question_sets set name = $1, state = $2, version = $3 where id = $4',
                 [name, state, nextVersion, setId]
             );
-
-            // 如果需要更新题目列表，先清空该题库下的所有旧题
+            
+            // 删除旧题目 (全量覆盖模式)
             if (!skipQuestionsUpdate) {
                 await query('delete from questions where question_set_id = $1', [setId]);
             }
+
         } else {
-            // 如果是首次创建
-            nextVersion = 1;
+            // 创建新题库
             const inserted = await query(
                 'insert into question_sets (user_id, name, state, version) values ($1, $2, $3, $4) returning id',
-                [userId, name, state, nextVersion]
+                [userId, name, state, 1]
             );
             setId = inserted.rows[0].id;
+            nextVersion = 1;
         }
 
         // 6. 批量插入新题目 (Bulk Insert)
-        if (!skipQuestionsUpdate || existing.rows.length === 0) {
+        if (!skipQuestionsUpdate) {
             if (questions.length > 0) {
                 // 6.1 在内存中去重 (Deduplication)
                 // 使用 Set 存储题目内容的字符串指纹，过滤掉完全重复的题目
