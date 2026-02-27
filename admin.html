@@ -141,32 +141,58 @@
     </div>
 
     <script>
-        const supabase = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+        // Ensure dependencies are loaded
+        if (!window.supabase || !window.SUPABASE_URL || !window.SUPABASE_ANON_KEY) {
+            alert('Critical Error: Configuration or dependencies missing. Check console.');
+            console.error('Supabase:', window.supabase);
+            console.error('URL:', window.SUPABASE_URL);
+            console.error('KEY:', window.SUPABASE_ANON_KEY);
+        }
 
-        const Admin = {
+        let supabase;
+        try {
+            supabase = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+        } catch (e) {
+            console.error('Failed to initialize Supabase client:', e);
+            alert('Failed to initialize Supabase client: ' + e.message);
+        }
+
+        // Attach Admin to window to ensure global accessibility
+        window.Admin = {
             token: null,
+            currentEditingUserId: null,
             
             async init() {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session) {
-                    this.token = session.access_token;
-                    document.getElementById('login-overlay').classList.add('hidden');
-                    document.getElementById('admin-app').classList.remove('hidden');
-                    document.getElementById('admin-user-id').innerText = session.user.id;
-                    this.fetchUsers();
-                } else {
-                    document.getElementById('login-overlay').classList.remove('hidden');
-                }
-
-                supabase.auth.onAuthStateChange((event, session) => {
+                try {
+                    const { data: { session }, error } = await supabase.auth.getSession();
+                    if (error) throw error;
+                    
                     if (session) {
                         this.token = session.access_token;
                         document.getElementById('login-overlay').classList.add('hidden');
                         document.getElementById('admin-app').classList.remove('hidden');
+                        document.getElementById('admin-user-id').innerText = session.user.id;
+                        this.fetchUsers();
                     } else {
-                        window.location.reload();
+                        document.getElementById('login-overlay').classList.remove('hidden');
                     }
-                });
+
+                    supabase.auth.onAuthStateChange((event, session) => {
+                        if (session) {
+                            this.token = session.access_token;
+                            document.getElementById('login-overlay').classList.add('hidden');
+                            document.getElementById('admin-app').classList.remove('hidden');
+                            document.getElementById('admin-user-id').innerText = session.user.id;
+                            this.fetchUsers(); // Refresh on login
+                        } else {
+                            // Only reload if we were previously logged in to avoid infinite loops
+                            if (this.token) window.location.reload();
+                        }
+                    });
+                } catch (e) {
+                    console.error('Init error:', e);
+                    alert('Initialization error: ' + e.message);
+                }
             },
 
             async login() {
@@ -175,11 +201,16 @@
                 const msg = document.getElementById('login-msg');
                 msg.innerText = 'Logging in...';
                 
-                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-                if (error) {
-                    msg.innerText = error.message;
-                } else {
-                    msg.innerText = '';
+                try {
+                    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+                    if (error) {
+                        msg.innerText = error.message;
+                    } else {
+                        msg.innerText = 'Success!';
+                        // onAuthStateChange will handle the UI update
+                    }
+                } catch (e) {
+                    msg.innerText = 'Unexpected error: ' + e.message;
                 }
             },
 
@@ -193,29 +224,36 @@
                 tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Loading users...</td></tr>';
                 
                 try {
-                    const res = await fetch(`${window.API_BASE}/api/admin/users/list`, {
+                    // Use relative path if API_BASE is not set or same origin, but config.js sets it.
+                    const apiBase = window.API_BASE || '';
+                    const res = await fetch(`${apiBase}/api/admin/users/list`, {
                         headers: {
                             'Authorization': `Bearer ${this.token}`
                         }
                     });
-                    
+
                     if (!res.ok) {
-                        const err = await res.json();
-                        throw new Error(err.error || 'Failed to fetch');
+                        const err = await res.json().catch(() => ({}));
+                        throw new Error(err.error || `Failed to fetch (${res.status})`);
                     }
 
                     const data = await res.json();
-                    countEl.innerText = data.meta ? data.meta.total : data.users.length;
+                    countEl.innerText = data.meta ? data.meta.total : (data.users ? data.users.length : 0);
                     
+                    if (!data.users || data.users.length === 0) {
+                         tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">No users found.</td></tr>';
+                         return;
+                    }
+
                     tbody.innerHTML = data.users.map(u => `
                         <tr class="hover:bg-gray-50 transition-colors">
                             <td class="px-6 py-4 font-mono text-xs text-gray-500 select-all">${u.user_id}</td>
                             <td class="px-6 py-4 font-bold text-gray-800">${u.bank_name || '未命名题库'}</td>
                             <td class="px-6 py-4">
-                                <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">v${u.version}</span>
+                                <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">v${u.version || 0}</span>
                             </td>
-                            <td class="px-6 py-4 text-gray-600">
-                                ${new Date(u.last_active_at).toLocaleString()}
+                            <td class="px-6 py-4 text-gray-600 text-xs">
+                                ${u.last_active_at ? new Date(u.last_active_at).toLocaleString() : '-'}
                             </td>
                             <td class="px-6 py-4 text-xs text-gray-500">
                                 <div class="truncate max-w-[150px]" title="${u.last_ip || 'N/A'}">${u.last_ip || '-'}</div>
@@ -223,7 +261,6 @@
                             </td>
                             <td class="px-6 py-4 text-right">
                                 <button onclick="Admin.viewBank('${u.user_id}')" class="text-blue-600 hover:underline text-xs font-bold mr-2">查看题库</button>
-                                <button class="text-red-500 hover:underline text-xs">强制覆盖</button>
                             </td>
                         </tr>
                     `).join('');
@@ -255,26 +292,30 @@
                 this.currentEditingUserId = userId;
 
                 try {
-                    const res = await fetch(`${window.API_BASE}/api/admin/users/get-bank?userId=${userId}`, {
+                    const apiBase = window.API_BASE || '';
+                    const res = await fetch(`${apiBase}/api/admin/users/get-bank?userId=${userId}`, {
                         headers: {
                             'Authorization': `Bearer ${this.token}`
                         }
                     });
 
                     if (!res.ok) {
-                        const err = await res.json();
+                        const err = await res.json().catch(() => ({}));
                         throw new Error(err.error || 'Failed to fetch bank');
                     }
 
                     const data = await res.json();
                     
                     // Update modal content
-                    title.innerText = data.bank_info.name || 'Untitled Bank';
-                    totalQ.innerText = data.total_questions;
-                    version.innerText = `v${data.bank_info.version}`;
-                    created.innerText = new Date(data.bank_info.created_at).toLocaleString();
+                    title.innerText = data.bank_info?.name || 'Untitled Bank';
+                    totalQ.innerText = data.total_questions || 0;
+                    version.innerText = `v${data.bank_info?.version || 0}`;
+                    created.innerText = data.bank_info?.created_at ? new Date(data.bank_info.created_at).toLocaleString() : '-';
                     
                     // Format JSON for display
+                    // We only want to show editable fields or important debug info
+                    // data.questions is the array of questions
+                    // data.bank_info is the metadata
                     const displayData = {
                         info: data.bank_info,
                         questions: data.questions
@@ -296,7 +337,13 @@
                 const originalText = btn.innerHTML;
                 
                 try {
-                    const bankData = JSON.parse(jsonContent.value);
+                    let bankData;
+                    try {
+                        bankData = JSON.parse(jsonContent.value);
+                    } catch (e) {
+                        alert('Invalid JSON format!');
+                        return;
+                    }
                     
                     if (!confirm('Are you sure you want to OVERWRITE this user\'s data? This cannot be undone.')) return;
                     
@@ -304,7 +351,8 @@
                     btn.disabled = true;
                     btn.classList.add('opacity-50', 'cursor-not-allowed');
 
-                    const res = await fetch(`${window.API_BASE}/api/admin/users/update-bank`, {
+                    const apiBase = window.API_BASE || '';
+                    const res = await fetch(`${apiBase}/api/admin/users/update-bank`, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${this.token}`,
@@ -317,7 +365,7 @@
                     });
 
                     if (!res.ok) {
-                        const err = await res.json();
+                        const err = await res.json().catch(() => ({}));
                         throw new Error(err.error || 'Failed to save');
                     }
 
@@ -342,11 +390,15 @@
                 const jsonContent = document.getElementById('modal-json-content');
                 jsonContent.select();
                 document.execCommand('copy');
-                // Could add a toast notification here
             }
         };
 
-        Admin.init();
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => window.Admin.init());
+        } else {
+            window.Admin.init();
+        }
     </script>
 </body>
 </html>
