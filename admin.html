@@ -6,6 +6,11 @@
     <title>管理后台 - Question Site Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
     <script src="config.js"></script>
 </head>
 <body class="bg-gray-50 min-h-screen font-sans text-gray-900">
@@ -209,6 +214,73 @@
         </div>
     </div>
 
+    <!-- 添加用户弹窗 -->
+    <div id="modal-add-user" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[70] flex items-center justify-center hidden">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">Add New User</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1">Email</label>
+                    <input id="new-user-email" type="email" class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 outline-none text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1">Password</label>
+                    <input id="new-user-pwd" type="password" class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 outline-none text-sm">
+                </div>
+                <div id="add-user-msg" class="text-xs text-red-500 min-h-[1rem]"></div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button onclick="document.getElementById('modal-add-user').classList.add('hidden')" class="px-3 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-bold">Cancel</button>
+                    <button onclick="Admin.addNewUser()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700">Create User</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量推送确认弹窗 -->
+    <div id="modal-batch-push" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[70] flex items-center justify-center hidden">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-2xl">
+            <h3 class="text-lg font-bold text-gray-800 mb-2">Batch Push to Selected Users</h3>
+            <p class="text-sm text-gray-500 mb-4">Selected Users: <span id="batch-push-count" class="font-bold text-gray-900">0</span></p>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
+                    <input id="batch-bank-name" type="text" placeholder="e.g. Exam 2024" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none">
+                </div>
+                
+                <!-- 导入区域 -->
+                <div class="border-t border-gray-200 pt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Import Questions</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <!-- 文件上传 -->
+                        <div class="border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-center hover:bg-gray-50 transition-colors cursor-pointer relative">
+                            <input type="file" id="batch-import-file" accept=".txt,.json,.docx,.pdf" class="absolute inset-0 opacity-0 cursor-pointer" onchange="Admin.handleFileImport(this)">
+                            <svg class="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                            <span class="text-xs text-gray-600 font-bold">Upload File</span>
+                            <span class="text-[10px] text-gray-400 mt-1">Word, PDF, TXT, JSON</span>
+                        </div>
+                        <!-- 粘贴文本 -->
+                        <textarea id="batch-json-input" class="w-full h-32 bg-gray-50 border border-gray-300 rounded-xl p-3 text-xs font-mono outline-none resize-none" placeholder="Or paste JSON / Text content here..."></textarea>
+                    </div>
+                </div>
+
+                <!-- 预览区域 -->
+                <div id="import-preview-area" class="hidden bg-gray-50 rounded-xl p-4 border border-gray-200">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs font-bold text-gray-600">Preview: <span id="preview-count">0</span> questions</span>
+                        <button onclick="document.getElementById('import-preview-details').classList.toggle('hidden')" class="text-blue-600 text-xs hover:underline">Show/Hide Details</button>
+                    </div>
+                    <div id="import-preview-details" class="hidden max-h-40 overflow-y-auto space-y-2 text-xs text-gray-600"></div>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2">
+                    <button onclick="document.getElementById('modal-batch-push').classList.add('hidden')" class="px-3 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-bold">Cancel</button>
+                    <button onclick="Admin.confirmBatchPush()" id="btn-confirm-batch-push" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700">Push Now</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 主界面 -->
     <div id="admin-app" class="hidden flex h-screen overflow-hidden">
         <!-- 侧边栏 -->
@@ -245,15 +317,31 @@
                 <div id="section-users" class="space-y-6">
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                         <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                            <div class="text-sm font-medium text-gray-600">Total Users: <span id="user-count">Loading...</span></div>
-                            <button onclick="Admin.fetchUsers()" class="text-blue-600 hover:text-blue-800 text-sm font-bold flex items-center gap-1">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                                刷新
-                            </button>
+                            <div class="flex items-center gap-4">
+                                <div class="text-sm font-medium text-gray-600">Total Users: <span id="user-count">Loading...</span></div>
+                                <div id="batch-actions" class="hidden flex items-center gap-2 pl-4 border-l border-gray-300">
+                                    <span id="selected-count" class="text-xs font-bold text-blue-600">0 selected</span>
+                                    <button onclick="Admin.batchPush()" class="px-3 py-1 bg-blue-100 text-blue-600 rounded text-xs font-bold hover:bg-blue-200 transition-colors">Batch Push</button>
+                                    <button onclick="Admin.batchDelete()" class="px-3 py-1 bg-red-100 text-red-600 rounded text-xs font-bold hover:bg-red-200 transition-colors">Batch Delete</button>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <button onclick="Admin.openAddUserModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                    Add User
+                                </button>
+                                <button onclick="Admin.fetchUsers()" class="text-blue-600 hover:text-blue-800 text-sm font-bold flex items-center gap-1">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                    刷新
+                                </button>
+                            </div>
                         </div>
                         <table class="w-full text-left text-sm">
                             <thead class="bg-gray-100 text-gray-600 font-semibold uppercase text-xs">
                                 <tr>
+                                    <th class="px-4 py-3 w-10">
+                                        <input type="checkbox" id="select-all-users" onchange="Admin.toggleSelectAll(this)" class="w-4 h-4 accent-blue-600">
+                                    </th>
                                     <th class="px-6 py-3">User Info</th>
                                     <th class="px-6 py-3">Bank Count</th>
                                     <th class="px-6 py-3">Last Active</th>
@@ -359,6 +447,8 @@
             token: null,
             currentEditingUserId: null,
             
+            selectedUsers: new Set(),
+
             async init() {
                 try {
                     const { data: { session }, error } = await supabaseClient.auth.getSession();
@@ -389,6 +479,297 @@
                 } catch (e) {
                     console.error('Init error:', e);
                     alert('Initialization error: ' + e.message);
+                }
+            },
+
+            toggleSelectAll(el) {
+                const checkboxes = document.querySelectorAll('.user-checkbox');
+                checkboxes.forEach(cb => {
+                    cb.checked = el.checked;
+                    if (el.checked) {
+                        this.selectedUsers.add(cb.value);
+                    } else {
+                        this.selectedUsers.delete(cb.value);
+                    }
+                });
+                this.updateBatchActions();
+            },
+
+            toggleUserSelection(userId) {
+                if (this.selectedUsers.has(userId)) {
+                    this.selectedUsers.delete(userId);
+                } else {
+                    this.selectedUsers.add(userId);
+                }
+                
+                // Update "Select All" state
+                const allCheckbox = document.getElementById('select-all-users');
+                const checkboxes = document.querySelectorAll('.user-checkbox');
+                allCheckbox.checked = checkboxes.length > 0 && this.selectedUsers.size === checkboxes.length;
+                
+                this.updateBatchActions();
+            },
+
+            updateBatchActions() {
+                const count = this.selectedUsers.size;
+                const actionsEl = document.getElementById('batch-actions');
+                const countEl = document.getElementById('selected-count');
+                
+                countEl.innerText = `${count} selected`;
+                if (count > 0) {
+                    actionsEl.classList.remove('hidden');
+                } else {
+                    actionsEl.classList.add('hidden');
+                }
+            },
+
+            openAddUserModal() {
+                document.getElementById('modal-add-user').classList.remove('hidden');
+                document.getElementById('new-user-email').value = '';
+                document.getElementById('new-user-pwd').value = '';
+                document.getElementById('add-user-msg').innerText = '';
+            },
+
+            async addNewUser() {
+                const email = document.getElementById('new-user-email').value;
+                const password = document.getElementById('new-user-pwd').value;
+                const msg = document.getElementById('add-user-msg');
+                
+                if (!email || !password) {
+                    msg.innerText = 'Please enter email and password';
+                    return;
+                }
+                if (password.length < 6) {
+                    msg.innerText = 'Password must be at least 6 characters';
+                    return;
+                }
+
+                msg.innerText = 'Creating user...';
+                
+                // Note: Client-side creation only works if enabled in Supabase settings or using service role key (not exposed here)
+                // For admin panel, we rely on the signed-in admin having permissions or use an API route if configured
+                try {
+                    // Using Supabase Auth API
+                    // If "Enable Manual User Creation" is off, this might send a confirmation email instead
+                    const { data, error } = await supabaseClient.auth.signUp({
+                        email,
+                        password,
+                        options: {
+                            data: { created_by_admin: true }
+                        }
+                    });
+
+                    if (error) throw error;
+
+                    if (data.user) {
+                        alert(`User created successfully! ID: ${data.user.id}`);
+                        document.getElementById('modal-add-user').classList.add('hidden');
+                        this.fetchUsers();
+                    } else {
+                         msg.innerText = 'User creation initiated. Check email for confirmation.';
+                    }
+                } catch (e) {
+                    msg.innerText = 'Error: ' + e.message;
+                }
+            },
+
+            async batchDelete() {
+                if (this.selectedUsers.size === 0) return;
+                if (!confirm(`Are you sure you want to delete ${this.selectedUsers.size} users? This will remove all their question banks and logs.`)) return;
+
+                try {
+                    const res = await fetch('/api/admin/delete-users', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${this.token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ userIds: Array.from(this.selectedUsers) })
+                    });
+
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'Failed to delete');
+
+                    alert(`Successfully deleted ${data.deletedCount} users.`);
+                    this.selectedUsers.clear();
+                    this.updateBatchActions();
+                    this.fetchUsers();
+
+                } catch (e) {
+                    alert('Error: ' + e.message);
+                }
+            },
+
+            batchPush() {
+                if (this.selectedUsers.size === 0) return;
+                document.getElementById('batch-push-count').innerText = this.selectedUsers.size;
+                document.getElementById('modal-batch-push').classList.remove('hidden');
+                
+                // Reset form
+                document.getElementById('batch-bank-name').value = '';
+                document.getElementById('batch-json-input').value = '';
+                document.getElementById('batch-import-file').value = '';
+                document.getElementById('import-preview-area').classList.add('hidden');
+                this.parsedQuestions = [];
+            },
+
+            async handleFileImport(input) {
+                const file = input.files[0];
+                if (!file) return;
+
+                const status = document.getElementById('batch-json-input');
+                status.value = `Reading ${file.name}...`;
+                this.parsedQuestions = [];
+
+                try {
+                    let text = '';
+                    if (file.name.endsWith('.docx')) {
+                        const arrayBuffer = await file.arrayBuffer();
+                        const result = await mammoth.extractRawText({ arrayBuffer });
+                        text = result.value;
+                    } else if (file.name.endsWith('.pdf')) {
+                        const arrayBuffer = await file.arrayBuffer();
+                        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                        let fullText = '';
+                        for (let i = 1; i <= pdf.numPages; i++) {
+                            const page = await pdf.getPage(i);
+                            const content = await page.getTextContent();
+                            fullText += content.items.map(item => item.str).join(' ') + '\n';
+                        }
+                        text = fullText;
+                    } else {
+                        text = await file.text();
+                    }
+
+                    // Simple Parsing Logic (Reused from index.html concept)
+                    // Trying to parse JSON first
+                    try {
+                        const json = JSON.parse(text);
+                        if (Array.isArray(json)) {
+                            this.parsedQuestions = json;
+                            this.showPreview();
+                            return;
+                        }
+                    } catch (e) {}
+
+                    // Fallback to text parsing
+                    // Split by typical question patterns (1., 2., etc)
+                    const questions = [];
+                    const lines = text.split(/\n+/);
+                    let currentQ = null;
+
+                    const isQuestionStart = (line) => /^\d+[\.,、]\s*/.test(line);
+                    const isOption = (line) => /^[A-Z][\.,、]\s*/.test(line);
+
+                    lines.forEach(line => {
+                        line = line.trim();
+                        if (!line) return;
+
+                        if (isQuestionStart(line)) {
+                            if (currentQ) questions.push(currentQ);
+                            currentQ = { 
+                                q: line.replace(/^\d+[\.,、]\s*/, ''), 
+                                o: [], 
+                                a: '', 
+                                type: 'mcq',
+                                sub: 'Imported',
+                                chap: '1'
+                            };
+                        } else if (isOption(line) && currentQ) {
+                            currentQ.o.push(line.replace(/^[A-Z][\.,、]\s*/, ''));
+                        } else if (line.toLowerCase().startsWith('answer:') || line.startsWith('答案：')) {
+                            if (currentQ) currentQ.a = line.split(/[:：]/)[1].trim();
+                        } else if (currentQ) {
+                            // Append to question text if no options yet, otherwise ignore or append to last option
+                            if (currentQ.o.length === 0) currentQ.q += '\n' + line;
+                        }
+                    });
+                    if (currentQ) questions.push(currentQ);
+
+                    this.parsedQuestions = questions;
+                    status.value = JSON.stringify(questions, null, 2);
+                    this.showPreview();
+
+                } catch (e) {
+                    console.error(e);
+                    alert('Import failed: ' + e.message);
+                }
+            },
+
+            showPreview() {
+                const area = document.getElementById('import-preview-area');
+                const countEl = document.getElementById('preview-count');
+                const detailsEl = document.getElementById('import-preview-details');
+                
+                area.classList.remove('hidden');
+                countEl.innerText = this.parsedQuestions.length;
+                
+                detailsEl.innerHTML = this.parsedQuestions.slice(0, 5).map((q, i) => `
+                    <div class="border-b border-gray-200 pb-1 mb-1 last:border-0">
+                        <div class="font-bold truncate">${i+1}. ${q.q}</div>
+                        <div class="text-gray-400 pl-2">Options: ${q.o.length}, Answer: ${q.a}</div>
+                    </div>
+                `).join('') + (this.parsedQuestions.length > 5 ? `<div class="text-center italic text-gray-400">...and ${this.parsedQuestions.length - 5} more</div>` : '');
+            },
+
+            async confirmBatchPush() {
+                const bankName = document.getElementById('batch-bank-name').value.trim();
+                const jsonInput = document.getElementById('batch-json-input').value.trim();
+                
+                if (!bankName) {
+                    alert('Please enter a bank name');
+                    return;
+                }
+
+                // If parsedQuestions is empty but user pasted JSON manually
+                if (this.parsedQuestions.length === 0 && jsonInput) {
+                    try {
+                        this.parsedQuestions = JSON.parse(jsonInput);
+                    } catch (e) {
+                        alert('Invalid JSON in text area');
+                        return;
+                    }
+                }
+
+                if (this.parsedQuestions.length === 0) {
+                    alert('No questions to push');
+                    return;
+                }
+
+                const btn = document.getElementById('btn-confirm-batch-push');
+                btn.disabled = true;
+                btn.innerText = 'Pushing...';
+
+                try {
+                    const res = await fetch('/api/admin/push-broadcast', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${this.token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            target: 'multi',
+                            userIds: Array.from(this.selectedUsers),
+                            bankName,
+                            questions: this.parsedQuestions,
+                            type: 'bank'
+                        })
+                    });
+
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'Failed to push');
+
+                    alert(`Successfully pushed to ${data.summary.success} users!`);
+                    document.getElementById('modal-batch-push').classList.add('hidden');
+                    this.selectedUsers.clear();
+                    this.updateBatchActions();
+                    this.fetchUsers(); // Refresh to update bank counts
+
+                } catch (e) {
+                    alert('Error: ' + e.message);
+                } finally {
+                    btn.disabled = false;
+                    btn.innerText = 'Push Now';
                 }
             },
 
@@ -468,6 +849,9 @@
 
                     tbody.innerHTML = data.users.map(u => `
                         <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-4 py-4">
+                                <input type="checkbox" class="user-checkbox w-4 h-4 accent-blue-600" value="${u.user_id}" onchange="Admin.toggleUserSelection('${u.user_id}')" ${this.selectedUsers.has(u.user_id) ? 'checked' : ''}>
+                            </td>
                             <td class="px-6 py-4">
                                 <div class="flex flex-col">
                                     <span class="font-bold text-gray-900">${u.email || 'No Email'}</span>
@@ -489,6 +873,12 @@
                             </td>
                         </tr>
                     `).join('');
+                    
+                    // Restore "Select All" checkbox state
+                    const allCheckbox = document.getElementById('select-all-users');
+                    if (allCheckbox) {
+                        allCheckbox.checked = data.users.length > 0 && this.selectedUsers.size === data.users.length;
+                    }
                 } catch (e) {
                     console.error(e);
                     tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-red-500">Error: ${e.message}</td></tr>`;

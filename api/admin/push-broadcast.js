@@ -23,8 +23,8 @@ module.exports = async (req, res) => {
         return;
     }
 
-    const { target, userId, bankName, questions, type } = req.body;
-    // target: 'all' | 'user'
+    const { target, userId, userIds, bankName, questions, type } = req.body;
+    // target: 'all' | 'user' | 'multi'
     // type: 'notification' | 'bank' (目前仅支持 'bank')
     
     if (!questions || !Array.isArray(questions)) {
@@ -43,6 +43,12 @@ module.exports = async (req, res) => {
                 return;
             }
             targetUserIds = [userId];
+        } else if (target === 'multi') {
+            if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+                res.status(400).json({ error: 'UserIds array is required for target=multi' });
+                return;
+            }
+            targetUserIds = userIds;
         } else if (target === 'all') {
             // 获取所有活跃用户 ID
             // 这里我们只推送给已经在 question_sets 或 sync_logs 中出现过的用户
