@@ -61,6 +61,12 @@ graph TD
     *   **AI 题目解析**: 自动分析错题原因。
     *   **AI 文档导入**: 自动识别非结构化文档中的题目并转为 JSON。
 
+5.  **高级管理面板 (Admin Panel)**
+    *   **用户管理**: 查看所有用户，支持多选、批量删除和一键添加用户。
+    *   **题库透视**: 可视化查看和编辑任意用户的题库内容，支持实时修改题干和选项。
+    *   **全局广播 (Broadcast)**: 批量向指定用户或全员推送题库，支持从 Word/PDF/TXT 智能导入题目。
+    *   **系统日志**: 实时监控系统同步状态、IP 来源和异常信息。
+
 ---
 
 ## 📂 项目结构 (Project Structure)
@@ -68,7 +74,8 @@ graph TD
 ### 前端 (Root Directory)
 | 文件名 | 描述 (Description) |
 | :--- | :--- |
-| `index.html` | **项目主入口**。包含所有 UI 结构、业务逻辑 (App 对象)、路由和样式。 |
+| `index.html` | **用户主应用**。包含刷题、题库管理、AI 助手等核心功能。 |
+| `admin.html` | **管理后台**。提供用户管理、全局推送、日志监控和可视化编辑器。 |
 | `config.js` | **配置文件**。定义后端 API 地址、Supabase URL 和 Key。 |
 | `README.md` | 项目说明文档。 |
 
@@ -82,6 +89,7 @@ graph TD
 | `_auth.js` | **鉴权中间件**。验证 Supabase JWT Token (支持 Secret 和 JWKS)。 |
 | `_db.js` | **数据库工具**。管理 PostgreSQL 连接池 (Connection Pool)。 |
 | `_cors.js` | **跨域工具**。统一处理 CORS 响应头和 Preflight 请求。 |
+| **Admin API** | 位于 `/api/admin/` 下，包含 `users-list`, `push-broadcast`, `system-logs` 等管理接口。 |
 
 ---
 
