@@ -185,8 +185,8 @@
                     </button>
                 </div>
                 <div class="flex flex-col gap-2">
-                    <label class="text-[10px] text-[var(--sub)]">邮箱</label>
-                    <input id="auth-email" type="email" class="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none" placeholder="you@example.com">
+                    <label class="text-[10px] text-[var(--sub)]">用户名</label>
+                    <input id="auth-email" type="text" class="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none" placeholder="your_username">
                 </div>
                 <div class="flex flex-col gap-2">
                     <label class="text-[10px] text-[var(--sub)]">密码</label>
@@ -1630,13 +1630,32 @@
                 getUserId() {
                     return this.session && this.session.user ? this.session.user.id : '';
                 },
-                async login(email, password) {
+                usernameToEmail(loginId) {
+                    const raw = (loginId || '').trim();
+                    if (!raw) return '';
+                    if (raw.includes('@')) return raw.toLowerCase();
+                    const normalized = raw.toLowerCase();
+                    return `${normalized}@user.local`;
+                },
+                async login(loginId, password) {
                     if (!this.client) return { error: { message: '未配置 Supabase' } };
+                    const email = this.usernameToEmail(loginId);
+                    if (!email) return { error: { message: '用户名不能为空' } };
                     return await this.client.auth.signInWithPassword({ email, password });
                 },
-                async signup(email, password) {
+                async signup(loginId, password) {
                     if (!this.client) return { error: { message: '未配置 Supabase' } };
-                    return await this.client.auth.signUp({ email, password });
+                    const raw = (loginId || '').trim();
+                    if (!raw) return { error: { message: '用户名不能为空' } };
+                    if (raw.includes('@')) return { error: { message: '用户名不能包含 @ 符号' } };
+                    const email = this.usernameToEmail(raw);
+                    return await this.client.auth.signUp({
+                        email,
+                        password,
+                        options: {
+                            data: { username: raw }
+                        }
+                    });
                 },
                 async logout() {
                     if (!this.client) return;
@@ -6847,15 +6866,15 @@ ${rawText}
           });
         }
         if (loginBtn) {
-          loginBtn.addEventListener("click", async function() {
-            const email = emailInput ? emailInput.value.trim() : '';
+            loginBtn.addEventListener("click", async function() {
+            const loginId = emailInput ? emailInput.value.trim() : '';
             const password = passwordInput ? passwordInput.value : '';
-            if (!email || !password) {
-              showStatus('请输入邮箱和密码');
+            if (!loginId || !password) {
+              showStatus('请输入用户名和密码');
               return;
             }
             showStatus('登录中...');
-            const { error } = await App.auth.login(email, password);
+            const { error } = await App.auth.login(loginId, password);
             if (error) {
               showStatus(error.message || '登录失败');
               return;
@@ -6867,20 +6886,21 @@ ${rawText}
           });
         }
         if (signupBtn) {
-          signupBtn.addEventListener("click", async function() {
-            const email = emailInput ? emailInput.value.trim() : '';
+            signupBtn.addEventListener("click", async function() {
+            const loginId = emailInput ? emailInput.value.trim() : '';
             const password = passwordInput ? passwordInput.value : '';
-            if (!email || !password) {
-              showStatus('请输入邮箱和密码');
+            if (!loginId || !password) {
+              showStatus('请输入用户名和密码');
               return;
             }
             showStatus('注册中...');
-            const { error } = await App.auth.signup(email, password);
+            const { error } = await App.auth.signup(loginId, password);
             if (error) {
-              showStatus(error.message || '注册失败');
+              const msg = /already registered/i.test(error.message || '') ? '该用户名已被注册' : (error.message || '注册失败');
+              showStatus(msg);
               return;
             }
-            showStatus('注册成功，请检查邮箱完成验证');
+            showStatus('注册成功，可以直接使用该用户名登录');
           });
         }
       });

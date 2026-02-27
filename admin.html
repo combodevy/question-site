@@ -20,7 +20,7 @@
         <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
             <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">管理员登录</h2>
             <div class="space-y-4">
-                <input type="email" id="email" placeholder="Email" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="text" id="email" placeholder="Username" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none">
                 <input type="password" id="password" placeholder="Password" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none">
                 <div class="flex gap-2">
                     <button onclick="Admin.login()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors">
@@ -433,6 +433,13 @@
         }
 
         const ADMIN_API_BASE = (window.API_BASE || '').replace(/\/+$/, '');
+        function adminUsernameToEmail(loginId) {
+            const raw = (loginId || '').trim();
+            if (!raw) return '';
+            if (raw.includes('@')) return raw.toLowerCase();
+            const normalized = raw.toLowerCase();
+            return `${normalized}@user.local`;
+        }
         let supabaseClient;
         try {
             // Use 'supabaseClient' to avoid conflict with 'window.supabase' namespace
@@ -531,12 +538,12 @@
             },
 
             async addNewUser() {
-                const email = document.getElementById('new-user-email').value;
+                const username = document.getElementById('new-user-email').value;
                 const password = document.getElementById('new-user-pwd').value;
                 const msg = document.getElementById('add-user-msg');
                 
-                if (!email || !password) {
-                    msg.innerText = 'Please enter email and password';
+                if (!username || !password) {
+                    msg.innerText = 'Please enter username and password';
                     return;
                 }
                 if (password.length < 6) {
@@ -549,13 +556,11 @@
                 // Note: Client-side creation only works if enabled in Supabase settings or using service role key (not exposed here)
                 // For admin panel, we rely on the signed-in admin having permissions or use an API route if configured
                 try {
-                    // Using Supabase Auth API
-                    // If "Enable Manual User Creation" is off, this might send a confirmation email instead
                     const { data, error } = await supabaseClient.auth.signUp({
-                        email,
+                        email: adminUsernameToEmail(username),
                         password,
                         options: {
-                            data: { created_by_admin: true }
+                            data: { created_by_admin: true, username }
                         }
                     });
 
@@ -566,7 +571,7 @@
                         document.getElementById('modal-add-user').classList.add('hidden');
                         this.fetchUsers();
                     } else {
-                         msg.innerText = 'User creation initiated. Check email for confirmation.';
+                        msg.innerText = 'User creation initiated.';
                     }
                 } catch (e) {
                     msg.innerText = 'Error: ' + e.message;
@@ -774,12 +779,13 @@
             },
 
             async login() {
-                const email = document.getElementById('email').value;
+                const loginId = document.getElementById('email').value;
                 const password = document.getElementById('password').value;
                 const msg = document.getElementById('login-msg');
                 msg.innerText = 'Logging in...';
                 
                 try {
+                    const email = adminUsernameToEmail(loginId);
                     const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
                     if (error) {
                         msg.innerText = error.message;
@@ -793,19 +799,30 @@
             },
 
             async signUp() {
-                const email = document.getElementById('email').value;
+                const loginId = document.getElementById('email').value;
                 const password = document.getElementById('password').value;
                 const msg = document.getElementById('login-msg');
                 
-                if (!email || !password) {
-                    msg.innerText = 'Please enter both email and password';
+                if (!loginId || !password) {
+                    msg.innerText = 'Please enter both username and password';
                     return;
                 }
                 
                 msg.innerText = 'Signing up...';
                 
                 try {
-                    const { data, error } = await supabaseClient.auth.signUp({ email, password });
+                    if (loginId.includes('@')) {
+                        msg.innerText = 'Username cannot contain @';
+                        return;
+                    }
+                    const email = adminUsernameToEmail(loginId);
+                    const { data, error } = await supabaseClient.auth.signUp({
+                        email,
+                        password,
+                        options: {
+                            data: { username: loginId }
+                        }
+                    });
                     if (error) {
                         msg.innerText = error.message;
                     } else {
@@ -854,7 +871,7 @@
                             </td>
                             <td class="px-6 py-4">
                                 <div class="flex flex-col">
-                                    <span class="font-bold text-gray-900">${u.email || 'No Email'}</span>
+                                    <span class="font-bold text-gray-900">${u.username || u.email || 'No Name'}</span>
                                     <span class="font-mono text-[10px] text-gray-400 select-all">${u.user_id}</span>
                                 </div>
                             </td>

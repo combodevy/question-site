@@ -61,6 +61,7 @@ module.exports = async (req, res) => {
                 SELECT 
                     us.user_id,
                     au.email,
+                    au.raw_user_meta_data->>'username' as username,
                     us.bank_count,
                     COALESCE(ls.last_sync_at, us.last_created_at) as last_active_at,
                     ls.last_ip,
