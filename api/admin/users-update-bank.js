@@ -6,9 +6,9 @@
  */
 
 const Ably = require('ably');
-const { query } = require('../../_db');
-const { verifyAdmin } = require('../_middleware');
-const { handleCors } = require('../../_cors');
+const { query } = require('../_db');
+const { verifyAdmin } = require('./_middleware');
+const { handleCors } = require('../_cors');
 
 const ablyApiKey = process.env.ABLY_API_KEY || '';
 const ablyClient = ablyApiKey ? new Ably.Rest(ablyApiKey) : null;

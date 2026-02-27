@@ -5,9 +5,9 @@
  * @date 2026-02-27
  */
 
-const { query } = require('../../_db');
-const { verifyAdmin } = require('../_middleware');
-const { handleCors } = require('../../_cors');
+const { query } = require('../_db');
+const { verifyAdmin } = require('./_middleware');
+const { handleCors } = require('../_cors');
 
 module.exports = async (req, res) => {
     if (handleCors(req, res)) return;
