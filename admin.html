@@ -425,7 +425,6 @@
     </div>
 
     <script>
-        // Ensure dependencies are loaded
         if (!window.supabase || !window.SUPABASE_URL || !window.SUPABASE_ANON_KEY) {
             alert('Critical Error: Configuration or dependencies missing. Check console.');
             console.error('Supabase:', window.supabase);
@@ -433,6 +432,7 @@
             console.error('KEY:', window.SUPABASE_ANON_KEY);
         }
 
+        const ADMIN_API_BASE = (window.API_BASE || '').replace(/\/+$/, '');
         let supabaseClient;
         try {
             // Use 'supabaseClient' to avoid conflict with 'window.supabase' namespace
@@ -578,7 +578,7 @@
                 if (!confirm(`Are you sure you want to delete ${this.selectedUsers.size} users? This will remove all their question banks and logs.`)) return;
 
                 try {
-                    const res = await fetch('/api/admin/delete-users', {
+                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/delete-users`, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${this.token}`,
@@ -741,7 +741,7 @@
                 btn.innerText = 'Pushing...';
 
                 try {
-                    const res = await fetch('/api/admin/push-broadcast', {
+                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/push-broadcast`, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${this.token}`,
@@ -830,7 +830,7 @@
                 tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Loading users...</td></tr>';
                 
                 try {
-                    const res = await fetch(`/api/admin/users-list`, {
+                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/users-list`, {
                         headers: { 'Authorization': `Bearer ${this.token}` }
                     });
 
@@ -952,7 +952,7 @@
                 resultEl.classList.add('hidden');
 
                 try {
-                    const res = await fetch('/api/admin/push-broadcast', {
+                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/push-broadcast`, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${this.token}`,
@@ -992,7 +992,7 @@
                 tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">Loading logs...</td></tr>';
                 
                 try {
-                    const res = await fetch('/api/admin/system-logs?limit=50', {
+                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/system-logs?limit=50`, {
                         headers: { 'Authorization': `Bearer ${this.token}` }
                     });
                     
@@ -1033,7 +1033,7 @@
                 tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Loading sets...</td></tr>';
                 
                 try {
-                    const res = await fetch(`/api/admin/users-sets?userId=${userId}`, {
+                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/users-sets?userId=${userId}`, {
                         headers: {
                             'Authorization': `Bearer ${this.token}`
                         }
@@ -1087,7 +1087,7 @@
                 this.currentEditingSetId = setId;
 
                 try {
-                    const res = await fetch(`/api/admin/set-details?setId=${setId}`, {
+                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/set-details?setId=${setId}`, {
                         headers: { 'Authorization': `Bearer ${this.token}` }
                     });
 
