@@ -6732,9 +6732,76 @@ ${rawText}
             realtime: {
                 client: null,
                 channel: null,
+                ws: null,
+                mode: null,
                 setup(userId, token) {
-                    if (!window.Ably || !userId || !token) return;
-                    if (this.client) return;
+                    if (!userId || !token) return;
+                    if (this.mode) return;
+                    const wsUrl = (window.REALTIME_WS_URL || '').trim();
+                    if (wsUrl) {
+                        this.mode = 'ws';
+                        this._setupWebSocket(wsUrl, userId, token);
+                    } else if (window.Ably) {
+                        this.mode = 'ably';
+                        this._setupAbly(userId, token);
+                    }
+                },
+                _setDisconnected(msg) {
+                    if (window.App && App.sync && typeof App.sync.render === "function") {
+                        App.sync._realtimeDisconnected = true;
+                        App.sync._lastMessage = msg || '';
+                        App.sync.render();
+                    }
+                },
+                _setConnected() {
+                    if (window.App && App.sync && typeof App.sync.render === "function") {
+                        App.sync._realtimeDisconnected = false;
+                        App.sync._lastMessage = '';
+                        App.sync.render();
+                    }
+                },
+                _setupWebSocket(baseUrl, userId, token) {
+                    try {
+                        let url = baseUrl;
+                        try {
+                            const u = new URL(baseUrl);
+                            u.searchParams.set('userId', userId);
+                            u.searchParams.set('token', token);
+                            url = u.toString();
+                        } catch (e) {
+                            const sep = baseUrl.includes('?') ? '&' : '?';
+                            url = `${baseUrl}${sep}userId=${encodeURIComponent(userId)}&token=${encodeURIComponent(token)}`;
+                        }
+                        const ws = new WebSocket(url);
+                        this.ws = ws;
+                        ws.onopen = () => {
+                            this._setConnected();
+                        };
+                        ws.onmessage = (evt) => {
+                            let data = null;
+                            try {
+                                data = JSON.parse(evt.data);
+                            } catch (e) {}
+                            if (!data || typeof data !== 'object') return;
+                            if (data.type === 'set-updated') {
+                                if (window.App && App.data && typeof App.data.loadFromCloud === "function") {
+                                    App.data.loadFromCloud();
+                                }
+                            }
+                        };
+                        ws.onclose = () => {
+                            this._setDisconnected('');
+                            this.ws = null;
+                        };
+                        ws.onerror = () => {
+                            this._setDisconnected('Realtime gateway error');
+                        };
+                    } catch (e) {
+                        this._setDisconnected('初始化实时连接失败');
+                    }
+                },
+                _setupAbly(userId, token) {
+                    if (!window.Ably) return;
                     try {
                         this.client = new Ably.Realtime({
                             authUrl: (App.apiBase || "") + "/api/ably-auth",
@@ -6744,11 +6811,7 @@ ${rawText}
                             tls: true
                         });
                         this.client.connection.on("connected", () => {
-                            if (window.App && App.sync && typeof App.sync.render === "function") {
-                                App.sync._realtimeDisconnected = false;
-                                App.sync._lastMessage = '';
-                                App.sync.render();
-                            }
+                            this._setConnected();
                             this.channel = this.client.channels.get("user:" + userId);
                             this.channel.subscribe("question-set-updated", () => {
                                 if (window.App && App.data && typeof App.data.loadFromCloud === "function") {
@@ -6758,26 +6821,24 @@ ${rawText}
                         });
                         ["disconnected","suspended","closing","closed","failed"].forEach((evt) => {
                             this.client.connection.on(evt, (stateChange) => {
-                                if (window.App && App.sync && typeof App.sync.render === "function") {
-                                    App.sync._realtimeDisconnected = true;
-                                    let reasonMsg = '';
-                                    if (stateChange && stateChange.reason) {
-                                        reasonMsg = stateChange.reason.message || String(stateChange.reason);
-                                    }
-                                    App.sync._lastMessage = reasonMsg || '';
-                                    App.sync.render();
+                                let reasonMsg = '';
+                                if (stateChange && stateChange.reason) {
+                                    reasonMsg = stateChange.reason.message || String(stateChange.reason);
                                 }
+                                this._setDisconnected(reasonMsg);
                             });
                         });
                     } catch (e) {
-                        if (window.App && App.sync && typeof App.sync.render === "function") {
-                            App.sync._realtimeDisconnected = true;
-                            App.sync._lastMessage = '初始化实时连接失败';
-                            App.sync.render();
-                        }
+                        this._setDisconnected('初始化实时连接失败');
                     }
                 },
                 teardown() {
+                    if (this.ws) {
+                        try {
+                            this.ws.close();
+                        } catch (e) {}
+                        this.ws = null;
+                    }
                     if (this.channel) {
                         try {
                             this.channel.unsubscribe();
@@ -6790,6 +6851,7 @@ ${rawText}
                         } catch (e) {}
                         this.client = null;
                     }
+                    this.mode = null;
                 }
             },
             

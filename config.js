@@ -14,3 +14,7 @@ window.SUPABASE_URL = "https://ypklipqkngswhyifuoyx.supabase.co";
 window.SUPABASE_ANON_KEY = "sb_publishable_u7SRFFezpCGOl9czulWkrg_pPrVnSyh";
 // Vercel Serverless Function Base URL
 window.API_BASE = "https://question-site-lac.vercel.app";
+
+// Realtime Gateway WebSocket URL (Cloudflare Workers)
+// Example: "wss://your-realtime-worker.your-domain.workers.dev/realtime"
+window.REALTIME_WS_URL = window.REALTIME_WS_URL || "";

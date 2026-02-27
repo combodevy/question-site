@@ -11,6 +11,22 @@ const { handleCors } = require('../_cors');
 const Ably = require('ably');
 
 const ablyApiKey = process.env.ABLY_API_KEY;
+const realtimeNotifyUrl = process.env.REALTIME_NOTIFY_URL || '';
+const realtimeNotifySecret = process.env.REALTIME_NOTIFY_SECRET || '';
+
+async function notifyRealtimeGateway(userId, payload) {
+    if (!realtimeNotifyUrl || !userId) return;
+    try {
+        await fetch(realtimeNotifyUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(realtimeNotifySecret ? { Authorization: `Bearer ${realtimeNotifySecret}` } : {})
+            },
+            body: JSON.stringify({ userId, ...payload })
+        });
+    } catch (e) {}
+}
 
 module.exports = async (req, res) => {
     if (handleCors(req, res)) return;
@@ -113,6 +129,9 @@ module.exports = async (req, res) => {
                 console.error('Ably Publish Error:', e);
             }
         }
+
+        // 7. 发送自建 Realtime Gateway 通知
+        notifyRealtimeGateway(userId, { type: 'admin_update', setId, version: nextVersion });
 
         res.json({ ok: true, version: nextVersion });
 

@@ -20,6 +20,23 @@ const { handleCors } = require('./_cors');
 const ablyApiKey = process.env.ABLY_API_KEY || '';
 const ablyClient = ablyApiKey ? new Ably.Rest(ablyApiKey) : null;
 
+const realtimeNotifyUrl = process.env.REALTIME_NOTIFY_URL || '';
+const realtimeNotifySecret = process.env.REALTIME_NOTIFY_SECRET || '';
+
+async function notifyRealtimeGateway(userId, payload) {
+    if (!realtimeNotifyUrl || !userId) return;
+    try {
+        await fetch(realtimeNotifyUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(realtimeNotifySecret ? { Authorization: `Bearer ${realtimeNotifySecret}` } : {})
+            },
+            body: JSON.stringify({ userId, ...payload })
+        });
+    } catch (e) {}
+}
+
 /**
  * 确保数据库表结构存在
  * 注意：在生产环境中，建议使用 Migration 工具管理表结构，此处为简化部署流程
@@ -246,6 +263,10 @@ module.exports = async (req, res) => {
                 });
             } catch (e) {}
         }
+        
+        // 9. 发送自建 Realtime Gateway 通知 (Cloudflare Workers)
+        notifyRealtimeGateway(userId, { type: 'set-updated', setId, version: nextVersion });
+
         res.status(200).json({ ok: true, setId, version: nextVersion });
     } catch (err) {
         // 发生错误，回滚事务
