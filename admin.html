@@ -258,9 +258,9 @@
                 tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Loading users...</td></tr>';
                 
                 try {
-                    // Use relative path if API_BASE is not set or same origin, but config.js sets it.
-                    const apiBase = window.API_BASE || '';
-                    const res = await fetch(`${apiBase}/api/admin/users/list`, {
+                    // Use relative path to avoid CORS issues and match deployed API structure
+                    // Files are: api/admin/users-list.js -> /api/admin/users-list
+                    const res = await fetch(`/api/admin/users-list`, {
                         headers: {
                             'Authorization': `Bearer ${this.token}`
                         }
@@ -326,8 +326,7 @@
                 this.currentEditingUserId = userId;
 
                 try {
-                    const apiBase = window.API_BASE || '';
-                    const res = await fetch(`${apiBase}/api/admin/users/get-bank?userId=${userId}`, {
+                    const res = await fetch(`/api/admin/users-get-bank?userId=${userId}`, {
                         headers: {
                             'Authorization': `Bearer ${this.token}`
                         }
@@ -384,9 +383,8 @@
                     btn.innerHTML = '<span>Saving...</span>';
                     btn.disabled = true;
                     btn.classList.add('opacity-50', 'cursor-not-allowed');
-
-                    const apiBase = window.API_BASE || '';
-                    const res = await fetch(`${apiBase}/api/admin/users/update-bank`, {
+ 
+                    const res = await fetch(`/api/admin/users-update-bank`, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${this.token}`,
