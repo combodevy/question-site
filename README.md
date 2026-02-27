@@ -12,13 +12,13 @@
 
 ```mermaid
 graph TD
-    User[User (Browser/Mobile)] -->|HTTPS| Frontend[Frontend (GitHub Pages)]
-    Frontend -->|REST API| Backend[Backend (Vercel Functions)]
-    Frontend -->|WebSocket| Realtime[Realtime Gateway (Cloudflare Workers)]
-    Realtime -->|Event: set-updated| Frontend
-    Backend -->|SQL| DB[Supabase PostgreSQL]
-    Backend -->|Verify Token| Auth[Supabase Auth]
-    Frontend -->|Store| Local[LocalStorage]
+    User["User (Browser/Mobile)"] -->|HTTPS| Frontend["Frontend (GitHub Pages)"]
+    Frontend -->|"REST API"| Backend["Backend (Vercel Functions)"]
+    Frontend -->|WebSocket| Realtime["Realtime Gateway (Cloudflare Workers)"]
+    Realtime -->|"Event: set-updated"| Frontend
+    Backend -->|SQL| DB["Supabase PostgreSQL"]
+    Backend -->|"Verify Token"| Auth["Supabase Auth"]
+    Frontend -->|Store| Local["LocalStorage"]
 ```
 
 ### 核心技术栈 (Tech Stack)
