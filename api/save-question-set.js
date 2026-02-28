@@ -34,7 +34,7 @@ async function notifyRealtimeGateway(userId, payload) {
             },
             body: JSON.stringify({ userId, ...payload })
         });
-    } catch (e) {}
+    } catch (e) { }
 }
 
 /**
@@ -121,9 +121,9 @@ module.exports = async (req, res) => {
         // 注意：这里我们查询所有题库，以便后续判断是更新特定 ID 还是插入新记录
         // 如果前端没有传 setId (或为 0)，则视为新建题库
         // 如果前端传了 setId，则尝试更新该 ID
-        
+
         let setId = body.setId; // 前端需要显式传递 setId，如果想更新特定题库
-        
+
         // 如果没有 setId，尝试根据 name 匹配现有题库 (兼容旧逻辑)
         if (!setId) {
             const existing = await query(
@@ -134,7 +134,7 @@ module.exports = async (req, res) => {
                 setId = existing.rows[0].id;
             }
         }
-        
+
         // 获取当前版本号 (如果 setId 存在)
         let currentVersion = 0;
         if (setId) {
@@ -146,12 +146,12 @@ module.exports = async (req, res) => {
                 setId = null;
             }
         }
-       
+
         let nextVersion = 1;
 
         if (setId) {
             // 更新现有题库
-            
+
             // 5. 版本冲突检测 (Optimistic Locking)
             if (clientVersion !== currentVersion) {
                 await query('ROLLBACK');
@@ -160,9 +160,9 @@ module.exports = async (req, res) => {
                         'insert into sync_logs (user_id, delta, status, error) values ($1, $2, $3, $4)',
                         [userId, { clientVersion, currentVersion }, 'conflict', 'Version Mismatch']
                     );
-                } catch (e) {}
-                res.status(409).json({ 
-                    error: 'Version Conflict', 
+                } catch (e) { }
+                res.status(409).json({
+                    error: 'Version Conflict',
                     serverVersion: currentVersion,
                     yourVersion: clientVersion
                 });
@@ -174,34 +174,36 @@ module.exports = async (req, res) => {
             // ========== 增量同步模式 (Incremental Sync Mode) ==========
             if (statePartial && historyAppend && historyAppend.length > 0 && !state) {
                 // 增量模式：仅追加 history 条目，不替换整个 state
-                // 使用 PostgreSQL JSONB 操作符拼接数组：
-                //   state->'history' 获取现有 history 数组
-                //   || $2::jsonb     追加新条目
-                //   jsonb_set(...)    写回 state
-                let updateQuery = `
-                    UPDATE question_sets SET
-                        version = $1,
-                        state = jsonb_set(
+                // 构建嵌套的 jsonb_set 表达式（PostgreSQL 不允许多次赋值同一列）
+                // 最内层：追加 history 数组
+                // 外层：逐个设置其他字段（如 lastPracticeTime）
+                const updateParams = [nextVersion, JSON.stringify(historyAppend)];
+                let paramIdx = 3;
+
+                // 基础表达式：追加 history
+                let stateExpr = `jsonb_set(
                             COALESCE(state, '{}')::jsonb,
                             '{history}',
                             COALESCE(state->'history', '[]'::jsonb) || $2::jsonb
                         )`;
-                const updateParams = [nextVersion, JSON.stringify(historyAppend)];
-                let paramIdx = 3;
 
-                // 如果有其他部分字段需要更新（如 lastPracticeTime, hiddenMistakeIds）
+                // 嵌套包裹其他字段更新
                 for (const field of partialFields) {
                     const allowed = ['lastPracticeTime', 'hiddenMistakeIds', 'trash', 'bankName'];
                     if (!allowed.includes(field)) continue;
                     const val = body.partialValues && body.partialValues[field];
                     if (val === undefined) continue;
-                    updateQuery += `,\n                        state = jsonb_set(state, $${paramIdx}::text[], $${paramIdx + 1}::jsonb)`;
+                    stateExpr = `jsonb_set(${stateExpr}, $${paramIdx}::text[], $${paramIdx + 1}::jsonb)`;
                     updateParams.push(`{${field}}`);
                     updateParams.push(JSON.stringify(val));
                     paramIdx += 2;
                 }
 
-                updateQuery += `\n                    WHERE id = $${paramIdx}`;
+                const updateQuery = `
+                    UPDATE question_sets SET
+                        version = $1,
+                        state = ${stateExpr}
+                    WHERE id = $${paramIdx}`;
                 updateParams.push(setId);
                 await query(updateQuery, updateParams);
 
@@ -222,7 +224,7 @@ module.exports = async (req, res) => {
                     [name, finalState, nextVersion, setId]
                 );
             }
-            
+
             // 删除旧题目 (全量覆盖模式)
             if (!skipQuestionsUpdate) {
                 await query('delete from questions where question_set_id = $1', [setId]);
@@ -245,7 +247,7 @@ module.exports = async (req, res) => {
                 // 使用 Set 存储题目内容的字符串指纹，过滤掉完全重复的题目
                 const uniqueQuestions = [];
                 const seenFingerprints = new Set();
-                
+
                 for (const q of questions) {
                     try {
                         // 创建一个指纹：基于题目(q)、选项(o)、答案(a)、类型(type)
@@ -259,7 +261,7 @@ module.exports = async (req, res) => {
                             chap: q.chap
                         };
                         const fingerprint = JSON.stringify(fingerprintObj);
-                        
+
                         if (!seenFingerprints.has(fingerprint)) {
                             seenFingerprints.add(fingerprint);
                             uniqueQuestions.push(q);
@@ -274,20 +276,20 @@ module.exports = async (req, res) => {
                     const values = [];
                     const params = [setId];
                     let paramIdx = 2;
-                    
+
                     // 构造批量插入语句: values ($1, $2), ($1, $3), ...
                     for (const q of uniqueQuestions) {
                         values.push(`($1, $${paramIdx}::jsonb)`);
                         params.push(JSON.stringify(q));
                         paramIdx++;
                     }
-                    
+
                     const insertQuery = `insert into questions (question_set_id, content) values ${values.join(',')}`;
                     await query(insertQuery, params);
                 }
             }
         }
-        
+
         // 7. 提交事务 (Commit Transaction)
         await query('COMMIT');
 
@@ -296,15 +298,15 @@ module.exports = async (req, res) => {
             // 获取客户端 IP 和 User-Agent (Vercel headers)
             const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
             const ua = req.headers['user-agent'] || 'unknown';
-            
+
             // 将 IP 和 UA 合并到 delta 对象中，以便统一存储
             const logDelta = delta && typeof delta === 'object' ? { ...delta, ip, ua } : { ip, ua };
-            
+
             await query(
                 'insert into sync_logs (user_id, delta, status, error) values ($1, $2, $3, $4)',
                 [userId, logDelta, 'success', null]
             );
-        } catch (e) {}
+        } catch (e) { }
 
         // 8. 发送 Ably 实时通知
         if (ablyClient) {
@@ -315,9 +317,9 @@ module.exports = async (req, res) => {
                     at: new Date().toISOString(),
                     version: nextVersion
                 });
-            } catch (e) {}
+            } catch (e) { }
         }
-        
+
         // 9. 发送自建 Realtime Gateway 通知 (Cloudflare Workers)
         notifyRealtimeGateway(userId, { type: 'set-updated', setId, version: nextVersion });
 
@@ -331,7 +333,7 @@ module.exports = async (req, res) => {
                 'insert into sync_logs (user_id, delta, status, error) values ($1, $2, $3, $4)',
                 [userId, delta, 'error', detail]
             );
-        } catch (e2) {}
+        } catch (e2) { }
         res.status(500).json({ error: '数据库错误', detail });
     }
 };
