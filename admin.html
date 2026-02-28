@@ -1361,7 +1361,7 @@ ${rawText}`;
                             <td class="px-6 py-4 text-right">
                                 <button onclick="Admin.viewSets('${u.user_id}')" class="text-blue-600 hover:underline text-xs font-bold mr-2">Manage Banks</button>
                             </td>
-                        </tr >
+                        </tr>
             `).join('');
 
                     // Restore "Select All" checkbox state
@@ -1374,19 +1374,19 @@ ${rawText}`;
                     const pushUserSelect = document.getElementById('push-user-id');
                     if (pushUserSelect && pushUserSelect.tagName === 'SELECT') {
                         pushUserSelect.innerHTML = '<option value="">Select a user...</option>' +
-                            data.users.map(u => `< option value = "${Admin.escapeHTML(u.user_id)}" > ${Admin.escapeHTML(u.username || u.email || 'No Name')} (${Admin.escapeHTML(u.user_id.substring(0, 8))}...)</option > `).join('');
+                            data.users.map(u => `<option value="${Admin.escapeHTML(u.user_id)}">${Admin.escapeHTML(u.username || u.email || 'No Name')} (${Admin.escapeHTML(u.user_id.substring(0, 8))}...)</option>`).join('');
                     }
                 } catch (e) {
                     console.error(e);
-                    tbody.innerHTML = `< tr > <td colspan="6" class="px-6 py-8 text-center text-red-500">Error: ${e.message}</td></tr > `;
+                    tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-red-500">Error: ${e.message}</td></tr>`;
                 }
             },
 
             switchSection(id) {
                 // Update nav styles
                 ['users', 'push', 'logs'].forEach(s => {
-                    const btn = document.getElementById(`nav - ${s} `);
-                    const section = document.getElementById(`section - ${s} `);
+                    const btn = document.getElementById(`nav-${s}`);
+                    const section = document.getElementById(`section-${s}`);
 
                     if (s === id) {
                         btn.classList.remove('hover:bg-slate-800', 'text-slate-300');
