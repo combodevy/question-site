@@ -4484,6 +4484,8 @@ ${rawText}
                         clearTimeout(this._pendingNextTimer);
                         this._pendingNextTimer = null;
                     }
+                    // 答题期间暂停云端同步，做完再一次性上传
+                    App.data._suppressCloudSync = true;
                     let pool = App.data.getQuestions();
                     if (!pool.length) {
                         alert("当前题库为空，请先在设置中导入题库文件。\n(The question bank is empty. Please import a JSON file in settings.)");
@@ -4806,6 +4808,9 @@ ${rawText}
                         clearTimeout(this._pendingNextTimer);
                         this._pendingNextTimer = null;
                     }
+                    // 答题结束，恢复云端同步并触发一次保存
+                    App.data._suppressCloudSync = false;
+                    if (App.data.saveToCloudDebounced) App.data.saveToCloudDebounced();
                     App.router.go('result');
                     const total = this.queue.length;
                     const answered = this.stats.c + this.stats.w;
@@ -4820,6 +4825,11 @@ ${rawText}
                     if (this._pendingNextTimer) {
                         clearTimeout(this._pendingNextTimer);
                         this._pendingNextTimer = null;
+                    }
+                    // 提前退出，恢复云端同步并触发一次保存
+                    App.data._suppressCloudSync = false;
+                    if (App.data._historyAppendBuffer.length > 0 && App.data.saveToCloudDebounced) {
+                        App.data.saveToCloudDebounced();
                     }
                     App.router.go('dashboard');
                 }
