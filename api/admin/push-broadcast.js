@@ -105,12 +105,12 @@ module.exports = async (req, res) => {
                     let paramIdx = 2;
 
                     for (const q of questions) {
-                        // 覆盖默认科目名为管理员输入的 bankName
-                        if (!q.sub || q.sub.toLowerCase().includes('default subject') || q.sub === 'Subject Name') {
+                        // 强制覆盖：如果没填、或者是默认占位符，都必须变成管理员填写的 bankName
+                        if (!q.sub || q.sub.trim() === '' || q.sub.toLowerCase().includes('default') || q.sub.toLowerCase().includes('subject name')) {
                             q.sub = safeName;
                         }
                         // 覆盖默认章节名为 Imported
-                        if (!q.chap || q.chap.toLowerCase().includes('chapter 1')) {
+                        if (!q.chap || q.chap.trim() === '' || q.chap.toLowerCase().includes('chapter 1')) {
                             q.chap = 'Imported';
                         }
 
