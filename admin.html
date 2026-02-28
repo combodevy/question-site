@@ -637,7 +637,11 @@
         let supabaseClient;
         try {
             // Use 'supabaseClient' to avoid conflict with 'window.supabase' namespace
-            supabaseClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+            supabaseClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, {
+                auth: {
+                    storageKey: 'qs-admin-auth-token',
+                }
+            });
         } catch (e) {
             console.error('Failed to initialize Supabase client:', e);
             alert('Failed to initialize Supabase client: ' + e.message);
