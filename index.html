@@ -418,7 +418,8 @@
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                            </svg></div>
+                            </svg>
+                        </div>
                     </div>
                     <div class="card card-interactive p-4 md:p-6 rounded-xl md:rounded-2xl flex flex-col justify-center relative overflow-hidden group cursor-pointer touch-manipulation"
                         onclick="App.router.go('setup')">
@@ -432,7 +433,8 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4">
                                 </path>
-                            </svg></div>
+                            </svg>
+                        </div>
                     </div>
                 </div>
 
@@ -2210,6 +2212,10 @@
                 _pendingSaveState: null,
                 _deferredSave: false,
                 remoteVersion: 0,
+                // ========== 增量同步 (Incremental Sync) ==========
+                _historyAppendBuffer: [],    // 自上次同步以来新增的 history 条目
+                _lastHistoryTimestamp: 0,     // 上次同步时的最新 history 时间戳
+                _lastEtag: null,             // 上次 load 返回的 ETag
 
                 init() {
                     try {
@@ -2303,6 +2309,9 @@
                     this._syncReady = false;
                     this._cloudLoading = false;
                     this.remoteVersion = 0;
+                    this._historyAppendBuffer = [];
+                    this._lastHistoryTimestamp = 0;
+                    this._lastEtag = null;
                     try {
                         localStorage.removeItem(this.bankKey);
                         localStorage.removeItem(this.bankNameKey);
@@ -2794,6 +2803,15 @@
                         // 4. 优化：如果题库内容没有变动（Dirty Flag 为 false），则跳过全量题目上传
                         // 仅更新元数据 (State) 和历史记录，节省带宽
                         const skipQuestionsUpdate = !this._bankDirty && delta.questions === 0;
+
+                        // ========== 增量同步决策 ==========
+                        // 如果只有 history 变动（bank/trash 没变），使用增量模式
+                        const historyBuffer = Array.isArray(this._historyAppendBuffer) ? this._historyAppendBuffer : [];
+                        const useIncrementalSync = !this._bankDirty
+                            && delta.questions === 0
+                            && delta.trash === 0
+                            && historyBuffer.length > 0;
+
                         if (window.App && App.sync && typeof App.sync.setDebug === 'function') {
                             App.sync.setDebug({
                                 time: Date.now(),
@@ -2802,6 +2820,8 @@
                                 historyCount: history.length,
                                 trashCount: totalTrash,
                                 skipQuestionsUpdate,
+                                useIncrementalSync,
+                                historyBufferSize: historyBuffer.length,
                                 version: typeof this.remoteVersion === "number" ? this.remoteVersion : 0
                             });
                         }
@@ -2859,12 +2879,30 @@
                                     "Content-Type": "application/json",
                                     Authorization: "Bearer " + token
                                 },
-                                body: JSON.stringify({
+                                body: JSON.stringify(useIncrementalSync ? {
+                                    // ========== 增量模式：仅发送新增 history ==========
+                                    name: inferredName,
+                                    statePartial: true,
+                                    historyAppend: historyBuffer,
+                                    skipQuestionsUpdate: true,
+                                    version: typeof this.remoteVersion === "number" ? this.remoteVersion : 0,
+                                    partialFields: ['lastPracticeTime'],
+                                    partialValues: { lastPracticeTime: lastPracticeTime },
+                                    delta: {
+                                        questions: 0,
+                                        history: historyBuffer.length,
+                                        trash: 0,
+                                        incremental: true
+                                    }
+                                } : {
+                                    // ========== 全量模式（原逻辑） ==========
                                     name: inferredName,
                                     questions,
                                     state,
                                     skipQuestionsUpdate,
                                     version: typeof this.remoteVersion === "number" ? this.remoteVersion : 0,
+                                    // 同时附带 historyAppend 以防万一
+                                    historyAppend: historyBuffer.length > 0 ? historyBuffer : undefined,
                                     delta: {
                                         questions: delta.questions,
                                         history: delta.history,
@@ -2945,6 +2983,12 @@
                                 this._safeSetItem(this.bankNameKey, this.bankName);
                                 this._retryAfterConflictOnce = 0;
                                 this._pendingSaveState = null;
+                                // ========== 增量同步：清空 buffer ==========
+                                this._historyAppendBuffer = [];
+                                // 更新最后同步的 history 时间戳
+                                if (this.history.length > 0) {
+                                    this._lastHistoryTimestamp = this.history[this.history.length - 1].t || 0;
+                                }
                             }
                         } catch (e) {
                             console.error("解析云端保存响应失败", e);
@@ -3001,14 +3045,34 @@
 
                             let res;
                             try {
-                                res = await fetch((App.apiBase || '') + "/api/load-question-set", {
+                                // ========== ETag + 增量加载 ==========
+                                let loadUrl = (App.apiBase || '') + "/api/load-question-set";
+                                // 如果已经成功加载过，发送 historyAfter 参数加速后续加载
+                                if (this._lastHistoryTimestamp > 0 && this._syncReady) {
+                                    loadUrl += '?historyAfter=' + this._lastHistoryTimestamp;
+                                }
+                                const headers = {
+                                    Authorization: "Bearer " + token
+                                };
+                                // ETag: 如果有上次的 ETag，发送 If-None-Match
+                                if (this._lastEtag) {
+                                    headers['If-None-Match'] = this._lastEtag;
+                                }
+                                res = await fetch(loadUrl, {
                                     method: "GET",
-                                    headers: {
-                                        Authorization: "Bearer " + token
-                                    }
+                                    headers
                                 });
                             } catch (e) {
                                 console.error("从云端加载题库失败", e);
+                                this._syncReady = true;
+                                if (this._deferredSave) {
+                                    this._deferredSave = false;
+                                    this.saveToCloudDebounced();
+                                }
+                                return;
+                            }
+                            // ========== 304 Not Modified: 数据未变化，跳过处理 ==========
+                            if (res.status === 304) {
                                 this._syncReady = true;
                                 if (this._deferredSave) {
                                     this._deferredSave = false;
@@ -3027,6 +3091,11 @@
                                     this.saveToCloudDebounced();
                                 }
                                 return;
+                            }
+                            // 保存 ETag
+                            const newEtag = res.headers.get('etag');
+                            if (newEtag) {
+                                this._lastEtag = newEtag;
                             }
                             let data;
                             try {
@@ -3414,7 +3483,10 @@
                 },
                 record(id, res, duration = 0) {
                     const now = Date.now();
-                    this.history.push({ id, r: res, t: now, d: duration });
+                    const entry = { id, r: res, t: now, d: duration };
+                    this.history.push(entry);
+                    // 增量同步：同时追加到 buffer，供下次 save 时发送
+                    this._historyAppendBuffer.push(entry);
                     this.lastPracticeTime = now;
                     this._isHistoryDirty = true;
                     this.saveHistory();

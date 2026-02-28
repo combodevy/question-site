@@ -99,6 +99,14 @@ module.exports = async (req, res) => {
     // 如果 skipQuestionsUpdate 为 true，则只更新元数据 (metadata)，不重新写入题目列表
     const skipQuestionsUpdate = body.skipQuestionsUpdate === true;
 
+    // ========== 增量同步参数 (Incremental Sync) ==========
+    // historyAppend: 自上次同步以来新增的 history 条目（增量追加）
+    const historyAppend = Array.isArray(body.historyAppend) ? body.historyAppend : null;
+    // statePartial: 如果为 true，仅更新 state 中的部分字段（增量模式）
+    const statePartial = body.statePartial === true;
+    // partialFields: 指定需要更新的字段列表
+    const partialFields = Array.isArray(body.partialFields) ? body.partialFields : [];
+
     if (!name) {
         res.status(400).json({ error: 'name 不能为空' });
         return;
@@ -163,11 +171,57 @@ module.exports = async (req, res) => {
 
             nextVersion = currentVersion + 1;
 
-            // 更新元数据
-            await query(
-                'update question_sets set name = $1, state = $2, version = $3 where id = $4',
-                [name, state, nextVersion, setId]
-            );
+            // ========== 增量同步模式 (Incremental Sync Mode) ==========
+            if (statePartial && historyAppend && historyAppend.length > 0 && !state) {
+                // 增量模式：仅追加 history 条目，不替换整个 state
+                // 使用 PostgreSQL JSONB 操作符拼接数组：
+                //   state->'history' 获取现有 history 数组
+                //   || $2::jsonb     追加新条目
+                //   jsonb_set(...)    写回 state
+                let updateQuery = `
+                    UPDATE question_sets SET
+                        version = $1,
+                        state = jsonb_set(
+                            COALESCE(state, '{}')::jsonb,
+                            '{history}',
+                            COALESCE(state->'history', '[]'::jsonb) || $2::jsonb
+                        )`;
+                const updateParams = [nextVersion, JSON.stringify(historyAppend)];
+                let paramIdx = 3;
+
+                // 如果有其他部分字段需要更新（如 lastPracticeTime, hiddenMistakeIds）
+                for (const field of partialFields) {
+                    const allowed = ['lastPracticeTime', 'hiddenMistakeIds', 'trash', 'bankName'];
+                    if (!allowed.includes(field)) continue;
+                    const val = body.partialValues && body.partialValues[field];
+                    if (val === undefined) continue;
+                    updateQuery += `,\n                        state = jsonb_set(state, $${paramIdx}::text[], $${paramIdx + 1}::jsonb)`;
+                    updateParams.push(`{${field}}`);
+                    updateParams.push(JSON.stringify(val));
+                    paramIdx += 2;
+                }
+
+                updateQuery += `\n                    WHERE id = $${paramIdx}`;
+                updateParams.push(setId);
+                await query(updateQuery, updateParams);
+
+            } else {
+                // 全量模式（原逻辑）：替换整个 state
+                // 如果有 historyAppend 但也有完整 state，则将追加的 history 合并到 state 中
+                let finalState = state;
+                if (finalState && historyAppend && historyAppend.length > 0) {
+                    if (Array.isArray(finalState.history)) {
+                        // 确保追加的条目不重复（基于时间戳去重）
+                        const existingTimestamps = new Set(finalState.history.map(h => h.t));
+                        const newEntries = historyAppend.filter(h => !existingTimestamps.has(h.t));
+                        finalState.history = finalState.history.concat(newEntries);
+                    }
+                }
+                await query(
+                    'update question_sets set name = $1, state = $2, version = $3 where id = $4',
+                    [name, finalState, nextVersion, setId]
+                );
+            }
             
             // 删除旧题目 (全量覆盖模式)
             if (!skipQuestionsUpdate) {

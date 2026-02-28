@@ -66,7 +66,7 @@ function countBank(bk) {
 module.exports = async (req, res) => {
     // 1. 处理跨域
     if (handleCors(req, res)) return;
-    
+
     // 2. 身份验证
     const user = await getUserFromRequest(req);
     if (!user) {
@@ -79,7 +79,7 @@ module.exports = async (req, res) => {
     }
     await ensureTables();
     const userId = user.sub || user.id;
-    
+
     try {
         // 3. 获取该用户最新的题库记录 (Limit 1)
         const sets = await query(
@@ -93,8 +93,21 @@ module.exports = async (req, res) => {
         const set = sets.rows[0];
         const setId = set.id;
         const version = typeof set.version === 'number' && Number.isFinite(set.version) ? set.version : 0;
+
+        // ========== ETag / 304 Not Modified ==========
+        // 如果客户端发送了 If-None-Match 且版本号匹配，直接返回 304
+        // 极大减少中国用户的下载流量
+        const etag = `"v${version}"`;
+        res.setHeader('ETag', etag);
+        res.setHeader('Cache-Control', 'no-cache'); // 始终验证，但允许缓存
+        const clientEtag = req.headers['if-none-match'];
+        if (clientEtag && clientEtag === etag) {
+            res.status(304).end();
+            return;
+        }
+
         let baseState = set.state || null;
-        
+
         // 解析存储在 question_sets 表中的基础状态 (JSONB)
         if (typeof baseState === 'string') {
             try {
@@ -103,12 +116,17 @@ module.exports = async (req, res) => {
                 baseState = null;
             }
         }
-        
+
+        // ========== 增量 history 加载 ==========
+        // 如果客户端传了 ?historyAfter=<timestamp>，仅返回该时间戳之后的 history 条目
+        const historyAfterParam = req.query && req.query.historyAfter;
+        const historyAfter = historyAfterParam ? parseInt(historyAfterParam, 10) : 0;
+
         // 4. 获取题目详情列表
         const rows = await query('select content from questions where question_set_id = $1', [setId]);
         const bank = {};
         const seenIds = new Set();
-        
+
         // 5. 组装题库结构并去重
         for (const row of rows.rows) {
             let q = row.content;
@@ -120,21 +138,21 @@ module.exports = async (req, res) => {
                 }
             }
             if (!q || typeof q !== 'object') continue;
-            
+
             // 去重逻辑：如果同一个 ID 出现多次，只保留第一个
             // 这可以修复历史数据中可能存在的重复问题
             if (q.id && typeof q.id === 'string') {
                 if (seenIds.has(q.id)) continue;
                 seenIds.add(q.id);
             }
-            
+
             const sub = q.sub || '默认科目';
             const chap = q.chap || '默认章节';
             if (!bank[sub]) bank[sub] = {};
             if (!bank[sub][chap]) bank[sub][chap] = [];
             bank[sub][chap].push(q);
         }
-        
+
         // 6. 兜底逻辑：如果数据库中 questions 表为空，但 state 中有 bank 数据，则使用 state 中的
         // 这种情况可能发生在迁移过程中
         const baseBank = baseState && typeof baseState === 'object' && baseState.bank ? baseState.bank : null;
@@ -142,44 +160,59 @@ module.exports = async (req, res) => {
             for (const sub in bank) delete bank[sub];
             Object.assign(bank, baseBank);
         }
-        
+
+        // 获取完整 history
+        let fullHistory = baseState &&
+            typeof baseState === 'object' &&
+            Array.isArray(baseState.history)
+            ? baseState.history
+            : [];
+
+        // 如果客户端请求了增量 history，只返回新条目
+        let historySlice = fullHistory;
+        let isHistoryPartial = false;
+        if (historyAfter > 0 && fullHistory.length > 0) {
+            historySlice = fullHistory.filter(h => h && h.t > historyAfter);
+            isHistoryPartial = true;
+        }
+
         // 7. 构造最终响应状态对象
         const state = {
             bank,
             bankName:
                 baseState &&
-                typeof baseState === 'object' &&
-                typeof baseState.bankName === 'string'
+                    typeof baseState === 'object' &&
+                    typeof baseState.bankName === 'string'
                     ? baseState.bankName
                     : null,
-            history:
-                baseState &&
-                typeof baseState === 'object' &&
-                Array.isArray(baseState.history)
-                    ? baseState.history
-                    : [],
+            history: historySlice,
             lastPracticeTime:
                 baseState &&
-                typeof baseState === 'object' &&
-                typeof baseState.lastPracticeTime === 'number'
+                    typeof baseState === 'object' &&
+                    typeof baseState.lastPracticeTime === 'number'
                     ? baseState.lastPracticeTime
                     : null,
             trash:
                 baseState &&
-                typeof baseState === 'object' &&
-                baseState.trash &&
-                typeof baseState.trash === 'object' &&
-                !Array.isArray(baseState.trash)
+                    typeof baseState === 'object' &&
+                    baseState.trash &&
+                    typeof baseState.trash === 'object' &&
+                    !Array.isArray(baseState.trash)
                     ? baseState.trash
                     : {},
             hiddenMistakeIds:
                 baseState &&
-                typeof baseState === 'object' &&
-                Array.isArray(baseState.hiddenMistakeIds)
+                    typeof baseState === 'object' &&
+                    Array.isArray(baseState.hiddenMistakeIds)
                     ? baseState.hiddenMistakeIds
                     : []
         };
-        res.status(200).json({ ok: true, setId, name: set.name, state, version });
+        res.status(200).json({
+            ok: true, setId, name: set.name, state, version,
+            // 告知客户端本次返回的 history 是否为增量
+            historyPartial: isHistoryPartial,
+            historyTotal: fullHistory.length
+        });
     } catch (err) {
         const detail = (err && err.message) || (typeof err === 'string' ? err : JSON.stringify(err));
         res.status(500).json({ error: '数据库错误', detail });
