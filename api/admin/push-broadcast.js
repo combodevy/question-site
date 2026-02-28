@@ -26,7 +26,7 @@ module.exports = async (req, res) => {
     const { target, userId, userIds, bankName, questions, type } = req.body;
     // target: 'all' | 'user' | 'multi'
     // type: 'notification' | 'bank' (目前仅支持 'bank')
-    
+
     if (!questions || !Array.isArray(questions)) {
         res.status(400).json({ error: 'Invalid payload: questions array is required' });
         return;
@@ -72,34 +72,53 @@ module.exports = async (req, res) => {
         // 批量插入操作
         // 注意：为了性能，我们可以分批次插入，但这里假设用户量不大，直接循环插入
         // 或者使用 Postgres 的 INSERT INTO ... SELECT ... 语法更高效
-        
+
         let successCount = 0;
         let failCount = 0;
 
         // 准备题目数据 (JSONB)
         // 实际上我们是在为每个用户创建一个新的 question_set
-        
+
         for (const uid of targetUserIds) {
             try {
-                // 1. 创建 question_set
-                const insertSet = await query(
-                    'INSERT INTO question_sets (user_id, name, state, version) VALUES ($1, $2, $3, $4) RETURNING id',
-                    [uid, safeName, { currentQuestionIndex: 0, answers: {} }, 1]
+                // 1. 获取最新 question_set
+                const latestSet = await query(
+                    'SELECT id FROM question_sets WHERE user_id = $1 ORDER BY id DESC LIMIT 1',
+                    [uid]
                 );
-                const setId = insertSet.rows[0].id;
+
+                let setId;
+                if (latestSet.rows.length > 0) {
+                    setId = latestSet.rows[0].id;
+                } else {
+                    const insertSet = await query(
+                        'INSERT INTO question_sets (user_id, name, state, version) VALUES ($1, $2, $3, $4) RETURNING id',
+                        [uid, safeName, { currentQuestionIndex: 0, answers: {} }, 1]
+                    );
+                    setId = insertSet.rows[0].id;
+                }
 
                 // 2. 插入题目
                 if (questions.length > 0) {
                     const values = [];
                     const params = [setId];
                     let paramIdx = 2;
-                    
+
                     for (const q of questions) {
+                        // 覆盖默认科目名为管理员输入的 bankName
+                        if (!q.sub || q.sub.toLowerCase().includes('default subject') || q.sub === 'Subject Name') {
+                            q.sub = safeName;
+                        }
+                        // 覆盖默认章节名为 Imported
+                        if (!q.chap || q.chap.toLowerCase().includes('chapter 1')) {
+                            q.chap = 'Imported';
+                        }
+
                         values.push(`($1, $${paramIdx}::jsonb)`);
                         params.push(JSON.stringify(q));
                         paramIdx++;
                     }
-                    
+
                     const insertQ = `INSERT INTO questions (question_set_id, content) VALUES ${values.join(',')}`;
                     await query(insertQ, params);
                 }
@@ -110,8 +129,8 @@ module.exports = async (req, res) => {
             }
         }
 
-        res.json({ 
-            ok: true, 
+        res.json({
+            ok: true,
             summary: {
                 target,
                 total: targetUserIds.length,
