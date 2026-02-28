@@ -1463,10 +1463,10 @@ ${rawText}`;
                 resultEl.classList.add('hidden');
 
                 try {
-                    const res = await fetch(`${ADMIN_API_BASE} /api/admin / push - broadcast`, {
+                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/push-broadcast`, {
                         method: 'POST',
                         headers: {
-                            'Authorization': `Bearer ${this.token} `,
+                            'Authorization': `Bearer ${this.token}`,
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
@@ -1482,12 +1482,12 @@ ${rawText}`;
                     if (!res.ok) throw new Error(data.error || 'Failed to push');
 
                     resultEl.innerHTML = `
-            < strong > Success!</strong > <br>
-                Target: ${data.summary.target}<br>
-                    Total Users: ${data.summary.total}<br>
+                        <strong>Success!</strong><br>
+                        Target: ${data.summary.target}<br>
+                        Total Users: ${data.summary.total}<br>
                         Success: ${data.summary.success}<br>
-                            Failed: ${data.summary.failed}
-                            `;
+                        Failed: ${data.summary.failed}
+                    `;
                     resultEl.classList.remove('hidden');
 
                 } catch (e) {
