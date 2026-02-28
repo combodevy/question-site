@@ -15,7 +15,11 @@
     <script src="config.js"></script>
 </head>
 
-<body class="bg-gray-50 min-h-screen font-sans text-gray-900">
+<body class="bg-gray-50 min-h-screen font-sans text-gray-900 overflow-hidden">
+
+    <!-- 移动端侧边栏遮罩 -->
+    <div id="mobile-sidebar-backdrop" onclick="Admin.toggleSidebar()"
+        class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-30 hidden md:hidden transition-opacity opacity-0"></div>
 
     <!-- 登录遮罩 -->
     <div id="login-overlay" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -59,22 +63,24 @@
                 </button>
             </div>
 
-            <div class="flex-1 overflow-auto p-6 bg-gray-100">
-                <table class="w-full text-left text-sm bg-white rounded-lg shadow-sm overflow-hidden">
-                    <thead class="bg-gray-50 text-gray-600 font-semibold uppercase text-xs">
-                        <tr>
-                            <th class="px-6 py-3">ID</th>
-                            <th class="px-6 py-3">Bank Name</th>
-                            <th class="px-6 py-3">Version</th>
-                            <th class="px-6 py-3">Questions</th>
-                            <th class="px-6 py-3">Created At</th>
-                            <th class="px-6 py-3 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="sets-table-body" class="divide-y divide-gray-200">
-                        <!-- JS 渲染 -->
-                    </tbody>
-                </table>
+            <div class="flex-1 overflow-x-auto p-4 md:p-6 bg-gray-100">
+                <div class="min-w-max md:min-w-0">
+                    <table class="w-full text-left text-sm bg-white rounded-xl shadow-sm overflow-hidden">
+                        <thead class="bg-gray-50 text-gray-600 font-semibold uppercase text-xs">
+                            <tr>
+                                <th class="px-6 py-3">ID</th>
+                                <th class="px-6 py-3">Bank Name</th>
+                                <th class="px-6 py-3">Version</th>
+                                <th class="px-6 py-3">Questions</th>
+                                <th class="px-6 py-3">Created At</th>
+                                <th class="px-6 py-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sets-table-body" class="divide-y divide-gray-200">
+                            <!-- JS 渲染 -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <div class="px-6 py-4 border-t border-gray-200 bg-white flex justify-end gap-3">
@@ -156,13 +162,13 @@
                 </div>
             </div>
 
-            <div class="px-6 py-4 border-t border-gray-200 bg-white flex justify-end gap-3">
+            <div class="px-6 py-4 border-t border-gray-200 bg-white flex justify-end gap-3 z-10">
                 <button onclick="document.getElementById('bank-modal').classList.add('hidden')"
-                    class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors">
+                    class="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors">
                     Close
                 </button>
                 <button onclick="Admin.saveBank()" id="btn-save-bank"
-                    class="px-4 py-2 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2">
+                    class="px-6 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold hover:from-blue-700 hover:to-blue-800 transition-all shadow-md shadow-blue-500/20 flex items-center gap-2">
                     <span>Save Changes</span>
                 </button>
             </div>
@@ -351,22 +357,34 @@
     </div>
 
     <!-- 主界面 -->
-    <div id="admin-app" class="hidden flex h-screen overflow-hidden">
+    <div id="admin-app" class="hidden flex h-screen w-full overflow-hidden relative">
         <!-- 侧边栏 -->
-        <aside class="w-64 bg-slate-900 text-white flex flex-col">
-            <div class="p-6 border-b border-slate-800">
-                <h1 class="text-xl font-bold">QS Admin Panel</h1>
-                <p class="text-xs text-slate-400 mt-1">v1.1.0 (Visual Editor)</p>
+        <aside id="sidebar"
+            class="w-64 bg-slate-900 text-white flex flex-col absolute inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out z-40 shadow-2xl md:shadow-none">
+            <div class="p-6 border-b border-slate-800 flex justify-between items-center">
+                <div>
+                    <h1
+                        class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-300">
+                        QS Admin</h1>
+                    <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-bold">Workspace</p>
+                </div>
+                <!-- 移动端关闭按钮 -->
+                <button onclick="Admin.toggleSidebar()" class="md:hidden text-slate-400 hover:text-white p-1">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
             </div>
-            <nav class="flex-1 p-4 space-y-2">
-                <button onclick="Admin.switchSection('users')" id="nav-users"
-                    class="w-full text-left px-4 py-2 rounded bg-blue-600 text-white transition-colors">用户列表
+            <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
+                <button onclick="Admin.switchSection('users'); Admin.closeSidebarIfMobile()" id="nav-users"
+                    class="w-full text-left px-4 py-3 rounded-xl bg-blue-600 text-white font-medium transition-colors shadow-lg shadow-blue-900/20">用户列表
                     (Users)</button>
-                <button onclick="Admin.switchSection('push')" id="nav-push"
-                    class="w-full text-left px-4 py-2 rounded hover:bg-slate-800 text-slate-300 transition-colors">全局广播
+                <button onclick="Admin.switchSection('push'); Admin.closeSidebarIfMobile()" id="nav-push"
+                    class="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800 text-slate-300 font-medium transition-colors">全局广播
                     (Push)</button>
-                <button onclick="Admin.switchSection('logs')" id="nav-logs"
-                    class="w-full text-left px-4 py-2 rounded hover:bg-slate-800 text-slate-300 transition-colors">系统日志
+                <button onclick="Admin.switchSection('logs'); Admin.closeSidebarIfMobile()" id="nav-logs"
+                    class="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800 text-slate-300 font-medium transition-colors">系统日志
                     (Logs)</button>
             </nav>
             <div class="p-4 border-t border-slate-800">
@@ -383,9 +401,19 @@
         </aside>
 
         <!-- 内容区 -->
-        <main class="flex-1 flex flex-col min-w-0 overflow-hidden">
-            <header class="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-8">
-                <h2 id="page-title" class="text-lg font-semibold text-gray-700">用户概览</h2>
+        <main class="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-gray-50/50 relative">
+            <header
+                class="bg-white/80 backdrop-blur-md border-b border-gray-200 h-16 flex items-center justify-between px-4 md:px-8 sticky top-0 z-20">
+                <div class="flex items-center gap-3">
+                    <button onclick="Admin.toggleSidebar()"
+                        class="md:hidden text-gray-500 hover:text-gray-700 p-2 -ml-2 rounded-lg hover:bg-gray-100">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
+                    </button>
+                    <h2 id="page-title" class="text-lg font-bold text-gray-800">用户概览</h2>
+                </div>
                 <div class="flex items-center gap-4">
                     <span id="admin-user-id"
                         class="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded"></span>
@@ -395,70 +423,73 @@
                 </div>
             </header>
 
-            <div class="flex-1 overflow-auto p-8 relative">
+            <div class="flex-1 overflow-auto p-4 md:p-8 relative">
                 <!-- 用户列表 (Users) -->
                 <div id="section-users" class="space-y-6">
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                        <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                    <div
+                        class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full">
+                        <div
+                            class="p-4 md:p-5 border-b border-gray-200 flex flex-col sm:flex-row justify-between sm:items-center bg-gray-50/80 gap-4 sm:gap-0">
                             <div class="flex items-center gap-4">
-                                <div class="text-sm font-medium text-gray-600">Total Users: <span
-                                        id="user-count">Loading...</span></div>
+                                <div class="text-sm font-bold text-gray-700">Total Users: <span id="user-count"
+                                        class="text-blue-600">Loading...</span></div>
                                 <div id="batch-actions"
                                     class="hidden flex items-center gap-2 pl-4 border-l border-gray-300">
-                                    <span id="selected-count" class="text-xs font-bold text-blue-600">0 selected</span>
+                                    <span id="selected-count" class="text-xs font-bold text-blue-600 hidden sm:inline">0
+                                        selected</span>
                                     <button onclick="Admin.batchPush()"
-                                        class="px-3 py-1 bg-blue-100 text-blue-600 rounded text-xs font-bold hover:bg-blue-200 transition-colors">Batch
-                                        Push</button>
+                                        class="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs font-bold hover:bg-blue-200 transition-colors">Push</button>
                                     <button onclick="Admin.batchDelete()"
-                                        class="px-3 py-1 bg-red-100 text-red-600 rounded text-xs font-bold hover:bg-red-200 transition-colors">Batch
-                                        Delete</button>
+                                        class="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors">Delete</button>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-3">
+                            <div class="flex items-center gap-2">
                                 <button onclick="Admin.openAddUserModal()"
-                                    class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1 transition-colors">
+                                    class="bg-gradient-to-r from-blue-600 to-blue-700 text-white text-xs font-bold px-4 py-2 md:py-2.5 rounded-xl flex items-center gap-1 transition-all shadow-md shadow-blue-500/20 hover:shadow-lg hover:from-blue-700 hover:to-blue-800">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                                             d="M12 4v16m8-8H4"></path>
                                     </svg>
-                                    Add User
+                                    <span class="hidden sm:inline">Add User</span>
                                 </button>
                                 <button onclick="Admin.fetchUsers()"
-                                    class="text-blue-600 hover:text-blue-800 text-sm font-bold flex items-center gap-1">
+                                    class="text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-2 md:py-2.5 rounded-xl text-sm font-bold flex items-center justify-center transition-colors">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                                             d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
                                         </path>
                                     </svg>
-                                    刷新
                                 </button>
                             </div>
                         </div>
-                        <table class="w-full text-left text-sm">
-                            <thead class="bg-gray-100 text-gray-600 font-semibold uppercase text-xs">
-                                <tr>
-                                    <th class="px-4 py-3 w-10">
-                                        <input type="checkbox" id="select-all-users"
-                                            onchange="Admin.toggleSelectAll(this)" class="w-4 h-4 accent-blue-600">
-                                    </th>
-                                    <th class="px-6 py-3">User Info</th>
-                                    <th class="px-6 py-3">Bank Count</th>
-                                    <th class="px-6 py-3">Last Active</th>
-                                    <th class="px-6 py-3">IP / Device</th>
-                                    <th class="px-6 py-3 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="user-table-body" class="divide-y divide-gray-200">
-                                <!-- JS 渲染 -->
-                            </tbody>
-                        </table>
+                        <div class="overflow-x-auto w-full">
+                            <table class="w-full text-left text-sm whitespace-nowrap">
+                                <thead class="bg-gray-100 text-gray-600 font-semibold uppercase text-xs">
+                                    <tr>
+                                        <th class="px-4 py-3 w-10">
+                                            <input type="checkbox" id="select-all-users"
+                                                onchange="Admin.toggleSelectAll(this)" class="w-4 h-4 accent-blue-600">
+                                        </th>
+                                        <th class="px-6 py-3">User Info</th>
+                                        <th class="px-6 py-3">Bank Count</th>
+                                        <th class="px-6 py-3">Last Active</th>
+                                        <th class="px-6 py-3">IP / Device</th>
+                                        <th class="px-6 py-3 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="user-table-body" class="divide-y divide-gray-200">
+                                    <!-- JS 渲染 -->
+                            </table>
+                        </div>
                     </div>
                 </div>
 
                 <!-- 全局广播 (Push) -->
-                <div id="section-push" class="hidden max-w-4xl mx-auto space-y-6">
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                        <h3 class="text-lg font-bold text-gray-800 mb-4">Push Question Bank</h3>
+                <div id="section-push" class="hidden max-w-4xl mx-auto space-y-6 w-full">
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-8">
+                        <h3
+                            class="text-xl font-extrabold text-gray-800 mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
+                            Global Push Question Bank</h3>
                         <div class="space-y-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Target Audience</label>
@@ -485,10 +516,10 @@
                                     placeholder='[{"q":"Question?","o":["A","B"],"a":"A","type":"mcq","sub":"Math","chap":"1"}]'></textarea>
                                 <p class="text-xs text-gray-500 mt-1">Paste a JSON array of question objects.</p>
                             </div>
-                            <div class="pt-4 flex justify-end">
+                            <div class="pt-6 flex justify-end pb-2">
                                 <button onclick="Admin.pushBroadcast()" id="btn-push"
-                                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-sm">
-                                    Push to Users
+                                    class="bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold py-3 px-8 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg shadow-blue-500/20 active:scale-95">
+                                    🚀 Push to Users
                                 </button>
                             </div>
                         </div>
@@ -498,12 +529,13 @@
                 </div>
 
                 <!-- 系统日志 (Logs) -->
-                <div id="section-logs" class="hidden space-y-6">
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                        <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                            <h3 class="text-sm font-bold text-gray-700">System Sync Logs (Latest 50)</h3>
+                <div id="section-logs" class="hidden space-y-6 h-full pb-10">
+                    <div
+                        class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full">
+                        <div class="p-4 md:p-5 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                            <h3 class="text-sm font-bold text-gray-700">System Logs</h3>
                             <button onclick="Admin.fetchLogs()"
-                                class="text-blue-600 hover:text-blue-800 text-sm font-bold flex items-center gap-1">
+                                class="text-blue-600 bg-blue-50 px-3 py-2 rounded-xl hover:bg-blue-100 text-sm font-bold flex items-center gap-1 transition-colors">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
@@ -512,8 +544,8 @@
                                 Refresh
                             </button>
                         </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left text-xs font-mono">
+                        <div class="overflow-x-auto w-full">
+                            <table class="w-full text-left text-xs font-mono whitespace-nowrap">
                                 <thead class="bg-gray-900 text-gray-300 uppercase">
                                     <tr>
                                         <th class="px-4 py-2">Time</th>
@@ -566,6 +598,32 @@
             currentEditingUserId: null,
 
             selectedUsers: new Set(),
+            isSidebarOpen: false,
+
+            toggleSidebar() {
+                const sidebar = document.getElementById('sidebar');
+                const backdrop = document.getElementById('mobile-sidebar-backdrop');
+                this.isSidebarOpen = !this.isSidebarOpen;
+
+                if (this.isSidebarOpen) {
+                    sidebar.classList.remove('-translate-x-full');
+                    sidebar.classList.add('translate-x-0');
+                    backdrop.classList.remove('hidden');
+                    // Small delay to allow display:block to apply before animating opacity
+                    setTimeout(() => backdrop.classList.remove('opacity-0'), 10);
+                } else {
+                    sidebar.classList.add('-translate-x-full');
+                    sidebar.classList.remove('translate-x-0');
+                    backdrop.classList.add('opacity-0');
+                    setTimeout(() => backdrop.classList.add('hidden'), 300);
+                }
+            },
+
+            closeSidebarIfMobile() {
+                if (window.innerWidth < 768 && this.isSidebarOpen) {
+                    this.toggleSidebar();
+                }
+            },
 
             async init() {
                 try {
@@ -1021,11 +1079,11 @@
 
                     if (s === id) {
                         btn.classList.remove('hover:bg-slate-800', 'text-slate-300');
-                        btn.classList.add('bg-blue-600', 'text-white');
+                        btn.classList.add('bg-blue-600', 'text-white', 'shadow-lg', 'shadow-blue-900/20');
                         section.classList.remove('hidden');
                     } else {
                         btn.classList.add('hover:bg-slate-800', 'text-slate-300');
-                        btn.classList.remove('bg-blue-600', 'text-white');
+                        btn.classList.remove('bg-blue-600', 'text-white', 'shadow-lg', 'shadow-blue-900/20');
                         section.classList.add('hidden');
                     }
                 });
