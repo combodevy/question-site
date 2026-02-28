@@ -1320,8 +1320,8 @@ ${rawText}`;
                 tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Loading users...</td></tr>';
 
                 try {
-                    const res = await fetch(`${ADMIN_API_BASE} /api/admin / users - list`, {
-                        headers: { 'Authorization': `Bearer ${this.token} ` }
+                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/users-list`, {
+                        headers: { 'Authorization': `Bearer ${this.token}` }
                     });
 
                     if (!res.ok) {
