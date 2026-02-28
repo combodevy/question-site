@@ -516,16 +516,30 @@
                                     <span>Questions Data (JSON or AI Import)</span>
                                 </h4>
 
-                                <div class="flex items-center justify-between gap-2">
-                                    <button onclick="document.getElementById('ai-import-file').click()"
-                                        class="px-3 py-2 rounded-xl border border-purple-200 bg-purple-50 text-purple-700 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-transform hover:bg-purple-100">
-                                        📄 Select Document (TXT/MD/DOCX/PDF)...
-                                    </button>
-                                    <span id="ai-import-file-name"
-                                        class="flex-1 text-[10px] text-right text-gray-500 truncate">No file
-                                        selected</span>
+                                <div
+                                    class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                    <div class="flex items-center gap-2">
+                                        <button onclick="document.getElementById('ai-import-file').click()"
+                                            class="px-3 py-2 rounded-xl border border-purple-200 bg-purple-50 text-purple-700 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-transform hover:bg-purple-100">
+                                            📄 Select Document (TXT/MD/DOCX/PDF)...
+                                        </button>
+                                        <button onclick="document.getElementById('ai-import-json').click()"
+                                            class="px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-transform hover:bg-emerald-100">
+                                            { } Import JSON Directly
+                                        </button>
+                                    </div>
+                                    <div class="flex flex-col items-end gap-1">
+                                        <span id="ai-import-file-name"
+                                            class="text-[10px] text-gray-500 truncate max-w-[150px]">No file
+                                            selected</span>
+                                        <a href="data:application/json;charset=utf-8,%5B%0A%20%20%7B%0A%20%20%20%20%22q%22%3A%20%22Question%20text%3F%22%2C%0A%20%20%20%20%22o%22%3A%20%5B%22Option%20A%22%2C%20%22Option%20B%22%2C%20%22Option%20C%22%2C%20%22Option%20D%22%5D%2C%0A%20%20%20%20%22a%22%3A%20%22A%22%2C%0A%20%20%20%20%22type%22%3A%20%22mcq%22%2C%0A%20%20%20%20%22sub%22%3A%20%22Subject%20Name%22%2C%0A%20%20%20%20%22chap%22%3A%20%22Chapter%201%22%0A%20%20%7D%0A%5D"
+                                            download="template.json"
+                                            class="text-[10px] text-blue-500 hover:underline">Download JSON Template</a>
+                                    </div>
                                 </div>
                                 <input type="file" id="ai-import-file" class="hidden" accept=".txt,.md,.docx,.pdf"
+                                    onchange="Admin.ai.handleAIImportFile(event)">
+                                <input type="file" id="ai-import-json" class="hidden" accept=".json"
                                     onchange="Admin.ai.handleAIImportFile(event)">
 
                                 <div class="space-y-1">
@@ -1338,7 +1352,7 @@ ${rawText}`;
                     }
 
                     tbody.innerHTML = data.users.map(u => `
-            < tr class="hover:bg-gray-50 transition-colors" >
+                        <tr class="hover:bg-gray-50 transition-colors">
                             <td class="px-4 py-4">
                                 <input type="checkbox" class="user-checkbox w-4 h-4 accent-blue-600" value="${u.user_id}" onchange="Admin.toggleUserSelection('${u.user_id}')" ${this.selectedUsers.has(u.user_id) ? 'checked' : ''}>
                             </td>
