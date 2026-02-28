@@ -64,9 +64,9 @@ graph TD
     *   **AI 文档导入**: 自动识别非结构化文档中的题目并转为 JSON。
 
 5.  **高级管理面板 (Admin Panel)**
-    *   **用户管理**: 查看所有用户，支持多选、批量删除和一键添加用户。
+    *   **用户管理**: 查看所有用户，支持多选、批量删除和一键增员 (与前端会话完全隔离的独立 Auth 写入)。
     *   **题库透视**: 可视化查看和编辑任意用户的题库内容，支持实时修改题干和选项。
-    *   **全局广播 (Broadcast)**: 批量向指定用户或全员推送题库，支持从 Word/PDF/TXT 智能导入题目。
+    *   **全局广播 (Broadcast)**: 批量向指定用户或全员推送题库，支持从 Word/PDF/TXT 智能导入或直接 JSON 灌入。依托后端的基于 ID 无损拉链式合并 (Deep Merge) 机制，推送永远不会覆盖或丢失用户的历史题库与错题记录。
     *   **系统日志**: 实时监控系统同步状态、IP 来源和异常信息。
 
 ---
@@ -94,13 +94,13 @@ graph TD
 | 文件名 | 描述 (Description) |
 | :--- | :--- |
 | `save-question-set.js` | **核心保存接口**。处理题库数据的事务性保存、版本检查和去重。 |
-| `load-question-set.js` | **核心加载接口**。获取最新题库，包含自动数据清洗逻辑。 |
+| `load-question-set.js` | **核心加载接口**。获取最新题库，包含基于 ID 的拉链式安全深度合并 (Deep Merge) 与数据清洗逻辑。 |
 | `ably-auth.js` | **Ably 鉴权接口 (可选)**。生成 Ably Token Request，在未启用自建网关时为前端提供实时通道。 |
 | `sync-logs.js` | **日志查询接口**。提供同步历史记录，用于前端诊断面板。 |
 | `_auth.js` | **鉴权中间件**。验证 Supabase JWT Token (支持 Secret 和 JWKS)。 |
 | `_db.js` | **数据库工具**。管理 PostgreSQL 连接池 (Connection Pool)。 |
 | `_cors.js` | **跨域工具**。统一处理 CORS 响应头和 Preflight 请求。 |
-| **Admin API** | 位于 `/api/admin/` 下，包含 `users-list`, `push-broadcast`, `system-logs` 等管理接口。 |
+| **Admin API** | **统一路由架构**：通过 `/api/admin/[action].js` (Catch-all Router) 代理背后所有带下划线的内网接口 (如 `_push-broadcast.js` 等)，零负担完美绕过 Vercel Hobby 免费版最高 12 个 Serverless 函数的数量限制界限。 |
 
 ---
 
