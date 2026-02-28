@@ -3139,7 +3139,22 @@
                                 this.remoteVersion = 0;
                             }
                             this.bank = state.bank && typeof state.bank === "object" ? state.bank : {};
-                            this.history = Array.isArray(state.history) ? state.history : [];
+                            // ========== 增量 history 合并 ==========
+                            if (data.historyPartial && Array.isArray(state.history)) {
+                                // 服务端返回的是增量 history，合并到本地而非替换
+                                const existingTimestamps = new Set(this.history.map(h => h.t));
+                                const newEntries = state.history.filter(h => !existingTimestamps.has(h.t));
+                                if (newEntries.length > 0) {
+                                    this.history = this.history.concat(newEntries);
+                                }
+                            } else {
+                                this.history = Array.isArray(state.history) ? state.history : [];
+                            }
+                            // 更新 _lastHistoryTimestamp
+                            if (this.history.length > 0) {
+                                const maxT = this.history.reduce((m, h) => Math.max(m, h.t || 0), 0);
+                                this._lastHistoryTimestamp = maxT;
+                            }
                             this.lastPracticeTime =
                                 typeof state.lastPracticeTime === "number" ? state.lastPracticeTime : null;
                             this.trash = state.trash && typeof state.trash === "object" ? state.trash : {};
