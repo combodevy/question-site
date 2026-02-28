@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,6 +14,7 @@
     </script>
     <script src="config.js"></script>
 </head>
+
 <body class="bg-gray-50 min-h-screen font-sans text-gray-900">
 
     <!-- 登录遮罩 -->
@@ -20,13 +22,17 @@
         <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
             <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">管理员登录</h2>
             <div class="space-y-4">
-                <input type="text" id="email" placeholder="Username" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none">
-                <input type="password" id="password" placeholder="Password" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="text" id="email" placeholder="Username"
+                    class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none">
+                <input type="password" id="password" placeholder="Password"
+                    class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none">
                 <div class="flex gap-2">
-                    <button onclick="Admin.login()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors">
+                    <button onclick="Admin.login()"
+                        class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors">
                         登录 (Login)
                     </button>
-                    <button onclick="Admin.signUp()" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-lg transition-colors border border-gray-300">
+                    <button onclick="Admin.signUp()"
+                        class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-lg transition-colors border border-gray-300">
                         注册 (Sign Up)
                     </button>
                 </div>
@@ -36,18 +42,23 @@
     </div>
 
     <!-- 题库列表弹窗 -->
-    <div id="sets-modal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div id="sets-modal"
+        class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
                 <div>
                     <h3 class="text-lg font-bold text-gray-800">User's Question Sets</h3>
                     <p class="text-xs text-gray-500" id="sets-modal-subtitle">User ID: ...</p>
                 </div>
-                <button onclick="document.getElementById('sets-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 transition-colors">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                <button onclick="document.getElementById('sets-modal').classList.add('hidden')"
+                    class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
                 </button>
             </div>
-            
+
             <div class="flex-1 overflow-auto p-6 bg-gray-100">
                 <table class="w-full text-left text-sm bg-white rounded-lg shadow-sm overflow-hidden">
                     <thead class="bg-gray-50 text-gray-600 font-semibold uppercase text-xs">
@@ -65,9 +76,10 @@
                     </tbody>
                 </table>
             </div>
-            
+
             <div class="px-6 py-4 border-t border-gray-200 bg-white flex justify-end gap-3">
-                <button onclick="document.getElementById('sets-modal').classList.add('hidden')" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors">
+                <button onclick="document.getElementById('sets-modal').classList.add('hidden')"
+                    class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors">
                     Close
                 </button>
             </div>
@@ -75,18 +87,23 @@
     </div>
 
     <!-- 题库详情弹窗 -->
-    <div id="bank-modal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[60] flex items-center justify-center hidden">
+    <div id="bank-modal"
+        class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[60] flex items-center justify-center hidden">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
                 <div>
                     <h3 class="text-lg font-bold text-gray-800" id="modal-title">Bank Details</h3>
                     <p class="text-xs text-gray-500" id="modal-subtitle">Set ID: ...</p>
                 </div>
-                <button onclick="document.getElementById('bank-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 transition-colors">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                <button onclick="document.getElementById('bank-modal').classList.add('hidden')"
+                    class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
                 </button>
             </div>
-            
+
             <div class="flex-1 overflow-auto p-6 bg-gray-100 flex flex-col">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                     <!-- 概览卡片 -->
@@ -107,34 +124,45 @@
                 <!-- 视图切换 -->
                 <div class="flex justify-end mb-4">
                     <div class="bg-white rounded-lg p-1 border border-gray-200 inline-flex">
-                        <button onclick="Admin.switchView('visual')" id="btn-view-visual" class="px-4 py-1.5 rounded text-sm font-medium transition-colors bg-blue-100 text-blue-700">Visual View</button>
-                        <button onclick="Admin.switchView('json')" id="btn-view-json" class="px-4 py-1.5 rounded text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">JSON Source</button>
+                        <button onclick="Admin.switchView('visual')" id="btn-view-visual"
+                            class="px-4 py-1.5 rounded text-sm font-medium transition-colors bg-blue-100 text-blue-700">Visual
+                            View</button>
+                        <button onclick="Admin.switchView('json')" id="btn-view-json"
+                            class="px-4 py-1.5 rounded text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">JSON
+                            Source</button>
                     </div>
                 </div>
 
                 <!-- 可视化视图 -->
-                <div id="view-visual" class="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-auto p-6 space-y-6">
+                <div id="view-visual"
+                    class="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-auto p-6 space-y-6">
                     <!-- JS Render Questions -->
                     <div class="text-center text-gray-500 py-10">Loading questions...</div>
                 </div>
 
                 <!-- JSON 视图 -->
-                <div id="view-json" class="hidden flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[500px]">
+                <div id="view-json"
+                    class="hidden flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[500px]">
                     <div class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
                         <span class="text-xs font-bold text-gray-600 uppercase">Raw JSON Data (Editable)</span>
                         <div class="space-x-2">
-                            <button onclick="Admin.copyJson()" class="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-50">Copy</button>
+                            <button onclick="Admin.copyJson()"
+                                class="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-50">Copy</button>
                         </div>
                     </div>
-                    <textarea id="modal-json-content" class="flex-1 w-full p-4 font-mono text-xs text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 bg-white" spellcheck="false"></textarea>
+                    <textarea id="modal-json-content"
+                        class="flex-1 w-full p-4 font-mono text-xs text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 bg-white"
+                        spellcheck="false"></textarea>
                 </div>
             </div>
-            
+
             <div class="px-6 py-4 border-t border-gray-200 bg-white flex justify-end gap-3">
-                <button onclick="document.getElementById('bank-modal').classList.add('hidden')" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors">
+                <button onclick="document.getElementById('bank-modal').classList.add('hidden')"
+                    class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors">
                     Close
                 </button>
-                <button onclick="Admin.saveBank()" id="btn-save-bank" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2">
+                <button onclick="Admin.saveBank()" id="btn-save-bank"
+                    class="px-4 py-2 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2">
                     <span>Save Changes</span>
                 </button>
             </div>
@@ -142,36 +170,46 @@
     </div>
 
     <!-- 题目编辑弹窗 (从 index.html 移植) -->
-    <div id="modal-question-editor" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[60] flex items-center justify-center hidden">
+    <div id="modal-question-editor"
+        class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[60] flex items-center justify-center hidden">
         <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-0 flex flex-col max-h-[85vh]">
             <div class="p-4 md:p-5 border-b border-gray-200 flex justify-between items-center bg-gray-50 rounded-t-2xl">
                 <h3 id="qe-title" class="font-bold text-base text-gray-800">Edit Question</h3>
-                <button onclick="document.getElementById('modal-question-editor').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 p-1">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                <button onclick="document.getElementById('modal-question-editor').classList.add('hidden')"
+                    class="text-gray-400 hover:text-gray-600 p-1">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
                 </button>
             </div>
             <div class="p-4 md:p-5 space-y-3 overflow-y-auto flex-grow text-xs">
                 <input type="hidden" id="qe-index" />
-                
+
                 <div class="space-y-1">
                     <label class="text-[11px] text-gray-500 font-bold">Subject</label>
                     <div class="flex gap-2">
-                        <select id="qe-subject-select" class="flex-1 bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none"></select>
-                        <input id="qe-subject-input" placeholder="New Subject" class="w-32 bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none"/>
+                        <select id="qe-subject-select"
+                            class="flex-1 bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none"></select>
+                        <input id="qe-subject-input" placeholder="New Subject"
+                            class="w-32 bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none" />
                     </div>
                 </div>
 
                 <div class="space-y-1">
                     <label class="text-[11px] text-gray-500 font-bold">Chapter</label>
                     <div class="flex gap-2">
-                        <select id="qe-chapter-select" class="flex-1 bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none"></select>
-                        <input id="qe-chapter-input" placeholder="New Chapter" class="w-32 bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none"/>
+                        <select id="qe-chapter-select"
+                            class="flex-1 bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none"></select>
+                        <input id="qe-chapter-input" placeholder="New Chapter"
+                            class="w-32 bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none" />
                     </div>
                 </div>
 
                 <div class="space-y-1">
                     <label class="text-[11px] text-gray-500 font-bold">Type</label>
-                    <select id="qe-type" onchange="Admin.onQuestionTypeChange()" class="w-full bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none">
+                    <select id="qe-type" onchange="Admin.onQuestionTypeChange()"
+                        class="w-full bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none">
                         <option value="mcq">Multiple Choice (MCQ)</option>
                         <option value="multi">Multi-Select</option>
                         <option value="tf">True/False</option>
@@ -180,13 +218,16 @@
 
                 <div class="space-y-1">
                     <label class="text-[11px] text-gray-500 font-bold">Question Text</label>
-                    <textarea id="qe-q" rows="3" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none resize-none" placeholder="Enter question content..."></textarea>
+                    <textarea id="qe-q" rows="3"
+                        class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none resize-none"
+                        placeholder="Enter question content..."></textarea>
                 </div>
 
                 <div id="qe-options-block" class="space-y-1">
                     <div class="flex items-center justify-between">
                         <label class="text-[11px] text-gray-500 font-bold">Options</label>
-                        <button onclick="Admin.addQuestionOption()" class="text-[11px] text-blue-600 hover:underline font-bold">+ Add Option</button>
+                        <button onclick="Admin.addQuestionOption()"
+                            class="text-[11px] text-blue-600 hover:underline font-bold">+ Add Option</button>
                     </div>
                     <div id="qe-options-list" class="space-y-2"></div>
                 </div>
@@ -195,11 +236,11 @@
                     <label class="text-[11px] text-gray-500 font-bold">Correct Answer</label>
                     <div class="flex items-center gap-4">
                         <label class="flex items-center gap-1">
-                            <input type="radio" name="qe-tf" value="T" class="accent-blue-600"/>
+                            <input type="radio" name="qe-tf" value="T" class="accent-blue-600" />
                             <span>Correct (True)</span>
                         </label>
                         <label class="flex items-center gap-1">
-                            <input type="radio" name="qe-tf" value="F" class="accent-blue-600"/>
+                            <input type="radio" name="qe-tf" value="F" class="accent-blue-600" />
                             <span>Incorrect (False)</span>
                         </label>
                     </div>
@@ -208,74 +249,102 @@
                 <div id="qe-error" class="text-[11px] text-red-500 font-bold"></div>
             </div>
             <div class="p-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3 rounded-b-2xl">
-                <button onclick="document.getElementById('modal-question-editor').classList.add('hidden')" class="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-100">Cancel</button>
-                <button onclick="Admin.saveQuestionFromEditor()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm">Save Question</button>
+                <button onclick="document.getElementById('modal-question-editor').classList.add('hidden')"
+                    class="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-100">Cancel</button>
+                <button onclick="Admin.saveQuestionFromEditor()"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm">Save
+                    Question</button>
             </div>
         </div>
     </div>
 
     <!-- 添加用户弹窗 -->
-    <div id="modal-add-user" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[70] flex items-center justify-center hidden">
+    <div id="modal-add-user"
+        class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[70] flex items-center justify-center hidden">
         <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
             <h3 class="text-lg font-bold text-gray-800 mb-4">Add New User</h3>
             <div class="space-y-4">
                 <div>
                     <label class="block text-xs font-bold text-gray-500 mb-1">Email</label>
-                    <input id="new-user-email" type="email" class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 outline-none text-sm">
+                    <input id="new-user-email" type="email"
+                        class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 outline-none text-sm">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-500 mb-1">Password</label>
-                    <input id="new-user-pwd" type="password" class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 outline-none text-sm">
+                    <input id="new-user-pwd" type="password"
+                        class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 outline-none text-sm">
                 </div>
                 <div id="add-user-msg" class="text-xs text-red-500 min-h-[1rem]"></div>
                 <div class="flex justify-end gap-2 pt-2">
-                    <button onclick="document.getElementById('modal-add-user').classList.add('hidden')" class="px-3 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-bold">Cancel</button>
-                    <button onclick="Admin.addNewUser()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700">Create User</button>
+                    <button onclick="document.getElementById('modal-add-user').classList.add('hidden')"
+                        class="px-3 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-bold">Cancel</button>
+                    <button onclick="Admin.addNewUser()"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700">Create
+                        User</button>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- 批量推送确认弹窗 -->
-    <div id="modal-batch-push" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[70] flex items-center justify-center hidden">
+    <div id="modal-batch-push"
+        class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[70] flex items-center justify-center hidden">
         <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-2xl">
             <h3 class="text-lg font-bold text-gray-800 mb-2">Batch Push to Selected Users</h3>
-            <p class="text-sm text-gray-500 mb-4">Selected Users: <span id="batch-push-count" class="font-bold text-gray-900">0</span></p>
-            
+            <p class="text-sm text-gray-500 mb-4">Selected Users: <span id="batch-push-count"
+                    class="font-bold text-gray-900">0</span></p>
+
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
-                    <input id="batch-bank-name" type="text" placeholder="e.g. Exam 2024" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none">
+                    <input id="batch-bank-name" type="text" placeholder="e.g. Exam 2024"
+                        class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none">
                 </div>
-                
+
                 <!-- 导入区域 -->
                 <div class="border-t border-gray-200 pt-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Import Questions</label>
                     <div class="grid grid-cols-2 gap-4">
                         <!-- 文件上传 -->
-                        <div class="border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-center hover:bg-gray-50 transition-colors cursor-pointer relative">
-                            <input type="file" id="batch-import-file" accept=".txt,.json,.docx,.pdf" class="absolute inset-0 opacity-0 cursor-pointer" onchange="Admin.handleFileImport(this)">
-                            <svg class="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                        <div
+                            class="border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-center hover:bg-gray-50 transition-colors cursor-pointer relative">
+                            <input type="file" id="batch-import-file" accept=".txt,.json,.docx,.pdf"
+                                class="absolute inset-0 opacity-0 cursor-pointer"
+                                onchange="Admin.handleFileImport(this)">
+                            <svg class="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12">
+                                </path>
+                            </svg>
                             <span class="text-xs text-gray-600 font-bold">Upload File</span>
                             <span class="text-[10px] text-gray-400 mt-1">Word, PDF, TXT, JSON</span>
                         </div>
                         <!-- 粘贴文本 -->
-                        <textarea id="batch-json-input" class="w-full h-32 bg-gray-50 border border-gray-300 rounded-xl p-3 text-xs font-mono outline-none resize-none" placeholder="Or paste JSON / Text content here..."></textarea>
+                        <textarea id="batch-json-input"
+                            class="w-full h-32 bg-gray-50 border border-gray-300 rounded-xl p-3 text-xs font-mono outline-none resize-none"
+                            placeholder="Or paste JSON / Text content here..."></textarea>
                     </div>
                 </div>
 
                 <!-- 预览区域 -->
                 <div id="import-preview-area" class="hidden bg-gray-50 rounded-xl p-4 border border-gray-200">
                     <div class="flex justify-between items-center mb-2">
-                        <span class="text-xs font-bold text-gray-600">Preview: <span id="preview-count">0</span> questions</span>
-                        <button onclick="document.getElementById('import-preview-details').classList.toggle('hidden')" class="text-blue-600 text-xs hover:underline">Show/Hide Details</button>
+                        <span class="text-xs font-bold text-gray-600">Preview: <span id="preview-count">0</span>
+                            questions</span>
+                        <button onclick="document.getElementById('import-preview-details').classList.toggle('hidden')"
+                            class="text-blue-600 text-xs hover:underline">Show/Hide Details</button>
                     </div>
-                    <div id="import-preview-details" class="hidden max-h-40 overflow-y-auto space-y-2 text-xs text-gray-600"></div>
+                    <div id="import-preview-details"
+                        class="hidden max-h-40 overflow-y-auto space-y-2 text-xs text-gray-600"></div>
                 </div>
 
                 <div class="flex justify-end gap-2 pt-2">
-                    <button onclick="document.getElementById('modal-batch-push').classList.add('hidden')" class="px-3 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-bold">Cancel</button>
-                    <button onclick="Admin.confirmBatchPush()" id="btn-confirm-batch-push" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700">Push Now</button>
+                    <button onclick="document.getElementById('modal-batch-push').classList.add('hidden')"
+                        class="px-3 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-bold">Cancel</button>
+                    <button onclick="Admin.confirmBatchPush()" id="btn-confirm-batch-push"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700">Push
+                        Now</button>
                 </div>
             </div>
         </div>
@@ -290,13 +359,24 @@
                 <p class="text-xs text-slate-400 mt-1">v1.1.0 (Visual Editor)</p>
             </div>
             <nav class="flex-1 p-4 space-y-2">
-                <button onclick="Admin.switchSection('users')" id="nav-users" class="w-full text-left px-4 py-2 rounded bg-blue-600 text-white transition-colors">用户列表 (Users)</button>
-                <button onclick="Admin.switchSection('push')" id="nav-push" class="w-full text-left px-4 py-2 rounded hover:bg-slate-800 text-slate-300 transition-colors">全局广播 (Push)</button>
-                <button onclick="Admin.switchSection('logs')" id="nav-logs" class="w-full text-left px-4 py-2 rounded hover:bg-slate-800 text-slate-300 transition-colors">系统日志 (Logs)</button>
+                <button onclick="Admin.switchSection('users')" id="nav-users"
+                    class="w-full text-left px-4 py-2 rounded bg-blue-600 text-white transition-colors">用户列表
+                    (Users)</button>
+                <button onclick="Admin.switchSection('push')" id="nav-push"
+                    class="w-full text-left px-4 py-2 rounded hover:bg-slate-800 text-slate-300 transition-colors">全局广播
+                    (Push)</button>
+                <button onclick="Admin.switchSection('logs')" id="nav-logs"
+                    class="w-full text-left px-4 py-2 rounded hover:bg-slate-800 text-slate-300 transition-colors">系统日志
+                    (Logs)</button>
             </nav>
             <div class="p-4 border-t border-slate-800">
-                <button onclick="Admin.logout()" class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                <button onclick="Admin.logout()"
+                    class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+                        </path>
+                    </svg>
                     <span>退出登录</span>
                 </button>
             </div>
@@ -307,8 +387,11 @@
             <header class="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-8">
                 <h2 id="page-title" class="text-lg font-semibold text-gray-700">用户概览</h2>
                 <div class="flex items-center gap-4">
-                    <span id="admin-user-id" class="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded"></span>
-                    <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">A</div>
+                    <span id="admin-user-id"
+                        class="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded"></span>
+                    <div
+                        class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
+                        A</div>
                 </div>
             </header>
 
@@ -318,20 +401,35 @@
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                         <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
                             <div class="flex items-center gap-4">
-                                <div class="text-sm font-medium text-gray-600">Total Users: <span id="user-count">Loading...</span></div>
-                                <div id="batch-actions" class="hidden flex items-center gap-2 pl-4 border-l border-gray-300">
+                                <div class="text-sm font-medium text-gray-600">Total Users: <span
+                                        id="user-count">Loading...</span></div>
+                                <div id="batch-actions"
+                                    class="hidden flex items-center gap-2 pl-4 border-l border-gray-300">
                                     <span id="selected-count" class="text-xs font-bold text-blue-600">0 selected</span>
-                                    <button onclick="Admin.batchPush()" class="px-3 py-1 bg-blue-100 text-blue-600 rounded text-xs font-bold hover:bg-blue-200 transition-colors">Batch Push</button>
-                                    <button onclick="Admin.batchDelete()" class="px-3 py-1 bg-red-100 text-red-600 rounded text-xs font-bold hover:bg-red-200 transition-colors">Batch Delete</button>
+                                    <button onclick="Admin.batchPush()"
+                                        class="px-3 py-1 bg-blue-100 text-blue-600 rounded text-xs font-bold hover:bg-blue-200 transition-colors">Batch
+                                        Push</button>
+                                    <button onclick="Admin.batchDelete()"
+                                        class="px-3 py-1 bg-red-100 text-red-600 rounded text-xs font-bold hover:bg-red-200 transition-colors">Batch
+                                        Delete</button>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3">
-                                <button onclick="Admin.openAddUserModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1 transition-colors">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                <button onclick="Admin.openAddUserModal()"
+                                    class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M12 4v16m8-8H4"></path>
+                                    </svg>
                                     Add User
                                 </button>
-                                <button onclick="Admin.fetchUsers()" class="text-blue-600 hover:text-blue-800 text-sm font-bold flex items-center gap-1">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                <button onclick="Admin.fetchUsers()"
+                                    class="text-blue-600 hover:text-blue-800 text-sm font-bold flex items-center gap-1">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                                        </path>
+                                    </svg>
                                     刷新
                                 </button>
                             </div>
@@ -340,7 +438,8 @@
                             <thead class="bg-gray-100 text-gray-600 font-semibold uppercase text-xs">
                                 <tr>
                                     <th class="px-4 py-3 w-10">
-                                        <input type="checkbox" id="select-all-users" onchange="Admin.toggleSelectAll(this)" class="w-4 h-4 accent-blue-600">
+                                        <input type="checkbox" id="select-all-users"
+                                            onchange="Admin.toggleSelectAll(this)" class="w-4 h-4 accent-blue-600">
                                     </th>
                                     <th class="px-6 py-3">User Info</th>
                                     <th class="px-6 py-3">Bank Count</th>
@@ -363,32 +462,39 @@
                         <div class="space-y-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Target Audience</label>
-                                <select id="push-target" onchange="Admin.togglePushTarget()" class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 outline-none">
+                                <select id="push-target" onchange="Admin.togglePushTarget()"
+                                    class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 outline-none">
                                     <option value="all">All Users (Broadcast)</option>
                                     <option value="user">Specific User ID</option>
                                 </select>
                             </div>
                             <div id="push-user-input-group" class="hidden">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">User ID</label>
-                                <input id="push-user-id" type="text" placeholder="Enter User UUID" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none font-mono text-sm">
+                                <input id="push-user-id" type="text" placeholder="Enter User UUID"
+                                    class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none font-mono text-sm">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
-                                <input id="push-bank-name" type="text" placeholder="e.g. Weekly Quiz 01" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none">
+                                <input id="push-bank-name" type="text" placeholder="e.g. Weekly Quiz 01"
+                                    class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Questions JSON</label>
-                                <textarea id="push-json" rows="10" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none font-mono text-xs" placeholder='[{"q":"Question?","o":["A","B"],"a":"A","type":"mcq","sub":"Math","chap":"1"}]'></textarea>
+                                <textarea id="push-json" rows="10"
+                                    class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none font-mono text-xs"
+                                    placeholder='[{"q":"Question?","o":["A","B"],"a":"A","type":"mcq","sub":"Math","chap":"1"}]'></textarea>
                                 <p class="text-xs text-gray-500 mt-1">Paste a JSON array of question objects.</p>
                             </div>
                             <div class="pt-4 flex justify-end">
-                                <button onclick="Admin.pushBroadcast()" id="btn-push" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-sm">
+                                <button onclick="Admin.pushBroadcast()" id="btn-push"
+                                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-sm">
                                     Push to Users
                                 </button>
                             </div>
                         </div>
                     </div>
-                    <div id="push-result" class="hidden bg-green-50 border border-green-200 rounded-xl p-4 text-green-800 text-sm"></div>
+                    <div id="push-result"
+                        class="hidden bg-green-50 border border-green-200 rounded-xl p-4 text-green-800 text-sm"></div>
                 </div>
 
                 <!-- 系统日志 (Logs) -->
@@ -396,8 +502,13 @@
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                         <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
                             <h3 class="text-sm font-bold text-gray-700">System Sync Logs (Latest 50)</h3>
-                            <button onclick="Admin.fetchLogs()" class="text-blue-600 hover:text-blue-800 text-sm font-bold flex items-center gap-1">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            <button onclick="Admin.fetchLogs()"
+                                class="text-blue-600 hover:text-blue-800 text-sm font-bold flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                                    </path>
+                                </svg>
                                 Refresh
                             </button>
                         </div>
@@ -453,14 +564,14 @@
         window.Admin = {
             token: null,
             currentEditingUserId: null,
-            
+
             selectedUsers: new Set(),
 
             async init() {
                 try {
                     const { data: { session }, error } = await supabaseClient.auth.getSession();
                     if (error) throw error;
-                    
+
                     if (session) {
                         this.token = session.access_token;
                         document.getElementById('login-overlay').classList.add('hidden');
@@ -508,12 +619,12 @@
                 } else {
                     this.selectedUsers.add(userId);
                 }
-                
+
                 // Update "Select All" state
                 const allCheckbox = document.getElementById('select-all-users');
                 const checkboxes = document.querySelectorAll('.user-checkbox');
                 allCheckbox.checked = checkboxes.length > 0 && this.selectedUsers.size === checkboxes.length;
-                
+
                 this.updateBatchActions();
             },
 
@@ -521,7 +632,7 @@
                 const count = this.selectedUsers.size;
                 const actionsEl = document.getElementById('batch-actions');
                 const countEl = document.getElementById('selected-count');
-                
+
                 countEl.innerText = `${count} selected`;
                 if (count > 0) {
                     actionsEl.classList.remove('hidden');
@@ -541,7 +652,7 @@
                 const username = document.getElementById('new-user-email').value;
                 const password = document.getElementById('new-user-pwd').value;
                 const msg = document.getElementById('add-user-msg');
-                
+
                 if (!username || !password) {
                     msg.innerText = 'Please enter username and password';
                     return;
@@ -552,7 +663,7 @@
                 }
 
                 msg.innerText = 'Creating user...';
-                
+
                 // Note: Client-side creation only works if enabled in Supabase settings or using service role key (not exposed here)
                 // For admin panel, we rely on the signed-in admin having permissions or use an API route if configured
                 try {
@@ -609,7 +720,7 @@
                 if (this.selectedUsers.size === 0) return;
                 document.getElementById('batch-push-count').innerText = this.selectedUsers.size;
                 document.getElementById('modal-batch-push').classList.remove('hidden');
-                
+
                 // Reset form
                 document.getElementById('batch-bank-name').value = '';
                 document.getElementById('batch-json-input').value = '';
@@ -655,7 +766,7 @@
                             this.showPreview();
                             return;
                         }
-                    } catch (e) {}
+                    } catch (e) { }
 
                     // Fallback to text parsing
                     // Split by typical question patterns (1., 2., etc)
@@ -672,10 +783,10 @@
 
                         if (isQuestionStart(line)) {
                             if (currentQ) questions.push(currentQ);
-                            currentQ = { 
-                                q: line.replace(/^\d+[\.,、]\s*/, ''), 
-                                o: [], 
-                                a: '', 
+                            currentQ = {
+                                q: line.replace(/^\d+[\.,、]\s*/, ''),
+                                o: [],
+                                a: '',
                                 type: 'mcq',
                                 sub: 'Imported',
                                 chap: '1'
@@ -705,13 +816,13 @@
                 const area = document.getElementById('import-preview-area');
                 const countEl = document.getElementById('preview-count');
                 const detailsEl = document.getElementById('import-preview-details');
-                
+
                 area.classList.remove('hidden');
                 countEl.innerText = this.parsedQuestions.length;
-                
+
                 detailsEl.innerHTML = this.parsedQuestions.slice(0, 5).map((q, i) => `
                     <div class="border-b border-gray-200 pb-1 mb-1 last:border-0">
-                        <div class="font-bold truncate">${i+1}. ${q.q}</div>
+                        <div class="font-bold truncate">${i + 1}. ${q.q}</div>
                         <div class="text-gray-400 pl-2">Options: ${q.o.length}, Answer: ${q.a}</div>
                     </div>
                 `).join('') + (this.parsedQuestions.length > 5 ? `<div class="text-center italic text-gray-400">...and ${this.parsedQuestions.length - 5} more</div>` : '');
@@ -720,7 +831,7 @@
             async confirmBatchPush() {
                 const bankName = document.getElementById('batch-bank-name').value.trim();
                 const jsonInput = document.getElementById('batch-json-input').value.trim();
-                
+
                 if (!bankName) {
                     alert('Please enter a bank name');
                     return;
@@ -783,7 +894,7 @@
                 const password = document.getElementById('password').value;
                 const msg = document.getElementById('login-msg');
                 msg.innerText = 'Logging in...';
-                
+
                 try {
                     const email = adminUsernameToEmail(loginId);
                     const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
@@ -802,14 +913,14 @@
                 const loginId = document.getElementById('email').value;
                 const password = document.getElementById('password').value;
                 const msg = document.getElementById('login-msg');
-                
+
                 if (!loginId || !password) {
                     msg.innerText = 'Please enter both username and password';
                     return;
                 }
-                
+
                 msg.innerText = 'Signing up...';
-                
+
                 try {
                     if (loginId.includes('@')) {
                         msg.innerText = 'Username cannot contain @';
@@ -829,7 +940,7 @@
                         msg.innerText = 'Sign up successful! Please check your email for confirmation link, or if email confirmation is disabled, you can login now.';
                         // Try to auto login if session exists
                         if (data.session) {
-                             msg.innerText = 'Sign up successful! Logging in...';
+                            msg.innerText = 'Sign up successful! Logging in...';
                         }
                     }
                 } catch (e) {
@@ -845,7 +956,7 @@
                 const tbody = document.getElementById('user-table-body');
                 const countEl = document.getElementById('user-count');
                 tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Loading users...</td></tr>';
-                
+
                 try {
                     const res = await fetch(`${ADMIN_API_BASE}/api/admin/users-list`, {
                         headers: { 'Authorization': `Bearer ${this.token}` }
@@ -858,10 +969,10 @@
 
                     const data = await res.json();
                     countEl.innerText = data.meta ? data.meta.total : (data.users ? data.users.length : 0);
-                    
+
                     if (!data.users || data.users.length === 0) {
-                         tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">No users found.</td></tr>';
-                         return;
+                        tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">No users found.</td></tr>';
+                        return;
                     }
 
                     tbody.innerHTML = data.users.map(u => `
@@ -871,8 +982,8 @@
                             </td>
                             <td class="px-6 py-4">
                                 <div class="flex flex-col">
-                                    <span class="font-bold text-gray-900">${u.username || u.email || 'No Name'}</span>
-                                    <span class="font-mono text-[10px] text-gray-400 select-all">${u.user_id}</span>
+                                    <span class="font-bold text-gray-900">${Admin.escapeHTML(u.username || u.email || 'No Name')}</span>
+                                    <span class="font-mono text-[10px] text-gray-400 select-all">${Admin.escapeHTML(u.user_id)}</span>
                                 </div>
                             </td>
                             <td class="px-6 py-4">
@@ -882,15 +993,15 @@
                                 ${u.last_active_at ? new Date(u.last_active_at).toLocaleString() : '-'}
                             </td>
                             <td class="px-6 py-4 text-xs text-gray-500">
-                                <div class="truncate max-w-[150px]" title="${u.last_ip || 'N/A'}">${u.last_ip || '-'}</div>
-                                <div class="truncate max-w-[150px] opacity-70" title="${u.last_device || 'N/A'}">${u.last_device || '-'}</div>
+                                <div class="truncate max-w-[150px]" title="${Admin.escapeHTML(u.last_ip || 'N/A')}">${Admin.escapeHTML(u.last_ip || '-')}</div>
+                                <div class="truncate max-w-[150px] opacity-70" title="${Admin.escapeHTML(u.last_device || 'N/A')}">${Admin.escapeHTML(u.last_device || '-')}</div>
                             </td>
                             <td class="px-6 py-4 text-right">
                                 <button onclick="Admin.viewSets('${u.user_id}')" class="text-blue-600 hover:underline text-xs font-bold mr-2">Manage Banks</button>
                             </td>
                         </tr>
                     `).join('');
-                    
+
                     // Restore "Select All" checkbox state
                     const allCheckbox = document.getElementById('select-all-users');
                     if (allCheckbox) {
@@ -907,7 +1018,7 @@
                 ['users', 'push', 'logs'].forEach(s => {
                     const btn = document.getElementById(`nav-${s}`);
                     const section = document.getElementById(`section-${s}`);
-                    
+
                     if (s === id) {
                         btn.classList.remove('hover:bg-slate-800', 'text-slate-300');
                         btn.classList.add('bg-blue-600', 'text-white');
@@ -952,7 +1063,7 @@
                     alert('Please enter a Bank Name');
                     return;
                 }
-                
+
                 let questions;
                 try {
                     questions = JSON.parse(jsonStr);
@@ -1007,15 +1118,15 @@
             async fetchLogs() {
                 const tbody = document.getElementById('logs-table-body');
                 tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">Loading logs...</td></tr>';
-                
+
                 try {
                     const res = await fetch(`${ADMIN_API_BASE}/api/admin/system-logs?limit=50`, {
                         headers: { 'Authorization': `Bearer ${this.token}` }
                     });
-                    
+
                     if (!res.ok) throw new Error('Failed to fetch logs');
                     const data = await res.json();
-                    
+
                     if (!data.logs || data.logs.length === 0) {
                         tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">No logs found.</td></tr>';
                         return;
@@ -1044,11 +1155,11 @@
                 const modal = document.getElementById('sets-modal');
                 const subtitle = document.getElementById('sets-modal-subtitle');
                 const tbody = document.getElementById('sets-table-body');
-                
+
                 modal.classList.remove('hidden');
                 subtitle.innerText = `User ID: ${userId}`;
                 tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Loading sets...</td></tr>';
-                
+
                 try {
                     const res = await fetch(`${ADMIN_API_BASE}/api/admin/users-sets?userId=${userId}`, {
                         headers: {
@@ -1058,7 +1169,7 @@
 
                     if (!res.ok) throw new Error('Failed to fetch sets');
                     const data = await res.json();
-                    
+
                     if (!data.sets || data.sets.length === 0) {
                         tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">No question sets found for this user.</td></tr>';
                         return;
@@ -1092,7 +1203,7 @@
                 const created = document.getElementById('modal-created');
 
                 modal.classList.remove('hidden');
-                this.switchView('visual'); 
+                this.switchView('visual');
                 title.innerText = 'Loading...';
                 subtitle.innerText = `Set ID: ${setId}`;
                 jsonContent.value = 'Fetching data...';
@@ -1100,7 +1211,7 @@
                 totalQ.innerText = '-';
                 version.innerText = '-';
                 created.innerText = '-';
-                
+
                 this.currentEditingSetId = setId;
 
                 try {
@@ -1114,7 +1225,7 @@
                     }
 
                     const data = await res.json();
-                    
+
                     this.currentBankInfo = data.bank_info || {};
                     this.currentQuestions = data.questions || [];
                     this.currentEditingUserId = data.user_id;
@@ -1123,7 +1234,7 @@
                     totalQ.innerText = this.currentQuestions.length;
                     version.innerText = `v${this.currentBankInfo.version || 0}`;
                     created.innerText = this.currentBankInfo.created_at ? new Date(this.currentBankInfo.created_at).toLocaleString() : '-';
-                    
+
                     this.updateJsonView();
                     this.renderVisualQuestions();
 
@@ -1161,7 +1272,7 @@
                     const safeQ = this.escapeHTML(q.q || '');
                     const typeLabels = { mcq: 'Multiple Choice', multi: 'Multi-Select', tf: 'True/False' };
                     const typeLabel = typeLabels[q.type] || q.type;
-                    
+
                     let optionsHtml = '';
                     if (q.type === 'tf') {
                         const isTrue = q.a === 'T';
@@ -1172,7 +1283,7 @@
                             </div>
                         `;
                     } else {
-                        optionsHtml = `<div class="space-y-1 mt-2">` + 
+                        optionsHtml = `<div class="space-y-1 mt-2">` +
                             (q.o || []).map((opt, i) => {
                                 const char = String.fromCharCode(65 + i);
                                 const isCorrect = (q.a || '').includes(char);
@@ -1183,8 +1294,8 @@
                                         ${isCorrect ? '<span class="ml-auto text-green-600">✔</span>' : ''}
                                     </div>
                                 `;
-                            }).join('') + 
-                        `</div>`;
+                            }).join('') +
+                            `</div>`;
                     }
 
                     return `
@@ -1222,7 +1333,7 @@
                 const updateChapters = (sub) => {
                     const chapSelect = document.getElementById('qe-chapter-select');
                     chapSelect.innerHTML = '<option value="">Select Chapter...</option>';
-                    if(!sub) return;
+                    if (!sub) return;
                     const chaps = [...new Set(this.currentQuestions.filter(x => x.sub === sub).map(x => x.chap))].filter(Boolean).sort();
                     chaps.forEach(c => chapSelect.add(new Option(c, c)));
                 };
@@ -1259,7 +1370,7 @@
                     typeSelect.value = 'mcq';
                     qText.value = '';
                     subSelect.value = subjects[0] || '';
-                    if(subjects[0]) updateChapters(subjects[0]);
+                    if (subjects[0]) updateChapters(subjects[0]);
                     this.renderEditorOptions(null);
                 }
 
@@ -1270,7 +1381,7 @@
             renderEditorOptions(q) {
                 const list = document.getElementById('qe-options-list');
                 const tfRadios = document.querySelectorAll('input[name="qe-tf"]');
-                
+
                 if (q && q.type === 'tf') {
                     tfRadios.forEach(r => r.checked = r.value === q.a);
                 } else {
@@ -1278,7 +1389,7 @@
                     list.innerHTML = '';
                     const opts = q ? (q.o || []) : ['', '', '', ''];
                     opts.forEach((txt, i) => {
-                        this.addQuestionOption(txt, q ? (q.a || '').includes(String.fromCharCode(65+i)) : false);
+                        this.addQuestionOption(txt, q ? (q.a || '').includes(String.fromCharCode(65 + i)) : false);
                     });
                 }
             },
@@ -1311,7 +1422,7 @@
                 const type = document.getElementById('qe-type').value;
                 const optBlock = document.getElementById('qe-options-block');
                 const tfBlock = document.getElementById('qe-tf-block');
-                
+
                 if (type === 'tf') {
                     optBlock.classList.add('hidden');
                     tfBlock.classList.remove('hidden');
@@ -1358,7 +1469,7 @@
                     const list = document.getElementById('qe-options-list');
                     const options = [];
                     let answer = '';
-                    
+
                     Array.from(list.children).forEach((div, i) => {
                         const val = div.querySelector('input[type="text"]').value.trim();
                         if (val) {
@@ -1408,21 +1519,21 @@
                     visualBtn.classList.replace('hover:text-gray-900', 'bg-blue-100');
                     jsonBtn.classList.replace('text-blue-700', 'text-gray-600');
                     jsonBtn.classList.replace('bg-blue-100', 'hover:text-gray-900');
-                    
+
                     visualView.classList.remove('hidden');
                     jsonView.classList.add('hidden');
-                    
+
                     try {
-                         const jsonVal = document.getElementById('modal-json-content').value;
-                         if(jsonVal && jsonVal !== 'Fetching data...') {
-                             const parsed = JSON.parse(jsonVal);
-                             if(parsed.questions) {
-                                 this.currentQuestions = parsed.questions;
-                                 this.currentBankInfo = parsed.info || this.currentBankInfo;
-                                 this.renderVisualQuestions();
-                             }
-                         }
-                    } catch(e) {
+                        const jsonVal = document.getElementById('modal-json-content').value;
+                        if (jsonVal && jsonVal !== 'Fetching data...') {
+                            const parsed = JSON.parse(jsonVal);
+                            if (parsed.questions) {
+                                this.currentQuestions = parsed.questions;
+                                this.currentBankInfo = parsed.info || this.currentBankInfo;
+                                this.renderVisualQuestions();
+                            }
+                        }
+                    } catch (e) {
                         console.warn('Invalid JSON when switching to visual view');
                     }
                 } else {
@@ -1433,22 +1544,22 @@
 
                     jsonView.classList.remove('hidden');
                     visualView.classList.add('hidden');
-                    
+
                     this.updateJsonView();
                 }
             },
 
             async saveBank() {
                 if (!this.currentEditingUserId) return;
-                
-                if(!document.getElementById('view-visual').classList.contains('hidden')) {
-                     this.updateJsonView();
+
+                if (!document.getElementById('view-visual').classList.contains('hidden')) {
+                    this.updateJsonView();
                 }
 
                 const jsonContent = document.getElementById('modal-json-content');
                 const btn = document.getElementById('btn-save-bank');
                 const originalText = btn.innerHTML;
-                
+
                 try {
                     let bankData;
                     try {
@@ -1457,14 +1568,14 @@
                         alert('Invalid JSON format!');
                         return;
                     }
-                    
+
                     if (!confirm('Are you sure you want to OVERWRITE this user\'s data? This cannot be undone.')) return;
-                    
+
                     btn.innerHTML = '<span>Saving...</span>';
                     btn.disabled = true;
                     btn.classList.add('opacity-50', 'cursor-not-allowed');
- 
-                    const res = await fetch(`/api/admin/users-update-bank`, {
+
+                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/users-update-bank`, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${this.token}`,
@@ -1483,9 +1594,9 @@
 
                     const result = await res.json();
                     alert(`Success! User data updated to version ${result.version}. The user will receive the update instantly.`);
-                    
+
                     this.viewBank(this.currentEditingSetId);
-                    this.fetchUsers(); 
+                    this.fetchUsers();
 
                 } catch (e) {
                     console.error(e);
@@ -1496,7 +1607,7 @@
                     btn.classList.remove('opacity-50', 'cursor-not-allowed');
                 }
             },
-            
+
             copyJson() {
                 const jsonContent = document.getElementById('modal-json-content');
                 jsonContent.select();
@@ -1512,4 +1623,5 @@
         }
     </script>
 </body>
+
 </html>
