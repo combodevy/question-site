@@ -1067,6 +1067,13 @@
                     if (allCheckbox) {
                         allCheckbox.checked = data.users.length > 0 && this.selectedUsers.size === data.users.length;
                     }
+
+                    // Populate the push-user-id select dropdown
+                    const pushUserSelect = document.getElementById('push-user-id');
+                    if (pushUserSelect && pushUserSelect.tagName === 'SELECT') {
+                        pushUserSelect.innerHTML = '<option value="">Select a user...</option>' +
+                            data.users.map(u => `<option value="${Admin.escapeHTML(u.user_id)}">${Admin.escapeHTML(u.username || u.email || 'No Name')} (${Admin.escapeHTML(u.user_id.substring(0, 8))}...)</option>`).join('');
+                    }
                 } catch (e) {
                     console.error(e);
                     tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-red-500">Error: ${e.message}</td></tr>`;
