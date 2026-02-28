@@ -1040,26 +1040,30 @@ ${rawText}`;
 
                 msg.innerText = 'Creating user...';
 
-                // Note: Client-side creation only works if enabled in Supabase settings or using service role key (not exposed here)
-                // For admin panel, we rely on the signed-in admin having permissions or use an API route if configured
+                // Replace frontend signUp with backend Admin API call to prevent logging out
                 try {
-                    const { data, error } = await supabaseClient.auth.signUp({
-                        email: adminUsernameToEmail(username),
-                        password,
-                        options: {
-                            data: { created_by_admin: true, username }
-                        }
+                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/create-user`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${this.token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            email: adminUsernameToEmail(username),
+                            password: password,
+                            username: username
+                        })
                     });
 
-                    if (error) throw error;
+                    const data = await res.json();
 
-                    if (data.user) {
-                        alert(`User created successfully! ID: ${data.user.id} `);
-                        document.getElementById('modal-add-user').classList.add('hidden');
-                        this.fetchUsers();
-                    } else {
-                        msg.innerText = 'User creation initiated.';
+                    if (!res.ok) {
+                        throw new Error(data.error || 'Failed to create user');
                     }
+
+                    alert(`User created successfully! ID: ${data.user.id}`);
+                    document.getElementById('modal-add-user').classList.add('hidden');
+                    this.fetchUsers();
                 } catch (e) {
                     msg.innerText = 'Error: ' + e.message;
                 }
