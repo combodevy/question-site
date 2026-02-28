@@ -153,12 +153,26 @@ module.exports = async (req, res) => {
             bank[sub][chap].push(q);
         }
 
-        // 6. 兜底逻辑：如果数据库中 questions 表为空，但 state 中有 bank 数据，则使用 state 中的
-        // 这种情况可能发生在迁移过程中
+        // 6. 安全合并逻辑：将 state.bank 中的老数据与 questions 表中的数据组合。
+        // 这是为了解决迁移过渡期问题：用户的历史题均在 state.bank 中且并没跑全量同步进 questions 表。
+        // 此时如果强推新题进 questions，不能按大小覆盖，而是要安全合并，并以 ID 为主键去重。
         const baseBank = baseState && typeof baseState === 'object' && baseState.bank ? baseState.bank : null;
-        if (baseBank && countBank(baseBank) > countBank(bank)) {
-            for (const sub in bank) delete bank[sub];
-            Object.assign(bank, baseBank);
+        if (baseBank) {
+            for (const sub in baseBank) {
+                if (!baseBank[sub]) continue;
+                if (!bank[sub]) bank[sub] = {};
+                for (const chap in baseBank[sub]) {
+                    if (!Array.isArray(baseBank[sub][chap])) continue;
+                    if (!bank[sub][chap]) bank[sub][chap] = [];
+
+                    for (const q of baseBank[sub][chap]) {
+                        if (q && q.id && !seenIds.has(q.id)) {
+                            seenIds.add(q.id);
+                            bank[sub][chap].push(q);
+                        }
+                    }
+                }
+            }
         }
 
         // 获取完整 history
