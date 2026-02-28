@@ -13,7 +13,8 @@ window.SUPABASE_URL = "https://ypklipqkngswhyifuoyx.supabase.co";
 // Supabase Anon Key (Public) - 用于前端直接调用 Supabase Auth
 window.SUPABASE_ANON_KEY = "sb_publishable_u7SRFFezpCGOl9czulWkrg_pPrVnSyh";
 // Vercel Serverless Function Base URL
-window.API_BASE = "https://question-site-lac.vercel.app";
+// TODO: 合并到 main 前改回 "https://question-site-lac.vercel.app"
+window.API_BASE = "https://question-site-git-antigravity-combodevys-projects.vercel.app";
 
 // Realtime Gateway WebSocket URL (Cloudflare Workers)
 window.REALTIME_WS_URL = "wss://qs-realtime-v2.combodevy-9b0.workers.dev/realtime";
