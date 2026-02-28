@@ -113,6 +113,10 @@ module.exports = async (req, res) => {
                         if (!q.chap || q.chap.trim() === '' || q.chap.toLowerCase().includes('chapter 1')) {
                             q.chap = 'Imported';
                         }
+                        // 兜底补全必填题目标识：防止手工导入 JSON 缺失 id 导致前端错题本崩溃
+                        if (!q.id) {
+                            q.id = require('crypto').randomUUID();
+                        }
 
                         values.push(`($1, $${paramIdx}::jsonb)`);
                         params.push(JSON.stringify(q));
@@ -121,6 +125,9 @@ module.exports = async (req, res) => {
 
                     const insertQ = `INSERT INTO questions (question_set_id, content) VALUES ${values.join(',')}`;
                     await query(insertQ, params);
+
+                    // 强制更新 version 以打破 ETag/304 缓存，促使用户侧下拉最新题库
+                    await query('UPDATE question_sets SET version = version + 1 WHERE id = $1', [setId]);
                 }
                 successCount++;
             } catch (e) {
