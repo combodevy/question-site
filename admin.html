@@ -511,12 +511,47 @@
                                 <input id="push-bank-name" type="text" placeholder="e.g. Weekly Quiz 01"
                                     class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none">
                             </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Questions JSON</label>
-                                <textarea id="push-json" rows="10"
-                                    class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none font-mono text-xs"
-                                    placeholder='[{"q":"Question?","o":["A","B"],"a":"A","type":"mcq","sub":"Math","chap":"1"}]'></textarea>
-                                <p class="text-xs text-gray-500 mt-1">Paste a JSON array of question objects.</p>
+                            <div class="space-y-3 border border-gray-200 rounded-xl p-4 bg-gray-50">
+                                <h4 class="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                    <span>Questions Data (JSON or AI Import)</span>
+                                </h4>
+
+                                <div class="flex items-center justify-between gap-2">
+                                    <button onclick="document.getElementById('ai-import-file').click()"
+                                        class="px-3 py-2 rounded-xl border border-purple-200 bg-purple-50 text-purple-700 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-transform hover:bg-purple-100">
+                                        📄 Select Document (TXT/MD/DOCX/PDF)...
+                                    </button>
+                                    <span id="ai-import-file-name"
+                                        class="flex-1 text-[10px] text-right text-gray-500 truncate">No file
+                                        selected</span>
+                                </div>
+                                <input type="file" id="ai-import-file" class="hidden" accept=".txt,.md,.docx,.pdf"
+                                    onchange="Admin.ai.handleAIImportFile(event)">
+
+                                <div class="space-y-1">
+                                    <label for="ai-import-raw" class="text-[11px] text-gray-500 font-bold">Raw Question
+                                        Text (Editable, can paste directly)</label>
+                                    <textarea id="ai-import-raw" rows="6"
+                                        class="w-full text-xs bg-white border border-gray-300 rounded-xl px-3 py-2 outline-none focus:border-blue-500 custom-scroll leading-relaxed"
+                                        placeholder="Paste question text here..."></textarea>
+                                </div>
+
+                                <button onclick="Admin.ai.importFromRawText()" id="btn-ai-generate"
+                                    class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-2 px-4 rounded-xl hover:from-purple-700 hover:to-indigo-700 transition-all shadow-md shadow-purple-500/20 active:scale-95 text-sm flex justify-center items-center gap-2">
+                                    <span>✨ AI Parse Text to JSON</span>
+                                </button>
+
+                                <div class="space-y-1 pt-2 border-t border-gray-200">
+                                    <label for="push-json"
+                                        class="text-[11px] text-gray-500 font-bold flex items-center justify-between">
+                                        <span>Final Questions JSON (Editable)</span>
+                                        <span class="text-[10px] opacity-70">Will be pushed to user(s)</span>
+                                    </label>
+                                    <textarea id="push-json" rows="8"
+                                        class="w-full text-[11px] font-mono bg-white border border-gray-300 rounded-xl px-3 py-2 outline-none focus:border-blue-500 custom-scroll leading-relaxed"
+                                        placeholder='[{"q":"Question?","o":["A","B"],"a":"A","type":"mcq","sub":"Math","chap":"1"}]'></textarea>
+                                </div>
+                                <div id="ai-import-status" class="text-[10px] text-gray-500 font-medium"></div>
                             </div>
                             <div class="pt-6 flex justify-end pb-2">
                                 <button onclick="Admin.pushBroadcast()" id="btn-push"
@@ -594,8 +629,275 @@
             alert('Failed to initialize Supabase client: ' + e.message);
         }
 
-        // Attach Admin to window to ensure global accessibility
         window.Admin = {
+            ai: {
+                _provider: 'glm',
+                _apiKey: '',
+                _isLoading: false,
+                _importSessionId: 0,
+                _importReader: null,
+                _providers: {
+                    glm: { endpoint: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', model: 'glm-4-flash', storageKey: 'lms_api_key_glm', authHeader: (key) => `Bearer ${key}` },
+                    deepseek: { endpoint: 'https://api.deepseek.com/chat/completions', model: 'deepseek-chat', storageKey: 'lms_api_key_deepseek', authHeader: (key) => `Bearer ${key}` },
+                    openai: { endpoint: 'https://api.openai.com/v1/chat/completions', model: 'gpt-4o-mini', storageKey: 'lms_api_key_openai', authHeader: (key) => `Bearer ${key}` },
+                    gemini: { endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model: 'gemini-2.0-flash', storageKey: 'lms_api_key_gemini', authHeader: (key) => `Bearer ${key}` },
+                    moonshot: { endpoint: 'https://api.moonshot.cn/v1/chat/completions', model: 'moonshot-v1-8k', storageKey: 'lms_api_key_moonshot', authHeader: (key) => `Bearer ${key}` },
+                    qwen: { endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', model: 'qwen-plus', storageKey: 'lms_api_key_qwen', authHeader: (key) => `Bearer ${key}` },
+                    baichuan: { endpoint: 'https://api.baichuan-ai.com/v1/chat/completions', model: 'Baichuan4', storageKey: 'lms_api_key_baichuan', authHeader: (key) => `Bearer ${key}` },
+                    minimax: { endpoint: 'https://api.minimax.chat/v1/text/chatcompletion_v2', model: 'abab6.5-chat', storageKey: 'lms_api_key_minimax', authHeader: (key) => `Bearer ${key}` },
+                    custom: { endpoint: '', model: 'gpt-4o-mini', storageKey: 'lms_api_key_custom', authHeader: (key) => `Bearer ${key}` }
+                },
+
+                init() {
+                    this._provider = localStorage.getItem('lms_ai_provider') || 'glm';
+                    const cfg = this._providers[this._provider];
+                    this._apiKey = cfg ? (localStorage.getItem(cfg.storageKey) || '') : '';
+                },
+
+                getAdvancedParams() {
+                    const temp = parseFloat(localStorage.getItem('lms_ai_param_temperature') || '');
+                    const maxTokens = parseInt(localStorage.getItem('lms_ai_param_max_tokens') || '', 10);
+                    return {
+                        temperature: isFinite(temp) ? temp : 0.7,
+                        max_tokens: isFinite(maxTokens) && maxTokens > 0 ? maxTokens : 4096,
+                    };
+                },
+
+                async call(messages, maxTokens = null, temperature = null) {
+                    const cfg = this._providers[this._provider];
+                    if (!cfg) throw new Error('Unknown Provider');
+                    if (!this._apiKey) throw new Error('API Key missing (configure frontend Settings first)');
+
+                    const adv = this.getAdvancedParams();
+                    const finalTemp = temperature !== null ? temperature : adv.temperature;
+                    const bodyMax = maxTokens !== null ? maxTokens : adv.max_tokens;
+
+                    const payload = { model: cfg.model, messages, temperature: finalTemp };
+                    if (this._provider !== 'gemini' && this._provider !== 'minimax') payload.max_tokens = bodyMax;
+
+                    const headers = { 'Content-Type': 'application/json', 'Authorization': cfg.authHeader(this._apiKey) };
+                    const res = await fetch(cfg.endpoint, { method: 'POST', headers, body: JSON.stringify(payload) });
+
+                    if (!res.ok) {
+                        const errText = await res.text();
+                        let errMsg = `HTTP ${res.status} ${res.statusText}`;
+                        try {
+                            const parsed = JSON.parse(errText);
+                            errMsg = parsed.error?.message || parsed.message || parsed.msg || errMsg;
+                        } catch (e) { }
+                        throw new Error(errMsg);
+                    }
+                    const data = await res.json();
+                    if (data.choices && data.choices[0] && data.choices[0].message) {
+                        return data.choices[0].message.content;
+                    }
+                    throw new Error("Invalid response format from API");
+                },
+
+                _extractJson(text) {
+                    if (typeof text !== 'string') return text;
+                    const arrMatch = text.match(/\[[\s\S]*\]/);
+                    const objMatch = text.match(/\{[\s\S]*\}/);
+                    if (arrMatch && objMatch) return arrMatch.index < objMatch.index ? arrMatch[0] : objMatch[0];
+                    return arrMatch ? arrMatch[0] : (objMatch ? objMatch[0] : text);
+                },
+
+                buildImportPrompt(rawText) {
+                    const example = `{
+  "Default Subject": {
+    "Chapter 1": [
+      {
+        "id": "ex-001",
+        "type": "mcq",
+        "q": "Question?",
+        "o": ["A", "B", "C", "D"],
+        "a": "B"
+      }
+    ]
+  }
+}`;
+                    return `Please automatically identify objective questions (mcq, multi, tf) from the raw text and output a JSON. Ignore subjective questions.
+Ensure valid JSON output matching this structure:
+${example}
+
+Raw Text:
+${rawText}`;
+                },
+
+                sanitizeImportedBank(obj) {
+                    const allowed = new Set(['mcq', 'multi', 'tf']);
+                    const result = {};
+                    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return result;
+
+                    for (const [sub, chapDict] of Object.entries(obj)) {
+                        if (!chapDict || typeof chapDict !== 'object' || Array.isArray(chapDict)) continue;
+                        const cleanedChaps = {};
+                        for (const [chap, arr] of Object.entries(chapDict)) {
+                            if (!Array.isArray(arr)) continue;
+                            const cleanedQs = arr.filter(q => q && allowed.has(q.type)).map(q => {
+                                const copy = { ...q };
+                                if ((copy.type === 'mcq' || copy.type === 'multi') && Array.isArray(copy.o)) {
+                                    copy.o = copy.o.map(o => typeof o === 'string' ? o.replace(/^\s*[A-ZＡ-Ｚ][\.\．、，\)\）]\s*/, '') : o);
+                                }
+                                return copy;
+                            });
+                            if (cleanedQs.length > 0) cleanedChaps[chap] = cleanedQs;
+                        }
+                        if (Object.keys(cleanedChaps).length > 0) result[sub] = cleanedChaps;
+                    }
+                    return result;
+                },
+
+                async handleAIImportFile(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    this._importSessionId += 1;
+                    const sessionId = this._importSessionId;
+
+                    if (this._importReader && this._importReader.readyState === 1) try { this._importReader.abort(); } catch (err) { }
+                    this._importReader = null;
+
+                    const nameEl = document.getElementById('ai-import-file-name');
+                    if (nameEl) nameEl.textContent = `${file.name} (${Math.round(file.size / 1024)} KB)`;
+
+                    const statusEl = document.getElementById('ai-import-status');
+                    const textArea = document.getElementById('ai-import-raw');
+
+                    const setStatus = (msg) => { if (sessionId === this._importSessionId && statusEl) statusEl.textContent = msg; };
+                    const setRaw = (txt) => { if (sessionId === this._importSessionId && textArea) textArea.value = txt || ''; };
+
+                    setStatus("Reading and parsing file...");
+                    const ext = file.name.toLowerCase().split('.').pop();
+
+                    try {
+                        if (ext === 'txt' || ext === 'md' || ext === 'json') {
+                            const reader = new FileReader();
+                            this._importReader = reader;
+                            reader.onload = (ev) => {
+                                if (sessionId !== this._importSessionId) return;
+                                setRaw(ev.target.result || '');
+                                setStatus("Text file read successfully. You can now click AI Parse.");
+                                if (ext === 'json') {
+                                    document.getElementById('push-json').value = ev.target.result;
+                                    setStatus("JSON file loaded into Final Questions area.");
+                                }
+                            };
+                            reader.readAsText(file, 'UTF-8');
+                        } else if (ext === 'docx') {
+                            if (!window.mammoth) return setStatus("❌ mammoth library missing.");
+                            const arrayBuffer = await file.arrayBuffer();
+                            const result = await mammoth.extractRawText({ arrayBuffer });
+                            if (sessionId !== this._importSessionId) return;
+                            setRaw(result.value || '');
+                            setStatus("DOCX parsed successfully.");
+                        } else if (ext === 'pdf') {
+                            if (!window.pdfjsLib) return setStatus("❌ pdf.js library missing.");
+                            const arrayBuffer = await file.arrayBuffer();
+                            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                            let text = '';
+                            for (let i = 1; i <= pdf.numPages; i++) {
+                                if (sessionId !== this._importSessionId) return;
+                                const page = await pdf.getPage(i);
+                                const content = await page.getTextContent();
+                                text += content.items.map(item => item.str).join(' ') + '\n\n';
+                                setStatus(`Parsing PDF page ${i}/${pdf.numPages}...`);
+                            }
+                            if (sessionId !== this._importSessionId) return;
+                            setRaw(text.trim());
+                            setStatus("PDF parsed successfully. You can now click AI Parse.");
+                        } else {
+                            setStatus("❌ Only .txt / .md / .docx / .pdf / .json are supported.");
+                        }
+                    } catch (err) {
+                        setStatus("❌ Error: " + err.message);
+                    } finally {
+                        e.target.value = null;
+                    }
+                },
+
+                async importFromRawText() {
+                    if (this._isLoading) return;
+                    this.init(); // Refresh config from localStorage
+                    if (!this._apiKey) return alert("Please configure AI API Key in frontend settings first.");
+
+                    const textarea = document.getElementById('ai-import-raw');
+                    const previewEl = document.getElementById('push-json');
+                    const statusEl = document.getElementById('ai-import-status');
+                    const raw = textarea ? textarea.value.trim() : '';
+
+                    if (!raw) return alert("Please paste or upload document text first.");
+
+                    const maxLen = 20000;
+                    const limited = raw.length > maxLen ? raw.slice(0, maxLen) : raw;
+                    const segments = [];
+                    for (let i = 0; i < limited.length; i += 4000) segments.push(limited.slice(i, i + 4000));
+
+                    this._isLoading = true;
+                    if (statusEl) statusEl.textContent = "🧠 Calling AI... this may take a moment.";
+
+                    try {
+                        let finalResult = null;
+                        const isSingleSegment = segments.length === 1;
+                        let merged = {};
+
+                        for (let i = 0; i < segments.length; i++) {
+                            const seg = segments[i];
+                            const prompt = this.buildImportPrompt(seg);
+                            if (statusEl) statusEl.textContent = `🧠 Processing segment ${i + 1} / ${segments.length}...`;
+
+                            const reply = await this.call([{ role: 'user', content: prompt }], 4096, 0.2);
+                            const cleaned = this._extractJson(reply);
+                            const obj = JSON.parse(cleaned);
+
+                            // If it's a flat array, we just concatenate it if possible, else wrap it
+                            if (Array.isArray(obj)) {
+                                if (!finalResult) finalResult = [];
+                                finalResult = finalResult.concat(obj);
+                            } else {
+                                const sanitized = this.sanitizeImportedBank(obj);
+                                for (const [sub, chapDict] of Object.entries(sanitized)) {
+                                    if (!merged[sub]) merged[sub] = {};
+                                    for (const [chap, arr] of Object.entries(chapDict)) {
+                                        if (!merged[sub][chap]) merged[sub][chap] = [];
+                                        merged[sub][chap] = merged[sub][chap].concat(arr);
+                                    }
+                                }
+                            }
+                        }
+
+                        let outObj = null;
+                        if (finalResult && finalResult.length > 0) {
+                            outObj = finalResult;
+                        } else if (Object.keys(merged).length > 0) {
+                            // Convert the nested dictionary back to a flat array like the original Push Broadcast uses
+                            outObj = [];
+                            for (const [sub, chapDict] of Object.entries(merged)) {
+                                for (const [chap, arr] of Object.entries(chapDict)) {
+                                    arr.forEach(q => {
+                                        outObj.push({ ...q, sub, chap });
+                                    });
+                                }
+                            }
+                        }
+
+                        if (!outObj || Object.keys(outObj).length === 0) {
+                            alert("AI could not find or extract any valid objective questions.");
+                            if (statusEl) statusEl.textContent = "⚠️ No valid questions extracted.";
+                            return;
+                        }
+
+                        if (previewEl) previewEl.value = JSON.stringify(outObj, null, 2);
+                        if (statusEl) statusEl.textContent = "✅ Successfully generated JSON! Ready to push.";
+                    } catch (e) {
+                        console.error("AI import error", e);
+                        if (statusEl) statusEl.textContent = "❌ AI generation failed: " + e.message;
+                        alert("AI extraction failed. Check browser console.");
+                    } finally {
+                        this._isLoading = false;
+                    }
+                }
+            },
+
             token: null,
             currentEditingUserId: null,
 
@@ -738,7 +1040,7 @@
                     if (error) throw error;
 
                     if (data.user) {
-                        alert(`User created successfully! ID: ${data.user.id}`);
+                        alert(`User created successfully! ID: ${data.user.id} `);
                         document.getElementById('modal-add-user').classList.add('hidden');
                         this.fetchUsers();
                     } else {
@@ -751,13 +1053,13 @@
 
             async batchDelete() {
                 if (this.selectedUsers.size === 0) return;
-                if (!confirm(`Are you sure you want to delete ${this.selectedUsers.size} users? This will remove all their question banks and logs.`)) return;
+                if (!confirm(`Are you sure you want to delete ${this.selectedUsers.size} users ? This will remove all their question banks and logs.`)) return;
 
                 try {
-                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/delete-users`, {
+                    const res = await fetch(`${ADMIN_API_BASE} /api/admin / delete -users`, {
                         method: 'POST',
                         headers: {
-                            'Authorization': `Bearer ${this.token}`,
+                            'Authorization': `Bearer ${this.token} `,
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({ userIds: Array.from(this.selectedUsers) })
@@ -881,11 +1183,11 @@
                 countEl.innerText = this.parsedQuestions.length;
 
                 detailsEl.innerHTML = this.parsedQuestions.slice(0, 5).map((q, i) => `
-                    <div class="border-b border-gray-200 pb-1 mb-1 last:border-0">
+                < div class= "border-b border-gray-200 pb-1 mb-1 last:border-0" >
                         <div class="font-bold truncate">${i + 1}. ${q.q}</div>
                         <div class="text-gray-400 pl-2">Options: ${q.o.length}, Answer: ${q.a}</div>
                     </div>
-                `).join('') + (this.parsedQuestions.length > 5 ? `<div class="text-center italic text-gray-400">...and ${this.parsedQuestions.length - 5} more</div>` : '');
+                `).join('') + (this.parsedQuestions.length > 5 ? ` < div class= "text-center italic text-gray-400" >...and ${this.parsedQuestions.length - 5} more</div > ` : '');
             },
 
             async confirmBatchPush() {
@@ -917,10 +1219,10 @@
                 btn.innerText = 'Pushing...';
 
                 try {
-                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/push-broadcast`, {
+                    const res = await fetch(`${ADMIN_API_BASE} /api/admin / push - broadcast`, {
                         method: 'POST',
                         headers: {
-                            'Authorization': `Bearer ${this.token}`,
+                            'Authorization': `Bearer ${this.token} `,
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
@@ -1018,13 +1320,13 @@
                 tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Loading users...</td></tr>';
 
                 try {
-                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/users-list`, {
-                        headers: { 'Authorization': `Bearer ${this.token}` }
+                    const res = await fetch(`${ADMIN_API_BASE} /api/admin / users - list`, {
+                        headers: { 'Authorization': `Bearer ${this.token} ` }
                     });
 
                     if (!res.ok) {
                         const err = await res.json().catch(() => ({}));
-                        throw new Error(err.error || `Failed to fetch (${res.status})`);
+                        throw new Error(err.error || `Failed to fetch(${res.status})`);
                     }
 
                     const data = await res.json();
@@ -1036,7 +1338,7 @@
                     }
 
                     tbody.innerHTML = data.users.map(u => `
-                        <tr class="hover:bg-gray-50 transition-colors">
+            < tr class="hover:bg-gray-50 transition-colors" >
                             <td class="px-4 py-4">
                                 <input type="checkbox" class="user-checkbox w-4 h-4 accent-blue-600" value="${u.user_id}" onchange="Admin.toggleUserSelection('${u.user_id}')" ${this.selectedUsers.has(u.user_id) ? 'checked' : ''}>
                             </td>
@@ -1059,8 +1361,8 @@
                             <td class="px-6 py-4 text-right">
                                 <button onclick="Admin.viewSets('${u.user_id}')" class="text-blue-600 hover:underline text-xs font-bold mr-2">Manage Banks</button>
                             </td>
-                        </tr>
-                    `).join('');
+                        </tr >
+            `).join('');
 
                     // Restore "Select All" checkbox state
                     const allCheckbox = document.getElementById('select-all-users');
@@ -1072,19 +1374,19 @@
                     const pushUserSelect = document.getElementById('push-user-id');
                     if (pushUserSelect && pushUserSelect.tagName === 'SELECT') {
                         pushUserSelect.innerHTML = '<option value="">Select a user...</option>' +
-                            data.users.map(u => `<option value="${Admin.escapeHTML(u.user_id)}">${Admin.escapeHTML(u.username || u.email || 'No Name')} (${Admin.escapeHTML(u.user_id.substring(0, 8))}...)</option>`).join('');
+                            data.users.map(u => `< option value = "${Admin.escapeHTML(u.user_id)}" > ${Admin.escapeHTML(u.username || u.email || 'No Name')} (${Admin.escapeHTML(u.user_id.substring(0, 8))}...)</option > `).join('');
                     }
                 } catch (e) {
                     console.error(e);
-                    tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-red-500">Error: ${e.message}</td></tr>`;
+                    tbody.innerHTML = `< tr > <td colspan="6" class="px-6 py-8 text-center text-red-500">Error: ${e.message}</td></tr > `;
                 }
             },
 
             switchSection(id) {
                 // Update nav styles
                 ['users', 'push', 'logs'].forEach(s => {
-                    const btn = document.getElementById(`nav-${s}`);
-                    const section = document.getElementById(`section-${s}`);
+                    const btn = document.getElementById(`nav - ${s} `);
+                    const section = document.getElementById(`section - ${s} `);
 
                     if (s === id) {
                         btn.classList.remove('hover:bg-slate-800', 'text-slate-300');
@@ -1147,10 +1449,10 @@
                 resultEl.classList.add('hidden');
 
                 try {
-                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/push-broadcast`, {
+                    const res = await fetch(`${ADMIN_API_BASE} /api/admin / push - broadcast`, {
                         method: 'POST',
                         headers: {
-                            'Authorization': `Bearer ${this.token}`,
+                            'Authorization': `Bearer ${this.token} `,
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
@@ -1166,12 +1468,12 @@
                     if (!res.ok) throw new Error(data.error || 'Failed to push');
 
                     resultEl.innerHTML = `
-                        <strong>Success!</strong><br>
-                        Target: ${data.summary.target}<br>
-                        Total Users: ${data.summary.total}<br>
+            < strong > Success!</strong > <br>
+                Target: ${data.summary.target}<br>
+                    Total Users: ${data.summary.total}<br>
                         Success: ${data.summary.success}<br>
-                        Failed: ${data.summary.failed}
-                    `;
+                            Failed: ${data.summary.failed}
+                            `;
                     resultEl.classList.remove('hidden');
 
                 } catch (e) {
@@ -1210,7 +1512,7 @@
                                 <td class="px-4 py-2 text-gray-500 truncate max-w-[200px]" title="${log.ua || ''}">${log.ua || '-'}</td>
                                 <td class="px-4 py-2 text-red-300 truncate max-w-[200px]" title="${log.error || ''}">${log.error || '-'}</td>
                             </tr>
-                        `;
+                            `;
                     }).join('');
 
                 } catch (e) {
@@ -1243,17 +1545,17 @@
                     }
 
                     tbody.innerHTML = data.sets.map(s => `
-                        <tr class="hover:bg-gray-50 transition-colors">
-                            <td class="px-6 py-4 font-mono text-xs text-gray-500">${s.id}</td>
-                            <td class="px-6 py-4 font-bold text-gray-800">${s.name || 'Untitled'}</td>
-                            <td class="px-6 py-4"><span class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold">v${s.version || 0}</span></td>
-                            <td class="px-6 py-4 text-gray-600">${s.question_count || 0}</td>
-                            <td class="px-6 py-4 text-xs text-gray-500">${new Date(s.created_at).toLocaleString()}</td>
-                            <td class="px-6 py-4 text-right">
-                                <button onclick="Admin.viewBank(${s.id})" class="text-blue-600 hover:underline text-xs font-bold">Edit Details</button>
-                            </td>
-                        </tr>
-                    `).join('');
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-6 py-4 font-mono text-xs text-gray-500">${s.id}</td>
+                                <td class="px-6 py-4 font-bold text-gray-800">${s.name || 'Untitled'}</td>
+                                <td class="px-6 py-4"><span class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold">v${s.version || 0}</span></td>
+                                <td class="px-6 py-4 text-gray-600">${s.question_count || 0}</td>
+                                <td class="px-6 py-4 text-xs text-gray-500">${new Date(s.created_at).toLocaleString()}</td>
+                                <td class="px-6 py-4 text-right">
+                                    <button onclick="Admin.viewBank(${s.id})" class="text-blue-600 hover:underline text-xs font-bold">Edit Details</button>
+                                </td>
+                            </tr>
+                            `).join('');
                 } catch (e) {
                     tbody.innerHTML = `<tr><td colspan="6" class="text-red-500 text-center py-4">Error: ${e.message}</td></tr>`;
                 }
@@ -1344,11 +1646,11 @@
                     if (q.type === 'tf') {
                         const isTrue = q.a === 'T';
                         optionsHtml = `
-                            <div class="flex gap-4 mt-2 text-xs font-bold">
-                                <span class="${isTrue ? 'text-green-600 bg-green-50 px-2 py-1 rounded' : 'text-gray-400'}">True</span>
-                                <span class="${!isTrue ? 'text-green-600 bg-green-50 px-2 py-1 rounded' : 'text-gray-400'}">False</span>
-                            </div>
-                        `;
+                                <div class="flex gap-4 mt-2 text-xs font-bold">
+                                    <span class="${isTrue ? 'text-green-600 bg-green-50 px-2 py-1 rounded' : 'text-gray-400'}">True</span>
+                                    <span class="${!isTrue ? 'text-green-600 bg-green-50 px-2 py-1 rounded' : 'text-gray-400'}">False</span>
+                                </div>
+                                `;
                     } else {
                         optionsHtml = `<div class="space-y-1 mt-2">` +
                             (q.o || []).map((opt, i) => {
@@ -1366,22 +1668,22 @@
                     }
 
                     return `
-                        <div class="bg-white border border-gray-200 rounded-xl p-4 mb-4 hover:shadow-md transition-all">
-                            <div class="flex justify-between items-start mb-2">
-                                <div class="flex gap-2 items-center">
-                                    <span class="bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-0.5 rounded">#${idx + 1}</span>
-                                    <span class="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded">${typeLabel}</span>
-                                    <span class="text-[10px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">${this.escapeHTML(q.sub)} / ${this.escapeHTML(q.chap)}</span>
+                                <div class="bg-white border border-gray-200 rounded-xl p-4 mb-4 hover:shadow-md transition-all">
+                                    <div class="flex justify-between items-start mb-2">
+                                        <div class="flex gap-2 items-center">
+                                            <span class="bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-0.5 rounded">#${idx + 1}</span>
+                                            <span class="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded">${typeLabel}</span>
+                                            <span class="text-[10px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">${this.escapeHTML(q.sub)} / ${this.escapeHTML(q.chap)}</span>
+                                        </div>
+                                        <button onclick="Admin.openQuestionEditor(${idx})" class="text-blue-600 hover:text-blue-800 text-xs font-bold px-3 py-1 rounded hover:bg-blue-50 transition-colors flex items-center gap-1">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 11l3 3L22.5 5.5 18.5 1.5 9 11zM3 21h4l11-11-4-4L3 17v4z"></path></svg>
+                                            Edit
+                                        </button>
+                                    </div>
+                                    <div class="text-sm font-medium text-gray-900 mb-2 leading-relaxed whitespace-pre-wrap">${safeQ}</div>
+                                    ${optionsHtml}
                                 </div>
-                                <button onclick="Admin.openQuestionEditor(${idx})" class="text-blue-600 hover:text-blue-800 text-xs font-bold px-3 py-1 rounded hover:bg-blue-50 transition-colors flex items-center gap-1">
-                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 11l3 3L22.5 5.5 18.5 1.5 9 11zM3 21h4l11-11-4-4L3 17v4z"></path></svg>
-                                    Edit
-                                </button>
-                            </div>
-                            <div class="text-sm font-medium text-gray-900 mb-2 leading-relaxed whitespace-pre-wrap">${safeQ}</div>
-                            ${optionsHtml}
-                        </div>
-                    `;
+                                `;
                 }).join('');
             },
 
@@ -1468,13 +1770,13 @@
                 const div = document.createElement('div');
                 div.className = 'flex items-center gap-2 mb-2';
                 div.innerHTML = `
-                    <span class="text-xs font-bold text-gray-500 w-4">${letter}.</span>
-                    <input type="text" class="flex-1 bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none text-xs" value="${this.escapeHTML(text)}" placeholder="Option content">
-                    <label class="flex items-center gap-1 cursor-pointer">
-                        <input type="checkbox" class="accent-blue-600 w-4 h-4" ${isCorrect ? 'checked' : ''}>
-                    </label>
-                    <button onclick="this.parentElement.remove(); Admin.renumberQuestionOptions()" class="text-gray-400 hover:text-red-500 p-1">✕</button>
-                `;
+                                <span class="text-xs font-bold text-gray-500 w-4">${letter}.</span>
+                                <input type="text" class="flex-1 bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none text-xs" value="${this.escapeHTML(text)}" placeholder="Option content">
+                                    <label class="flex items-center gap-1 cursor-pointer">
+                                        <input type="checkbox" class="accent-blue-600 w-4 h-4" ${isCorrect ? 'checked' : ''}>
+                                    </label>
+                                    <button onclick="this.parentElement.remove(); Admin.renumberQuestionOptions()" class="text-gray-400 hover:text-red-500 p-1">✕</button>
+                                    `;
                 list.appendChild(div);
             },
 
