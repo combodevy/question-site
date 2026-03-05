@@ -1,3 +1,4 @@
+assist by Gemini＆Claude 在Gemini和Claude下完成
 # Question Site - Flexible Edition (LMS Genesis)
 
 ## 📖 项目概述 (Project Overview)
