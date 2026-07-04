@@ -264,62 +264,80 @@
     class="h-screen flex flex-col overflow-hidden text-sm md:text-base selection:bg-primary-100 selection:text-primary-700">
 
     <!-- 顶部导航 -->
-    <header
-        class="h-14 md:h-16 border-b border-[var(--border)] bg-[var(--card)] flex-none z-30 flex items-center justify-between px-4 md:px-6 shadow-sm sticky top-0 transition-colors">
-        <div class="flex items-center gap-3 cursor-pointer active:opacity-70 transition-opacity"
-            onclick="App.router.go('dashboard')">
-            <div
-                class="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white shadow-lg shadow-primary-500/30">
+    <header class="h-16 px-4 md:px-8 border-b border-slate-100 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md flex items-center justify-between sticky top-0 z-30 transition-all duration-300">
+        <div class="flex items-center gap-3 select-none">
+            <!-- Home button -->
+            <div onclick="App.router.go('dashboard')"
+                class="w-10 h-10 bg-gradient-to-tr from-primary-600 to-primary-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-primary-500/20 hover:shadow-lg hover:shadow-primary-500/30 hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M3 10.5L12 3l9 7.5M5 10.5V20h6v-4h2v4h6v-9.5" />
                 </svg>
             </div>
+            
+            <!-- Sync status button -->
             <button id="save-cloud-btn"
-                class="ml-2 w-8 h-8 rounded-full border border-[var(--border)] flex items-center justify-center text-[var(--sub)] bg-[var(--card)] hover:bg-[var(--bg)] active:scale-95 transition-transform relative overflow-hidden">
+                class="w-8 h-8 rounded-full border border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 bg-slate-50/50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-all duration-300 relative overflow-hidden">
                 <span id="sync-indicator-icon"
-                    class="w-6 h-6 rounded-full border border-[var(--border)] bg-[var(--card)] text-[10px] font-mono flex items-center justify-center select-none">0</span>
+                    class="w-5 h-5 rounded-full border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-[10px] font-bold flex items-center justify-center select-none shadow-sm">0</span>
             </button>
-            <div>
-                <h1 class="font-bold text-sm md:text-base leading-none tracking-tight">v3.0</h1>
+            
+            <!-- Version Badge -->
+            <div class="flex items-center gap-1.5 pl-1">
+                <span class="text-xs font-semibold text-slate-800 dark:text-slate-200">LMS Genesis</span>
+                <span class="px-2 py-0.5 text-[9px] font-bold tracking-wider text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-950/30 rounded-full border border-primary-100/30 dark:border-primary-900/30">v3.0</span>
             </div>
         </div>
-        <div class="flex gap-2 md:gap-3">
+        
+        <!-- Right side tools -->
+        <div class="flex items-center gap-2 md:gap-3 bg-slate-50/60 dark:bg-slate-800/30 p-1 rounded-full border border-slate-100/50 dark:border-slate-800/50">
+            <!-- Theme Toggle -->
             <button onclick="App.ui.toggleTheme()"
-                class="w-9 h-9 rounded-full hover:bg-[var(--border)] flex items-center justify-center text-[var(--sub)] transition-colors active:scale-90">
-                <svg id="theme-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                class="w-8 h-8 rounded-full hover:bg-white dark:hover:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-all duration-200 active:scale-90 hover:shadow-sm"
+                title="切换主题">
+                <svg id="theme-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
                 </svg>
             </button>
+            
+            <!-- Import Center -->
             <button onclick="App.ui.openImportCenter('json')"
-                class="w-9 h-9 rounded-full hover:bg-[var(--border)] flex items-center justify-center text-[var(--sub)] transition-colors active:scale-90"
+                class="w-8 h-8 rounded-full hover:bg-white dark:hover:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-all duration-200 active:scale-90 hover:shadow-sm"
                 title="题库导入中心">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M4 4h16v4H4zM4 12h16v8H4zM9 16h6" />
                 </svg>
             </button>
+            
+            <!-- Trash Modal -->
             <button onclick="App.ui.openTrashModal()"
-                class="w-9 h-9 rounded-full hover:bg-[var(--border)] flex items-center justify-center text-[var(--sub)] transition-colors active:scale-90"
+                class="w-8 h-8 rounded-full hover:bg-white dark:hover:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-all duration-200 active:scale-90 hover:shadow-sm"
                 title="回收站">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M9 3h6m-7 4h8m-9 0h10l-1 13H7L6 7z" />
                 </svg>
             </button>
+            
+            <!-- Settings Modal -->
             <button onclick="App.ui.toggleModal('config')"
-                class="w-9 h-9 rounded-full hover:bg-[var(--border)] flex items-center justify-center text-[var(--sub)] transition-colors active:scale-90"
+                class="w-8 h-8 rounded-full hover:bg-white dark:hover:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-all duration-200 active:scale-90 hover:shadow-sm"
                 title="设置">
-                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M4 7h16M4 17h16M9 3v4M15 13v4" />
                 </svg>
             </button>
+            
+            <div class="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+            
+            <!-- Auth -->
             <button id="auth-btn"
-                class="w-9 h-9 rounded-full hover:bg-[var(--border)] flex items-center justify-center text-[var(--sub)] transition-colors active:scale-90"
-                title="登录">
-                <svg id="auth-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                class="w-8 h-8 rounded-full border border-primary-100 dark:border-primary-900 bg-primary-50 dark:bg-primary-950/30 hover:bg-primary-100 dark:hover:bg-primary-900/50 flex items-center justify-center text-primary-600 dark:text-primary-400 transition-all duration-200 active:scale-90 shadow-sm relative overflow-hidden"
+                title="账户">
+                <svg id="auth-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM6 20c0-2.21 2.686-4 6-4s6 1.79 6 4" />
                 </svg>
