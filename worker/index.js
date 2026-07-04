@@ -173,6 +173,10 @@ async function getAuthUser(request, env) {
     const token = authHeader.slice(7).trim();
     if (!token) return null;
     const secret = env.JWT_SECRET;
+    if (!secret || secret.trim().length < 8) {
+        console.error("Unconfigured or weak JWT_SECRET in getAuthUser.");
+        return null;
+    }
     return await verifyJwt(token, secret);
 }
 
@@ -204,6 +208,10 @@ export default {
 
             // 1. SIGNUP
             if (path === "/api/auth/signup" && request.method === "POST") {
+                const secret = env.JWT_SECRET;
+                if (!secret || secret.trim().length < 8) {
+                    return jsonResponse({ error: "服务器配置错误: JWT密钥缺失或过短 (JWT Secret is unsafe or missing)" }, 500, headers);
+                }
                 const { email, password, username } = await request.json();
                 const rawUsername = (username || email || "").trim();
                 if (!rawUsername || !password) {
@@ -241,6 +249,10 @@ export default {
 
             // 2. LOGIN
             if (path === "/api/auth/login" && request.method === "POST") {
+                const secret = env.JWT_SECRET;
+                if (!secret || secret.trim().length < 8) {
+                    return jsonResponse({ error: "服务器配置错误: JWT密钥缺失或过短 (JWT Secret is unsafe or missing)" }, 500, headers);
+                }
                 const { email, username, password } = await request.json();
                 const rawUsername = (username || email || "").trim();
                 if (!rawUsername || !password) {
