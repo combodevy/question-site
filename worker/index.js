@@ -337,16 +337,24 @@ export default {
                     Object.assign(bank, baseBank);
                 }
 
+                const historyAfter = parseInt(url.searchParams.get("historyAfter") || "0", 10);
+                let historyPartial = false;
+                let historyList = baseState && Array.isArray(baseState.history) ? baseState.history : [];
+                if (historyAfter > 0 && historyList.length > 0) {
+                    historyList = historyList.filter(h => (h.t || 0) > historyAfter);
+                    historyPartial = true;
+                }
+
                 const state = {
                     bank,
                     bankName: baseState && typeof baseState.bankName === "string" ? baseState.bankName : null,
-                    history: baseState && Array.isArray(baseState.history) ? baseState.history : [],
+                    history: historyList,
                     lastPracticeTime: baseState && typeof baseState.lastPracticeTime === "number" ? baseState.lastPracticeTime : null,
                     trash: baseState && typeof baseState.trash === "object" && !Array.isArray(baseState.trash) ? baseState.trash : {},
                     hiddenMistakeIds: baseState && Array.isArray(baseState.hiddenMistakeIds) ? baseState.hiddenMistakeIds : []
                 };
 
-                const responseBody = JSON.stringify({ ok: true, setId, name: set.name, state, version });
+                const responseBody = JSON.stringify({ ok: true, setId, name: set.name, state, version, historyPartial });
                 
                 // ETag implementation
                 const hashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(responseBody));
