@@ -5547,29 +5547,40 @@ ${rawText}
                 render() {
                     const btn = App.dom.get('save-cloud-btn');
                     const icon = document.getElementById('sync-indicator-icon');
+                    const textEl = document.getElementById('sync-text');
                     if (!btn || !icon) return;
-                    btn.classList.remove('border-[var(--border)]', 'bg-[var(--card)]', 'border-primary-500', 'border-emerald-400', 'border-red-400', 'border-yellow-400');
-                    icon.classList.remove('bg-emerald-500', 'bg-red-500', 'bg-yellow-500', 'text-white');
+
+                    // Reset classes on dot and button
+                    btn.className = "flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-200 active:scale-95 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50";
+                    icon.className = "w-2 h-2 rounded-full transition-all duration-300";
+                    
                     let titleText = '';
+                    let statusText = '已同步';
+
                     if (this._lastStatus === 'error') {
-                        btn.classList.add('border-red-400');
-                        icon.classList.add('bg-red-500', 'text-white');
-                        icon.textContent = '!';
+                        btn.classList.add('border-red-400', 'bg-red-500/5');
+                        icon.classList.add('bg-red-500', 'shadow-[0_0_8px_rgba(239,68,68,0.4)]');
+                        statusText = '同步失败';
                         titleText = '最近同步：失败（' + (this._lastMessage || '同步失败') + '）';
                     } else if (this._lastStatus === 'pending') {
-                        btn.classList.add('border-primary-500');
-                        icon.textContent = '…';
+                        btn.classList.add('border-primary-500', 'bg-primary-500/5');
+                        icon.classList.add('bg-primary-500', 'animate-pulse');
+                        statusText = '同步中...';
                         titleText = '同步中...';
                     } else if (this._realtimeDisconnected) {
-                        btn.classList.add('border-yellow-400');
-                        icon.classList.add('bg-yellow-500', 'text-white');
-                        icon.textContent = '!';
+                        btn.classList.add('border-yellow-400', 'bg-yellow-500/5');
+                        icon.classList.add('bg-yellow-500');
+                        statusText = '未连接';
                         titleText = '实时通道未连接' + (this._lastMessage ? '（' + this._lastMessage + '）' : '');
                     } else {
-                        btn.classList.add('border-emerald-400');
-                        icon.classList.add('bg-emerald-500', 'text-white');
-                        icon.textContent = '✓';
+                        btn.classList.add('border-emerald-500', 'bg-emerald-500/5');
+                        icon.classList.add('bg-emerald-500');
+                        statusText = '已同步';
                         titleText = '最近同步：成功';
+                    }
+
+                    if (textEl) {
+                        textEl.textContent = statusText;
                     }
                     btn.title = titleText;
                 },
