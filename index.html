@@ -465,8 +465,7 @@
                                 </path>
                             </svg></span>
                         <div>
-                            <div class="font-bold text-sm md:text-base text-[var(--text)]">学习分析报告 (Analytics Report)
-                            </div>
+                            <div class="font-bold text-sm md:text-base text-[var(--text)]">学习分析报告</div>
                             <div class="text-[10px] md:text-xs text-[var(--sub)]">可视化数据面板 · AI 深度行为解读</div>
                         </div>
                     </div>
@@ -488,7 +487,7 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"></path>
                                 </svg>
-                                高频错题 (Top Mistakes)
+                                高频错题
                             </h2>
                             <div class="flex items-center gap-2">
                                 <label class="flex items-center gap-1.5 cursor-pointer select-none"
@@ -527,8 +526,7 @@
                         <div class="card p-4 md:p-5 rounded-xl md:rounded-2xl flex flex-col gap-4">
                             <!-- 修复 2：统一文案逻辑，七日趋势与题库总量明确区分 -->
                             <div class="flex justify-between items-center border-b border-[var(--border)] pb-2 md:pb-3">
-                                <span class="text-[10px] md:text-xs font-bold text-[var(--sub)] uppercase">七日趋势 (7-Day
-                                    Trend)</span>
+                                <span class="text-[10px] md:text-xs font-bold text-[var(--sub)]">七日趋势</span>
                                 <div class="flex items-center gap-1.5">
                                     <span class="text-[9px] text-[var(--sub)] uppercase">题库总量</span>
                                     <span class="text-xs md:text-sm text-primary-600 font-bold" id="dash-total">0</span>
@@ -1099,7 +1097,7 @@
         <div class="card w-full max-w-md md:max-w-lg rounded-2xl shadow-2xl p-0 flex flex-col max-h-[85vh]">
             <div
                 class="p-4 md:p-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-hover)] rounded-t-2xl">
-                <h3 class="font-bold text-base">系统配置 (Settings)</h3>
+                <h3 class="font-bold text-base">系统配置</h3>
                 <button onclick="App.ui.closeModal('config')"
                     class="text-[var(--sub)] hover:text-[var(--text)] p-1"><svg class="w-6 h-6" fill="none"
                         stroke="currentColor" viewBox="0 0 24 24">
@@ -1108,13 +1106,12 @@
                     </svg></button>
             </div>
             <div class="p-4 md:p-6 space-y-4 overflow-y-auto custom-scroll flex-grow">
-
+                
                 <div class="space-y-3">
-                    <div class="text-xs font-bold text-[var(--sub)] uppercase tracking-wider">AI 模型配置 (AI Model Config)
-                    </div>
-
+                    <div class="text-xs font-bold text-[var(--sub)] uppercase tracking-wider">AI 模型配置</div>
+                    
                     <div>
-                        <label class="text-[10px] text-[var(--sub)] mb-1 block">选择模型提供商 (Select Provider)</label>
+                        <label class="text-[10px] text-[var(--sub)] mb-1 block">选择模型提供商</label>
                         <select id="config-provider-select" onchange="App.ai.onProviderChange(this.value)"
                             class="w-full text-xs bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-2.5 outline-none focus:border-primary-500">
                             <option value="glm">🇨🇳 GLM-4-Flash（智谱 AI）</option>
@@ -1128,7 +1125,7 @@
                             <option value="custom">🔧 自定义 OpenAI 兼容 API</option>
                         </select>
                     </div>
-
+                    
                     <div>
                         <div class="flex items-center justify-between mb-1">
                             <label class="text-[10px] text-[var(--sub)]">API Key</label>
@@ -1145,7 +1142,7 @@
                             单个提供商可填写多个 Key，用换行或逗号分隔；只有一个 Key 时也完全支持。
                         </div>
                     </div>
-
+                    
                     <div class="space-y-1">
                         <div class="flex items-center justify-between">
                             <label class="text-[10px] text-[var(--sub)]">自定义模型名称 (可选)</label>
@@ -1160,11 +1157,11 @@
                             可填同一厂商下的任意已开通模型名称，如 glm-4-flash、glm-4-air 等。
                         </div>
                     </div>
-
+                    
                     <div id="ai-advanced-panel"
                         class="mt-2 border border-[var(--border)] rounded-xl px-3 py-2 bg-[var(--bg)] space-y-2 hidden">
                         <div class="flex items-center justify-between">
-                            <span class="text-[10px] font-bold text-[var(--sub)]">高级参数 (Advanced Params)</span>
+                            <span class="text-[10px] font-bold text-[var(--sub)]">高级参数</span>
                             <span class="text-[9px] text-[var(--sub)]">影响 AI 回复风格和长度</span>
                         </div>
                         <div class="grid grid-cols-2 gap-2">
@@ -1243,55 +1240,84 @@
                             </button>
                         </div>
                     </div>
-
+                    
                     <div class="text-[10px] text-[var(--sub)] bg-[var(--bg)] rounded-lg px-3 py-2 font-mono">
-                        当前模型 (Current Model)：<span id="config-current-model"
+                        当前模型：<span id="config-current-model"
                             class="text-primary-600 font-bold">--</span>
                     </div>
                 </div>
-
+                
                 <div class="h-px bg-[var(--border)]"></div>
-
+                
                 <div class="space-y-2">
-                    <div class="text-xs font-bold text-[var(--sub)] uppercase tracking-wider mb-2">题库管理 (Data
-                        Management)</div>
+                    <div class="text-xs font-bold text-[var(--sub)] uppercase tracking-wider mb-2">题库管理</div>
                     <input type="file" id="import-file" class="hidden" accept=".json"
                         onchange="App.ui.handleJsonPreviewUpload(event)">
-                    <button onclick="App.ui.openBankManager()"
-                        class="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-primary-200 bg-primary-50 text-primary-700 active:bg-primary-100 transition-colors text-xs font-bold">
-                        <span>科目 / 章节管理 (Subject / Chapter Manager)</span>
-                        <svg class="w-4 h-4 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 6h16M4 12h10M4 18h7" />
-                        </svg>
-                    </button>
-                    <button onclick="App.data.clearBank()"
-                        class="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-orange-200 bg-orange-50 text-orange-600 active:bg-orange-100 transition-colors text-xs font-bold">
-                        <span>清空当前题库 (Clear Question Bank)</span>
-                        <svg class="w-4 h-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
-                            </path>
-                        </svg>
-                    </button>
-                    <button onclick="App.ui.openSimilarReview()"
-                        class="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 active:bg-amber-100 transition-colors text-xs font-bold">
-                        <span>疑似相似题审查 (Duplicate Review)</span>
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M15 12h.01M9 12h.01M11.5 17.5c1.657 0 3-1.12 3-2.5h-6c0 1.38 1.343 2.5 3 2.5zm0-13C6.813 4.5 3.5 7.567 3.5 11.25c0 2.485 1.507 4.652 3.772 5.7l-.772 2.8 3.25-1.95a8 8 0 003.0.65c4.687 0 8-3.067 8-6.75S16.187 4.5 11.5 4.5z" />
-                        </svg>
-                    </button>
+                    
+                    <div class="space-y-2">
+                        <!-- 科目 / 章节管理 -->
+                        <button onclick="App.ui.openBankManager()"
+                            class="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/40 hover:border-slate-200 dark:hover:border-slate-700 active:scale-[0.99] transition-all duration-200 text-xs font-semibold">
+                            <div class="flex items-center gap-3">
+                                <div class="w-7 h-7 rounded-lg bg-teal-50 dark:bg-teal-950/30 flex items-center justify-center text-teal-600 dark:text-teal-400">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h10M4 18h7" />
+                                    </svg>
+                                </div>
+                                <span>科目 / 章节管理</span>
+                            </div>
+                            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </button>
+                        
+                        <!-- 疑似相似题审查 -->
+                        <button onclick="App.ui.openSimilarReview()"
+                            class="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/40 hover:border-slate-200 dark:hover:border-slate-700 active:scale-[0.99] transition-all duration-200 text-xs font-semibold">
+                            <div class="flex items-center gap-3">
+                                <div class="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12h.01M9 12h.01M11.5 17.5c1.657 0 3-1.12 3-2.5h-6c0 1.38 1.343 2.5 3 2.5zm0-13C6.813 4.5 3.5 7.567 3.5 11.25c0 2.485 1.507 4.652 3.772 5.7l-.772 2.8 3.25-1.95a8 8 0 003.0.65c4.687 0 8-3.067 8-6.75S16.187 4.5 11.5 4.5z" />
+                                    </svg>
+                                </div>
+                                <span>疑似相似题审查</span>
+                            </div>
+                            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </button>
+                        
+                        <!-- 清空当前题库 -->
+                        <button onclick="App.data.clearBank()"
+                            class="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 hover:bg-rose-50/50 dark:hover:bg-rose-950/20 hover:border-rose-200 dark:hover:border-rose-900 active:scale-[0.99] transition-all duration-200 text-xs font-semibold">
+                            <div class="flex items-center gap-3">
+                                <div class="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </div>
+                                <span>清空当前题库</span>
+                            </div>
+                            <svg class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 <div class="h-px bg-[var(--border)]"></div>
                 <div class="space-y-2">
                     <button onclick="App.data.resetHistory()"
-                        class="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-red-200 bg-red-50 text-red-600 active:bg-red-100 transition-colors text-xs font-bold">
-                        <span>重置刷题记录 (Reset Practice History)</span>
-                        <svg class="w-4 h-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
-                            </path>
+                        class="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 hover:bg-rose-50/50 dark:hover:bg-rose-950/20 hover:border-rose-200 dark:hover:border-rose-900 active:scale-[0.99] transition-all duration-200 text-xs font-semibold">
+                        <div class="flex items-center gap-3">
+                            <div class="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                            </div>
+                            <span>重置刷题记录</span>
+                        </div>
+                        <svg class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                         </svg>
                     </button>
                 </div>
@@ -1305,7 +1331,7 @@
         <div class="card w-full max-w-4xl rounded-2xl shadow-2xl p-0 flex flex-col max-h-[85vh]">
             <div
                 class="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-hover)] rounded-t-2xl">
-                <h3 class="font-bold text-base">题库导入中心 (Import Center)</h3>
+                <h3 class="font-bold text-base">题库导入中心</h3>
                 <button onclick="App.ui.closeModal('import-center')"
                     class="text-[var(--sub)] hover:text-[var(--text)] p-1">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
