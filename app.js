@@ -5865,8 +5865,6 @@ ${rawText}
                 }
             });
         });
-        window.SUPABASE_URL = window.SUPABASE_URL || '';
-        window.SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || '';
         window.addEventListener("DOMContentLoaded", function () {
             const saveBtn = document.getElementById("save-cloud-btn");
             const overlayLoginBtn = document.getElementById("auth-overlay-login-btn");

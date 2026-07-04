@@ -6,10 +6,23 @@
 // ==========================================
 // 1. CORS Helpers
 // ==========================================
-function corsHeaders(env) {
-    const origin = env.CORS_ORIGIN || '*';
+const ALLOWED_ORIGINS = [
+    'https://question-site-front.pages.dev',
+    'http://localhost:8788',
+    'http://127.0.0.1:8788'
+];
+
+function corsHeaders(env, request) {
+    const requestOrigin = request ? (request.headers.get('Origin') || '') : '';
+    const configuredOrigin = env.CORS_ORIGIN || '';
+    let allowedOrigin = '*';
+    if (configuredOrigin) {
+        allowedOrigin = configuredOrigin;
+    } else if (requestOrigin && (ALLOWED_ORIGINS.includes(requestOrigin) || requestOrigin.endsWith('.question-site-front.pages.dev'))) {
+        allowedOrigin = requestOrigin;
+    }
     return {
-        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Origin': allowedOrigin,
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization, If-None-Match',
         'Access-Control-Expose-Headers': 'ETag',
@@ -20,7 +33,7 @@ function corsHeaders(env) {
 function handleOptions(request, env) {
     return new Response(null, {
         status: 204,
-        headers: corsHeaders(env)
+        headers: corsHeaders(env, request)
     });
 }
 
@@ -140,7 +153,12 @@ async function verifyJwt(token, secret) {
         );
         if (!isValid) return null;
         const payloadJson = new TextDecoder().decode(base64UrlToBytes(encodedPayload));
-        return JSON.parse(payloadJson);
+        const payload = JSON.parse(payloadJson);
+        // Check expiration
+        if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+            return null;
+        }
+        return payload;
     } catch (e) {
         return null;
     }
@@ -177,7 +195,7 @@ export default {
             return handleOptions(request, env);
         }
 
-        const headers = corsHeaders(env);
+        const headers = corsHeaders(env, request);
 
         try {
             // ==========================================
@@ -214,7 +232,8 @@ export default {
                 const token = await signJwt({
                     sub: userId,
                     username: rawUsername,
-                    role: rawUsername.toLowerCase() === "admin" ? "admin" : "user"
+                    role: rawUsername.toLowerCase() === "admin" ? "admin" : "user",
+                    exp: Math.floor(Date.now() / 1000) + 604800 // 7 days
                 }, env.JWT_SECRET);
 
                 return jsonResponse({ ok: true, token, user: { id: userId, username: rawUsername } }, 200, headers);
@@ -250,7 +269,8 @@ export default {
                 const token = await signJwt({
                     sub: user.id,
                     username: user.username,
-                    role: user.username.toLowerCase() === "admin" ? "admin" : "user"
+                    role: user.username.toLowerCase() === "admin" ? "admin" : "user",
+                    exp: Math.floor(Date.now() / 1000) + 604800 // 7 days
                 }, env.JWT_SECRET);
 
                 return jsonResponse({ ok: true, token, user: { id: user.id, username: user.username } }, 200, headers);
@@ -631,12 +651,27 @@ export default {
 
                     const placeholders = userIds.map(() => "?").join(",");
 
-                    // D1 batch delete statements
-                    const deleteUsers = env.DB.prepare(`DELETE FROM users WHERE id IN (${placeholders})`).bind(...userIds);
-                    const deleteSets = env.DB.prepare(`DELETE FROM question_sets WHERE user_id IN (${placeholders})`).bind(...userIds);
-                    const deleteLogs = env.DB.prepare(`DELETE FROM sync_logs WHERE user_id IN (${placeholders})`).bind(...userIds);
+                    // First, find all question_set IDs owned by these users
+                    const { results: setRows } = await env.DB.prepare(
+                        `SELECT id FROM question_sets WHERE user_id IN (${placeholders})`
+                    ).bind(...userIds).all();
+                    const setIds = setRows.map(r => r.id);
 
-                    await env.DB.batch([deleteUsers, deleteSets, deleteLogs]);
+                    // D1 batch delete statements (cascade: questions → sets → logs → users)
+                    const statements = [];
+                    if (setIds.length > 0) {
+                        const setPlaceholders = setIds.map(() => "?").join(",");
+                        statements.push(
+                            env.DB.prepare(`DELETE FROM questions WHERE question_set_id IN (${setPlaceholders})`).bind(...setIds)
+                        );
+                    }
+                    statements.push(
+                        env.DB.prepare(`DELETE FROM question_sets WHERE user_id IN (${placeholders})`).bind(...userIds),
+                        env.DB.prepare(`DELETE FROM sync_logs WHERE user_id IN (${placeholders})`).bind(...userIds),
+                        env.DB.prepare(`DELETE FROM users WHERE id IN (${placeholders})`).bind(...userIds)
+                    );
+
+                    await env.DB.batch(statements);
 
                     return jsonResponse({ ok: true, deletedCount: userIds.length }, 200, headers);
                 }

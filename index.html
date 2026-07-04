@@ -1,24 +1,24 @@
 <!--
   @file index.html
-  @description 项目主入口文件 (Main Entry Point)
-  @author Engineer
-  @date 2026-02-27
+  @description 项目主入口文件 (Main Entry Point) - LMS Genesis v3.0
+  @date 2026-07-05
   
   架构说明 (Architecture):
-  这是一个单页应用 (SPA)，不依赖构建工具 (No-Build)，直接使用原生 ES6+ JavaScript 编写。
+  单页应用 (SPA)，无构建工具 (No-Build)，原生 ES6+ JavaScript。
   
   核心模块 (Core Modules):
-  - App.auth: 处理 Supabase 身份验证 (Login/Logout)
-  - App.data: 管理题库数据结构、本地存储 (LocalStorage) 和云端同步
-  - App.sync: 处理与后端的实时同步和冲突解决
-  - App.ai: 集成大模型 API，用于题目解析和文档导入
-  - App.ui: 处理所有 DOM 操作、弹窗管理和视图渲染
-  - App.router: 简单的 Hash 路由实现页面切换
+  - App.auth: JWT 原生鉴权 (Login/Signup via Cloudflare Worker)
+  - App.data: 题库数据管理、本地存储 (LocalStorage) 与云端同步
+  - App.sync: 云端数据同步与版本冲突解决
+  - App.ai: 大模型 API 集成 (题目解析 / 文档导入)
+  - App.ui: DOM 操作、弹窗管理和视图渲染
+  - App.router: Hash 路由页面切换
   
   技术栈 (Tech Stack):
-  - Frontend: HTML5, Tailwind CSS (CDN), Alpine.js (Implicit via vanilla JS), Ably Realtime
-  - Backend: Vercel Serverless Functions (/api/*)
-  - Database: Supabase (PostgreSQL)
+  - Frontend: HTML5, Tailwind CSS (CDN), Vanilla JS
+  - Backend: Cloudflare Workers (worker/index.js)
+  - Database: Cloudflare D1 (SQLite)
+  - Hosting: Cloudflare Pages
 -->
 <!DOCTYPE html>
 <html lang="zh-CN" class="light">

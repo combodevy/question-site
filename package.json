@@ -1,35 +1,22 @@
 {
-  "name": "project",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "question-site",
+  "version": "3.0.0",
+  "description": "LMS Genesis - Online Question Bank & Study Platform",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "netlify dev:exec drizzle-kit migrate",
-    "db:studio": "netlify dev:exec drizzle-kit studio"
+    "deploy:worker": "cd worker && npx wrangler deploy",
+    "deploy:pages": "npx wrangler pages deploy . --project-name question-site-front --commit-dirty",
+    "deploy": "npm run deploy:worker && npm run deploy:pages",
+    "dev:worker": "cd worker && npx wrangler dev"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/combodevy/question-site.git"
   },
-  "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "bugs": {
     "url": "https://github.com/combodevy/question-site/issues"
   },
-  "homepage": "https://github.com/combodevy/question-site#readme",
-  "dependencies": {
-    "@netlify/neon": "^0.1.2",
-    "ably": "^2.0.0",
-    "jose": "^5.2.4",
-    "jsonwebtoken": "^9.0.2",
-    "pg": "^8.13.3",
-    "drizzle-orm": "^0.45.1"
-  },
-  "devDependencies": {
-    "drizzle-kit": "^0.31.9"
-  }
+  "homepage": "https://github.com/combodevy/question-site#readme"
 }
