@@ -1193,12 +1193,17 @@ ${rawText}`;
                 area.classList.remove('hidden');
                 countEl.innerText = this.parsedQuestions.length;
 
-                detailsEl.innerHTML = this.parsedQuestions.slice(0, 5).map((q, i) => `
-                < div class= "border-b border-gray-200 pb-1 mb-1 last:border-0" >
-                        <div class="font-bold truncate">${i + 1}. ${q.q}</div>
-                        <div class="text-gray-400 pl-2">Options: ${q.o.length}, Answer: ${q.a}</div>
+                detailsEl.innerHTML = this.parsedQuestions.slice(0, 5).map((q, i) => {
+                    const safeQ = Admin.escapeHTML(q.q || '');
+                    const safeA = Admin.escapeHTML(q.a || '');
+                    const optLength = q.o ? q.o.length : 0;
+                    return `
+                    <div class="border-b border-gray-200 pb-1 mb-1 last:border-0">
+                        <div class="font-bold truncate">${i + 1}. ${safeQ}</div>
+                        <div class="text-gray-400 pl-2">选项数: ${optLength}, 答案: ${safeA}</div>
                     </div>
-                `).join('') + (this.parsedQuestions.length > 5 ? ` < div class= "text-center italic text-gray-400" >...and ${this.parsedQuestions.length - 5} more</div > ` : '');
+                    `;
+                }).join('') + (this.parsedQuestions.length > 5 ? `<div class="text-center italic text-gray-400">...以及另外 ${this.parsedQuestions.length - 5} 道题</div>` : '');
             },
 
             async confirmBatchPush() {
@@ -1527,14 +1532,19 @@ ${rawText}`;
 
                     tbody.innerHTML = data.logs.map(log => {
                         const statusColor = log.status === 'success' ? 'text-green-400' : 'text-red-400';
+                        const safeUserId = Admin.escapeHTML(log.user_id || '');
+                        const safeStatus = Admin.escapeHTML(log.status || '');
+                        const safeIp = Admin.escapeHTML(log.ip || '-');
+                        const safeUa = Admin.escapeHTML(log.ua || '-');
+                        const safeError = Admin.escapeHTML(log.error || '-');
                         return `
                             <tr class="hover:bg-gray-700 transition-colors">
                                 <td class="px-4 py-2 text-gray-500">${new Date(log.created_at).toLocaleString()}</td>
-                                <td class="px-4 py-2 text-gray-400 text-[10px]">${log.user_id}</td>
-                                <td class="px-4 py-2 font-bold ${statusColor}">${log.status}</td>
-                                <td class="px-4 py-2 text-gray-400">${log.ip || '-'}</td>
-                                <td class="px-4 py-2 text-gray-500 truncate max-w-[200px]" title="${log.ua || ''}">${log.ua || '-'}</td>
-                                <td class="px-4 py-2 text-red-300 truncate max-w-[200px]" title="${log.error || ''}">${log.error || '-'}</td>
+                                <td class="px-4 py-2 text-gray-400 text-[10px]">${safeUserId}</td>
+                                <td class="px-4 py-2 font-bold ${statusColor}">${safeStatus}</td>
+                                <td class="px-4 py-2 text-gray-400">${safeIp}</td>
+                                <td class="px-4 py-2 text-gray-500 truncate max-w-[200px]" title="${safeUa}">${safeUa}</td>
+                                <td class="px-4 py-2 text-red-300 truncate max-w-[200px]" title="${safeError}">${safeError}</td>
                             </tr>
                             `;
                     }).join('');
@@ -1568,18 +1578,24 @@ ${rawText}`;
                         return;
                     }
 
-                    tbody.innerHTML = data.sets.map(s => `
+                    tbody.innerHTML = data.sets.map(s => {
+                        const safeId = Admin.escapeHTML(String(s.id));
+                        const safeName = Admin.escapeHTML(s.name || 'Untitled');
+                        const safeVersion = Admin.escapeHTML(String(s.version || 0));
+                        const safeCount = Admin.escapeHTML(String(s.question_count || 0));
+                        return `
                             <tr class="hover:bg-gray-50 transition-colors">
-                                <td class="px-6 py-4 font-mono text-xs text-gray-500">${s.id}</td>
-                                <td class="px-6 py-4 font-bold text-gray-800">${s.name || 'Untitled'}</td>
-                                <td class="px-6 py-4"><span class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold">v${s.version || 0}</span></td>
-                                <td class="px-6 py-4 text-gray-600">${s.question_count || 0}</td>
+                                <td class="px-6 py-4 font-mono text-xs text-gray-500">${safeId}</td>
+                                <td class="px-6 py-4 font-bold text-gray-800">${safeName}</td>
+                                <td class="px-6 py-4"><span class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold">v${safeVersion}</span></td>
+                                <td class="px-6 py-4 text-gray-600">${safeCount}</td>
                                 <td class="px-6 py-4 text-xs text-gray-500">${new Date(s.created_at).toLocaleString()}</td>
                                 <td class="px-6 py-4 text-right">
-                                    <button onclick="Admin.viewBank(${s.id})" class="text-blue-600 hover:underline text-xs font-bold">Edit Details</button>
+                                    <button onclick="Admin.viewBank(${safeId})" class="text-blue-600 hover:underline text-xs font-bold">Edit Details</button>
                                 </td>
                             </tr>
-                            `).join('');
+                            `;
+                    }).join('');
                 } catch (e) {
                     tbody.innerHTML = `<tr><td colspan="6" class="text-red-500 text-center py-4">Error: ${e.message}</td></tr>`;
                 }
