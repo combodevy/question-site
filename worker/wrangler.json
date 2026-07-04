@@ -1,0 +1,17 @@
+{
+  "name": "question-site-api",
+  "main": "index.js",
+  "compatibility_date": "2024-05-02",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "question-site-db",
+      "database_id": "128acd54-531e-4eba-9943-56768d095c98",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "JWT_SECRET": "lms-genesis-super-secret-key-change-it-in-production",
+    "ADMIN_USERNAMES": "admin"
+  }
+}
