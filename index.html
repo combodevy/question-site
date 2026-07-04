@@ -270,76 +270,76 @@
 
     <!-- 顶部导航 -->
     <!-- 顶部导航 -->
-    <header class="h-16 px-4 md:px-8 border-b border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-950 flex items-center justify-between sticky top-0 z-30 transition-all duration-300">
-        <div class="flex items-center gap-3 select-none">
+    <header class="h-14 px-4 md:px-6 border-b border-slate-100 dark:border-slate-800/60 bg-white dark:bg-slate-950 flex items-center justify-between sticky top-0 z-30 transition-all duration-300">
+        <div class="flex items-center gap-2.5 select-none">
             <!-- Home button -->
             <div onclick="App.router.go('dashboard')"
-                class="w-9 h-9 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-95 transition-all duration-200 cursor-pointer hover:shadow-sm"
+                class="w-8 h-8 border border-slate-200/40 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-lg flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-95 transition-all duration-200 cursor-pointer"
                 title="返回主页">
-                <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 10.5L12 3l9 7.5M5 10.5V20h6v-4h2v4h6v-9.5" />
                 </svg>
             </div>
             
             <!-- Version Brand -->
-            <div class="flex items-center gap-2">
-                <span class="text-sm font-bold tracking-tight text-slate-900 dark:text-white">LMS Genesis</span>
-                <span class="px-2 py-0.5 text-[10px] font-bold tracking-wider text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/30 rounded border border-teal-100/30 dark:border-teal-900/30">v3.0</span>
+            <div class="flex items-center gap-1.5">
+                <span class="text-xs font-bold tracking-tight text-slate-800 dark:text-white">LMS Genesis</span>
+                <span class="px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/30 rounded border border-teal-100/30 dark:border-teal-900/30">v3.0</span>
             </div>
         </div>
         
         <!-- Right side tools (Individual Buttons, No Capsule) -->
-        <div class="flex items-center gap-2 md:gap-3">
+        <div class="flex items-center gap-2">
             <!-- Sync status pill (Pill-shaped badge matching the reference picture) -->
             <button id="save-cloud-btn"
-                class="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-xs font-medium transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95">
-                <span id="sync-indicator-icon" class="w-2 h-2 rounded-full bg-emerald-500 transition-all duration-300"></span>
-                <span id="sync-text" class="text-slate-600 dark:text-slate-400">已同步</span>
+                class="h-8 flex items-center gap-1.5 px-2.5 rounded-lg border border-slate-200/40 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-[11px] font-medium text-slate-500 dark:text-slate-400 transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95">
+                <span id="sync-indicator-icon" class="w-1.5 h-1.5 rounded-full bg-emerald-500 transition-all duration-300"></span>
+                <span id="sync-text">已同步</span>
             </button>
             
             <!-- Theme Toggle -->
             <button onclick="App.ui.toggleTheme()"
-                class="w-9 h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-all duration-200 active:scale-95 hover:shadow-sm"
+                class="w-8 h-8 rounded-lg border border-slate-200/40 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-all duration-200 active:scale-95"
                 title="切换主题">
-                <svg id="theme-icon" class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <svg id="theme-icon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
                 </svg>
             </button>
             
             <!-- Import Center -->
             <button onclick="App.ui.openImportCenter('json')"
-                class="w-9 h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-all duration-200 active:scale-95 hover:shadow-sm"
+                class="w-8 h-8 rounded-lg border border-slate-200/40 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-all duration-200 active:scale-95"
                 title="题库导入中心">
-                <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 4h16v4H4zM4 12h16v8H4zM9 16h6" />
                 </svg>
             </button>
             
             <!-- Trash Modal -->
             <button onclick="App.ui.openTrashModal()"
-                class="w-9 h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-all duration-200 active:scale-95 hover:shadow-sm"
+                class="w-8 h-8 rounded-lg border border-slate-200/40 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-all duration-200 active:scale-95"
                 title="回收站">
-                <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 3h6m-7 4h8m-9 0h10l-1 13H7L6 7z" />
                 </svg>
             </button>
             
             <!-- Settings Modal -->
             <button onclick="App.ui.toggleModal('config')"
-                class="w-9 h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-all duration-200 active:scale-95 hover:shadow-sm"
+                class="w-8 h-8 rounded-lg border border-slate-200/40 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-all duration-200 active:scale-95"
                 title="设置">
-                <svg class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 17h16M9 3v4M15 13v4" />
                 </svg>
             </button>
             
-            <div class="w-px h-5 bg-slate-200 dark:bg-slate-800 mx-0.5"></div>
+            <div class="w-px h-4 bg-slate-200/60 dark:bg-slate-800 mx-0.5"></div>
             
             <!-- Auth -->
             <button id="auth-btn"
-                class="w-9 h-9 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-all duration-200 active:scale-95 hover:shadow-sm relative overflow-hidden"
+                class="w-8 h-8 rounded-lg border border-slate-200/40 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-all duration-200 active:scale-95 relative overflow-hidden"
                 title="账户">
-                <svg id="auth-icon" class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <svg id="auth-icon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM6 20c0-2.21 2.686-4 6-4s6 1.79 6 4" />
                 </svg>
             </button>
