@@ -4955,6 +4955,9 @@ ${rawText}
                         alert("当前没有检测到需要审查的疑似相似题。请先通过导入题库生成。");
                         return;
                     }
+                    if (typeof this.closeModal === 'function') {
+                        this.closeModal('config');
+                    }
                     const modal = App.dom.get('modal-dup-review');
                     const list = App.dom.get('dup-review-list');
                     if (!modal || !list) return;

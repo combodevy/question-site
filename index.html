@@ -1018,8 +1018,18 @@
     <div id="modal-bank-manager"
         class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm opacity-0 pointer-events-none hidden">
         <div class="card w-full max-w-3xl rounded-2xl shadow-2xl p-0 flex flex-col max-h-[85vh] bg-[var(--card)]">
-            <div class="p-4 border-b border-[var(--border)] flex justify-between items-center">
-                <h3 class="font-bold text-base">科目 / 章节管理</h3>
+            <div class="p-4 border-b border-[var(--border)] flex items-center justify-between bg-[var(--bg-hover)] rounded-t-2xl">
+                <div class="flex items-center gap-2">
+                    <!-- Back Button -->
+                    <button onclick="App.ui.closeBankManager(); App.ui.toggleModal('config')"
+                        class="text-[var(--sub)] hover:text-[var(--text)] p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center justify-center"
+                        title="返回设置">
+                        <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    <h3 class="font-bold text-base">科目 / 章节管理</h3>
+                </div>
                 <button onclick="App.ui.closeBankManager()" class="text-[var(--sub)] hover:text-[var(--text)] p-1">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -1674,8 +1684,18 @@
         class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm hidden opacity-0 pointer-events-none">
         <div class="card w-full max-w-4xl rounded-2xl shadow-2xl p-0 flex flex-col max-h-[85vh]">
             <div
-                class="p-4 md:p-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-hover)] rounded-t-2xl">
-                <h3 class="font-bold text-base">疑似相似题审查</h3>
+                class="p-4 md:p-5 border-b border-[var(--border)] flex items-center justify-between bg-[var(--bg-hover)] rounded-t-2xl">
+                <div class="flex items-center gap-2">
+                    <!-- Back Button -->
+                    <button onclick="App.ui.closeModal('dup-review'); App.ui.toggleModal('config')"
+                        class="text-[var(--sub)] hover:text-[var(--text)] p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center justify-center"
+                        title="返回设置">
+                        <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    <h3 class="font-bold text-base">疑似相似题审查</h3>
+                </div>
                 <button onclick="App.ui.closeModal('dup-review')"
                     class="text-[var(--sub)] hover:text-[var(--text)] p-1">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
