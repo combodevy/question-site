@@ -1024,7 +1024,7 @@
                     <button onclick="App.ui.closeBankManager(); App.ui.toggleModal('config')"
                         class="text-[var(--sub)] hover:text-[var(--text)] p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center justify-center"
                         title="返回设置">
-                        <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
                         </svg>
                     </button>
@@ -1455,7 +1455,7 @@
                             <li>确认无误后，再点击「导入预览 JSON 到题库」。</li>
                         </ol>
                         <div class="pt-1">
-                            <button onclick="App.ui.toggleModal('ai-import')"
+                            <button onclick="App.ui.closeModal('import-center'); App.ui.toggleModal('ai-import')"
                                 class="px-3 py-2 rounded-xl border border-purple-300 bg-white text-purple-700 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-transform">
                                 打开 AI 导入面板
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1486,8 +1486,18 @@
         class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm hidden opacity-0 pointer-events-none">
         <div class="card w-full max-w-lg rounded-2xl shadow-2xl p-0 flex flex-col max-h-[85vh]">
             <div
-                class="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-hover)] rounded-t-2xl">
-                <h3 class="font-bold text-base">AI 识别文档生成题库</h3>
+                class="p-4 border-b border-[var(--border)] flex items-center justify-between bg-[var(--bg-hover)] rounded-t-2xl">
+                <div class="flex items-center gap-2">
+                    <!-- Back Button -->
+                    <button onclick="App.ui.closeModal('ai-import'); App.ui.toggleModal('import-center')"
+                        class="text-[var(--sub)] hover:text-[var(--text)] p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center justify-center"
+                        title="返回导入中心">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    <h3 class="font-bold text-base">AI 识别文档生成题库</h3>
+                </div>
                 <button onclick="App.ui.closeModal('ai-import')" class="text-[var(--sub)] hover:text-[var(--text)] p-1">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
@@ -1690,7 +1700,7 @@
                     <button onclick="App.ui.closeModal('dup-review'); App.ui.toggleModal('config')"
                         class="text-[var(--sub)] hover:text-[var(--text)] p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center justify-center"
                         title="返回设置">
-                        <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
                         </svg>
                     </button>
