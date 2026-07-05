@@ -5436,7 +5436,7 @@ ${rawText}
                                     if (filter) {
                                         filter.value = sub;
                                     }
-                                    App.ui.go('library');
+                                    App.router.go('library');
                                     this.closeBankManager();
                                 } else if (action === 'rename-sub') {
                                     App.data.renameSubjectInteractive(sub);
