@@ -5423,14 +5423,21 @@ ${rawText}
                         const chapList = App.dom.get('bank-manager-chapter-list');
                         if (subList) {
                             subList.addEventListener('click', (e) => {
-                                const btn = e.target.closest('button[data-action]');
-                                if (!btn) return;
-                                const action = btn.dataset.action;
-                                const sub = btn.dataset.sub ? decodeURIComponent(btn.dataset.sub) : '';
+                                const actionEl = e.target.closest('[data-action]');
+                                if (!actionEl) return;
+                                const action = actionEl.dataset.action;
+                                const sub = actionEl.dataset.sub ? decodeURIComponent(actionEl.dataset.sub) : '';
                                 if (!sub) return;
                                 if (action === 'select-sub') {
                                     this._bankMgrCurrentSubject = sub;
                                     this.renderBankManager();
+                                } else if (action === 'view-questions') {
+                                    const filter = App.dom.get('lib-filter');
+                                    if (filter) {
+                                        filter.value = sub;
+                                    }
+                                    App.ui.go('library');
+                                    this.closeBankManager();
                                 } else if (action === 'rename-sub') {
                                     App.data.renameSubjectInteractive(sub);
                                 } else if (action === 'delete-sub') {
@@ -5499,15 +5506,15 @@ ${rawText}
                         }, 0);
                         const activeClass = sub === current ? 'border-primary-300 bg-primary-50' : 'border-[var(--border)] bg-[var(--card)]';
                         subHtml += `
-                            <div class="flex items-center justify-between px-3 py-2 rounded-xl border ${activeClass}">
+                            <div data-action="select-sub" data-sub="${encodeURIComponent(sub)}" class="flex items-center justify-between px-3 py-2 rounded-xl border ${activeClass} cursor-pointer hover:border-primary-400 dark:hover:border-primary-700 transition-colors">
                                 <div class="flex flex-col">
                                     <span class="text-[11px] font-bold text-[var(--text)]">${App.utils.escapeHTML(sub)}</span>
                                     <span class="text-[10px] text-[var(--sub)]">${chaps.length} 章节 · ${total} 题</span>
                                 </div>
                                 <div class="flex items-center gap-1">
-                                    <button data-action="select-sub" data-sub="${encodeURIComponent(sub)}" class="px-2 py-1 rounded-lg text-[10px] border border-[var(--border)]">查看</button>
-                                    <button data-action="rename-sub" data-sub="${encodeURIComponent(sub)}" class="px-2 py-1 rounded-lg text-[10px] border border-blue-200 text-blue-600 bg-blue-50">重命名</button>
-                                    <button data-action="delete-sub" data-sub="${encodeURIComponent(sub)}" class="px-2 py-1 rounded-lg text-[10px] border border-red-200 text-red-600 bg-red-50">删除</button>
+                                    <button data-action="view-questions" data-sub="${encodeURIComponent(sub)}" class="px-2 py-1 rounded-lg text-[10px] border border-primary-200 text-primary-600 bg-primary-50 hover:bg-primary-100 dark:bg-primary-950/30 dark:text-primary-400 dark:border-primary-900 transition-colors font-bold">查看</button>
+                                    <button data-action="rename-sub" data-sub="${encodeURIComponent(sub)}" class="px-2 py-1 rounded-lg text-[10px] border border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900 transition-colors">重命名</button>
+                                    <button data-action="delete-sub" data-sub="${encodeURIComponent(sub)}" class="px-2 py-1 rounded-lg text-[10px] border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:text-red-400 dark:border-red-900 transition-colors">删除</button>
                                 </div>
                             </div>
                         `;
