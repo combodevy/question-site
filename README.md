@@ -4,6 +4,8 @@
 
 这是一个**纯 Cloudflare 免费方案**的在线题库与刷题平台：前端托管在 **Cloudflare Pages**，后端 API 是 **Cloudflare Workers**，数据库为 **Cloudflare D1 (SQLite)**，全程不依赖 GitHub Pages、Vercel、Supabase 或任何第三方服务。
 
+**在线地址**：<https://question-site-front.pages.dev>（管理后台：<https://question-site-front.pages.dev/admin.html>）
+
 项目采用前后端分离架构，前端为纯静态单页应用 (SPA，无构建工具)，多设备数据通过后端乐观锁 + 增量同步保持一致。
 
 ---
@@ -30,7 +32,7 @@ graph TD
 
 1.  **题库管理**：无限层级「科目 → 章节」；单选 / 多选 / 判断三种题型；JSON 导入导出（导入前预览、可改归属、重复与相似题检测）；科目/章节重命名与软删除回收站。
 2.  **多模式刷题**：顺序 / 随机 / 错题突击 / 智能推荐；作答时长统计。
-3.  **云端同步**：IndexedDB 离线优先 + 400ms 防抖上传；基于版本号的乐观锁（冲突返回 409 并自动恢复）；作答记录增量上传（`historyAppend`）；ETag 条件加载（304 省流量）；60 秒轮询兜底，可选 WebSocket 实时推送（`REALTIME_WS_URL`）。
+3.  **云端同步**：IndexedDB 离线优先 + 400ms 防抖上传；基于版本号的乐观锁（冲突返回 409 并自动恢复）；作答记录增量上传（`historyAppend`）；ETag 条件加载（304 省流量）；60 秒轮询兜底，可选 WebSocket 实时推送（`REALTIME_WS_URL`）；本地存在未上传修改时加载不覆盖本地，同设备换账号自动隔离数据。
 4.  **管理后台** (`admin.html`)：用户列表（最近活跃 / IP / 设备）、建用户、批量删除、题库透视与可视化编辑（`set-details` / `users-update-bank`）、全局广播（单人 / 多选 / 全员）、系统日志。
 
 ### 👤 注册与登录 (Auth Behavior)
@@ -152,10 +154,15 @@ npx wrangler pages dev .pages-dist --port 8788
 
 *   **版本控制**：前端与后端的 `version` 必须严格匹配，否则返回 `409 Conflict`；前端收到 409 会自动拉取最新数据并重试一次。
 *   **保存原子性**：后端使用 `env.DB.batch()` 一次原子写入（含版本号自增、题目重写、同步日志），不要改成逐条执行。
-*   **本地脏数据保护**：本地有未上传修改（`_bankDirty`）时，轮询/推送触发的加载只会推进版本号并增量并入作答记录，不会覆盖本地题库。
+*   **本地脏数据保护**：本地存在未上传修改（保存在途 / 保存被挂起 / 脏标记）时，轮询或推送触发的加载不会应用云数据，只增量并入服务端新增的作答记录；保存成功仅在期间无新编辑时清除脏标记。这条防线防止轮询用旧云数据覆盖更新的本地编辑。
+*   **多账号数据隔离**：IndexedDB 记录本地数据归属账号（`lms_v26_last_user`）；同设备换账号且云端为空时，自动清空上一账号残留的本地数据。
 *   **D1 限额**：单条 SQL 100KB、单查询绑定参数 100 个（见 [Cloudflare D1 Limits](https://developers.cloudflare.com/d1/platform/limits/)）；超大题库保存时注意载荷体积。
 *   **安全基线**：JWT_SECRET 走 `wrangler secret`（勿写进 wrangler.json）；JWT 存于浏览器 localStorage，属个人/小团队工具的取舍；登录接口无内置限速，如公开部署建议在 Worker 前加 Cloudflare WAF 规则。
 
 ---
 
-*Claude, Gemini 编译 | 2026*
+## 📝 更新记录 (Changelog)
+
+*   **2026-09**：修复模块化拆分引入的致命语法错误（应用此前完全无法启动）与丢失的刷题模块；管理后台接口与后端对齐（`set-details`、`users-update-bank` 等）；移除 AI 功能（模型配置、AI 问答、AI 导入、AI 错题分析）；修复 5 处 XSS 注入点；修复同步竞态（并发加载覆盖未上传的本地修改、被吞掉的挂起保存）；增加多账号本地数据隔离；新增 Cloudflare Pages 部署脚本，文档全面迁移到 Cloudflare 方案。
+*   **2026-07**：从 Supabase + Vercel 迁移到 Cloudflare Workers + D1。
+
