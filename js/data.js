@@ -719,8 +719,11 @@ export const data = {
                                     historyAppend: historyBuffer,
                                     skipQuestionsUpdate: true,
                                     version: typeof this.remoteVersion === "number" ? this.remoteVersion : 0,
-                                    partialFields: ['lastPracticeTime'],
-                                    partialValues: { lastPracticeTime: lastPracticeTime },
+                                    partialFields: ['lastPracticeTime', 'hiddenMistakeIds'],
+                                    partialValues: {
+                                        lastPracticeTime: lastPracticeTime,
+                                        hiddenMistakeIds: Array.isArray(this.hiddenMistakeIds) ? this.hiddenMistakeIds : []
+                                    },
                                     delta: {
                                         questions: 0,
                                         history: historyBuffer.length,
@@ -963,6 +966,37 @@ export const data = {
                                 return;
                             }
 
+                            // 2.5 本地有未上传的修改时不覆盖本地数据（防止轮询/实时推送冲掉本地编辑）：
+                            // 仅推进版本号，并把服务端新增的作答记录按时间戳增量并入本地
+                            if (this._bankDirty) {
+                                if (typeof data.version === "number" && Number.isFinite(data.version)) {
+                                    this.remoteVersion = data.version;
+                                }
+                                if (Array.isArray(state.history)) {
+                                    const existingTimestamps = new Set(this.history.map(h => h.t));
+                                    const newEntries = state.history.filter(h => !existingTimestamps.has(h.t));
+                                    if (newEntries.length > 0) {
+                                        this.history = this.history.concat(newEntries);
+                                        this._safeSetItem(this.historyKey, JSON.stringify({
+                                            history: this.history,
+                                            lastPracticeTime: this.lastPracticeTime,
+                                            hiddenMistakeIds: Array.isArray(this.hiddenMistakeIds) ? this.hiddenMistakeIds : []
+                                        }));
+                                    }
+                                    if (this.history.length > 0) {
+                                        this._lastHistoryTimestamp = this.history.reduce((m, h) => Math.max(m, h.t || 0), 0);
+                                    }
+                                }
+                                this._errFreqCache = null;
+                                this._isHistoryDirty = true;
+                                this._syncReady = true;
+                                if (this._deferredSave) {
+                                    this._deferredSave = false;
+                                    this.saveToCloudDebounced();
+                                }
+                                return;
+                            }
+
                             // 3. 应用数据到本地
                             // _suppressCloudSync 标志位防止应用数据时触发不必要的自动保存
                             this._suppressCloudSync = true;
@@ -1040,6 +1074,12 @@ export const data = {
                                 trash: trashCount
                             };
                             this._lastSyncedQuestionIds = allIds;
+                            // 关键：同步后必须失效派生缓存，否则页面加载时先用本地旧数据
+                            // 渲染填充的缓存会一直挡住云端新数据，直到下次编辑才刷新
+                            this._cachedQuestions = null;
+                            this._questionMap = null;
+                            this._errFreqCache = null;
+                            this._isHistoryDirty = true;
                             this._bankDirty = false;
                             this._syncReady = true;
                             this._suppressCloudSync = false;
@@ -1511,7 +1551,7 @@ export const sync = {
                     }, 200);
                 },
                 startAutoPull(intervalMs) {
-                    // Bug #16 fix: 轮询回退机制，当 WebSocket/Ably 不可用时定期拉取更新
+                    // Bug #16 fix: 轮询回退机制，当实时推送网关不可用时定期拉取更新
                     this.stopAutoPull();
                     const interval = intervalMs || 60000; // 默认 60 秒
                     this._pollTimer = setInterval(() => {

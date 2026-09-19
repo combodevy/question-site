@@ -309,7 +309,7 @@
                             if (mode === 'mistakes') {
                                 const errCount = App.data.getMistakeCount(q.id);
                                 mistakeBadge = `<span class="text-[10px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded-full ml-2">${errCount}</span>`;
-                                delBtn = `<button class="ml-auto text-xs text-[var(--sub)] hover:text-red-500 p-2 border border-[var(--border)] rounded" onclick="event.stopPropagation(); App.data.clearMistakeHistory('${q.id}'); App.views.library.render()">✕ 移除</button>`;
+                                delBtn = `<button class="ml-auto text-xs text-[var(--sub)] hover:text-red-500 p-2 border border-[var(--border)] rounded" data-role="forget">✕ 移除</button>`;
                             }
 
                             let ansPreview = '';
@@ -354,8 +354,8 @@
                                     </label>
                                     <div class="flex items-center gap-1">
                                         ${delBtn}
-                                        <button class="text-[10px] text-[var(--sub)] hover:text-primary-600 p-1 rounded prevent-drawer" onclick="event.stopPropagation(); App.ui.openQuestionEditor('${App.utils.escapeHTML(String(q.id || ''))}')">✎</button>
-                                        <button class="text-[var(--sub)] hover:text-primary-600 p-1 rounded prevent-drawer" onclick="event.stopPropagation(); App.ui.openDrawer('${App.utils.escapeHTML(String(q.id || ''))}')">
+                                        <button class="text-[10px] text-[var(--sub)] hover:text-primary-600 p-1 rounded prevent-drawer" data-role="edit">✎</button>
+                                        <button class="text-[var(--sub)] hover:text-primary-600 p-1 rounded prevent-drawer" data-role="chat">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-4.553a1 1 0 00-1.414-1.414L13.586 8.586A2 2 0 0112.172 9H7a2 2 0 00-2 2v6h6v-1a2 2 0 01.586-1.414l4.553-4.553z"/>
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 18h14"/>
@@ -368,9 +368,30 @@
                                     <span>${ansPreview}</span>
                                 </div>
                                 ${detailsHtml}`;
+                            // 题目 ID 通过 dataset 赋值（不受 HTML 转义影响），点击事件统一由列表容器委托处理
+                            d.querySelectorAll('[data-role]').forEach(el => { el.dataset.qid = q.id || ''; });
                             frag.appendChild(d);
                         });
                         c.appendChild(frag);
+
+                        // 列表内按钮点击委托（edit=编辑题目 / chat=AI 抽屉 / forget=移出错题本）
+                        if (!this._listClickDelegated) {
+                            c.addEventListener('click', (e) => {
+                                const btn = e.target.closest('[data-role]');
+                                if (!btn) return;
+                                const qid = btn.dataset.qid;
+                                if (!qid) return;
+                                if (btn.dataset.role === 'edit') {
+                                    App.ui.openQuestionEditor(qid);
+                                } else if (btn.dataset.role === 'chat') {
+                                    App.ui.openDrawer(qid);
+                                } else if (btn.dataset.role === 'forget') {
+                                    App.data.clearMistakeHistory(qid);
+                                    App.views.library.render();
+                                }
+                            });
+                            this._listClickDelegated = true;
+                        }
 
                         if (!this._scrollListenerAttached) {
                             const listEl = App.dom.get('lib-list');

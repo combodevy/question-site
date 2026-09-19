@@ -22,7 +22,17 @@
                                 const safeChap = App.utils.escapeHTML(chap);
                                 const l = document.createElement('label');
                                 l.className = "flex items-center gap-2 p-3 border border-[var(--border)] rounded-xl cursor-pointer active:border-primary-500 transition-colors bg-[var(--card)] touch-manipulation";
-                                l.innerHTML = `<input type="checkbox" class="setup-chk accent-primary-600 w-4 h-4" value="${sub}|${chap}" checked> <span class="text-xs font-medium truncate">${safeChap}</span>`;
+                                // 用 DOM 属性赋值而不是字符串拼接，避免科目/章节名中的特殊字符破坏 HTML 结构
+                                const chk = document.createElement('input');
+                                chk.type = 'checkbox';
+                                chk.className = "setup-chk accent-primary-600 w-4 h-4";
+                                chk.value = `${sub}|${chap}`;
+                                chk.checked = true;
+                                const span = document.createElement('span');
+                                span.className = "text-xs font-medium truncate";
+                                span.textContent = chap;
+                                l.appendChild(chk);
+                                l.appendChild(span);
                                 g.appendChild(l);
                             });
                             w.appendChild(g); c.appendChild(w);

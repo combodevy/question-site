@@ -1067,10 +1067,10 @@ ${rawText}`;
                 if (!confirm(`Are you sure you want to delete ${this.selectedUsers.size} users ? This will remove all their question banks and logs.`)) return;
 
                 try {
-                    const res = await fetch(`${ADMIN_API_BASE} /api/admin / delete -users`, {
+                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/delete-users`, {
                         method: 'POST',
                         headers: {
-                            'Authorization': `Bearer ${this.token} `,
+                            'Authorization': `Bearer ${this.token}`,
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({ userIds: Array.from(this.selectedUsers) })
@@ -1235,7 +1235,7 @@ ${rawText}`;
                 btn.innerText = 'Pushing...';
 
                 try {
-                    const res = await fetch(`${ADMIN_API_BASE} /api/admin / push - broadcast`, {
+                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/push-broadcast`, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${this.token} `,
@@ -1532,10 +1532,11 @@ ${rawText}`;
 
                     tbody.innerHTML = data.logs.map(log => {
                         const statusColor = log.status === 'success' ? 'text-green-400' : 'text-red-400';
-                        const safeUserId = Admin.escapeHTML(log.user_id || '');
+                        const safeUserId = Admin.escapeHTML(log.username || log.user_id || '');
                         const safeStatus = Admin.escapeHTML(log.status || '');
-                        const safeIp = Admin.escapeHTML(log.ip || '-');
-                        const safeUa = Admin.escapeHTML(log.ua || '-');
+                        const delta = (log.delta && typeof log.delta === 'object') ? log.delta : {};
+                        const safeIp = Admin.escapeHTML(delta.ip || '-');
+                        const safeUa = Admin.escapeHTML(delta.ua || '-');
                         const safeError = Admin.escapeHTML(log.error || '-');
                         return `
                             <tr class="hover:bg-gray-700 transition-colors">
@@ -1651,7 +1652,7 @@ ${rawText}`;
                     console.error(e);
                     jsonContent.value = `Error: ${e.message}`;
                     title.innerText = 'Error';
-                    visualView.innerHTML = `<div class="text-red-500 text-center py-10">Error loading questions: ${e.message}</div>`;
+                    visualView.innerHTML = `<div class="text-red-500 text-center py-10">Error loading questions: ${Admin.escapeHTML(e.message)}</div>`;
                 }
             },
 
@@ -1992,7 +1993,9 @@ ${rawText}`;
                         },
                         body: JSON.stringify({
                             userId: this.currentEditingUserId,
-                            bankData: bankData
+                            setId: this.currentEditingSetId,
+                            name: (this.currentBankInfo && this.currentBankInfo.name) || 'Untitled Bank',
+                            questions: bankData.questions
                         })
                     });
 
@@ -2001,8 +2004,8 @@ ${rawText}`;
                         throw new Error(err.error || 'Failed to save');
                     }
 
-                    const result = await res.json();
-                    alert(`Success! User data updated to version ${result.version}. The user will receive the update instantly.`);
+                    await res.json();
+                    alert('Success! User data updated. The user will receive the update on next sync.');
 
                     this.viewBank(this.currentEditingSetId);
                     this.fetchUsers();

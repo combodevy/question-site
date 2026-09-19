@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "deploy:worker": "cd worker && npx wrangler deploy",
-    "deploy:pages": "npx wrangler pages deploy . --project-name question-site-front --commit-dirty",
+    "deploy:pages": "node scripts/stage-pages.mjs && npx wrangler pages deploy .pages-dist --project-name question-site-front --commit-dirty",
     "deploy": "npm run deploy:worker && npm run deploy:pages",
     "dev:worker": "cd worker && npx wrangler dev"
   },

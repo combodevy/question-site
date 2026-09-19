@@ -1254,7 +1254,7 @@
                                     const safePathChap = App.utils.escapeHTML(q.originalPath?.chap || chap);
                                     item.innerHTML = `
                                         <div class="flex justify-between items-center mb-1">
-                                            <div class="text-[10px] text-[var(--sub)]">ID: ${q.id}</div>
+                                            <div class="text-[10px] text-[var(--sub)]">ID: ${App.utils.escapeHTML(String(q.id || ''))}</div>
                                             <div class="flex items-center gap-2">
                                                 <span class="text-[10px] text-[var(--sub)]">${timeStr}</span>
                                                 <button class="px-2 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-600 text-[10px] font-bold"

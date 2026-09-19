@@ -220,6 +220,9 @@ export default {
                 if (rawUsername.includes("@")) {
                     return jsonResponse({ error: "Username cannot contain '@'" }, 400, headers);
                 }
+                if (typeof password !== "string" || password.length < 6) {
+                    return jsonResponse({ error: "密码至少需要 6 位 (Password must be at least 6 characters)" }, 400, headers);
+                }
 
                 // Check if user already exists
                 const existing = await env.DB.prepare("SELECT id FROM users WHERE username = ?")
@@ -233,9 +236,14 @@ export default {
                 const salt = generateSalt();
                 const passwordHash = await hashPassword(password, salt);
 
-                await env.DB.prepare("INSERT INTO users (id, username, password_hash, salt) VALUES (?, ?, ?, ?)")
-                    .bind(userId, rawUsername.toLowerCase(), passwordHash, salt)
-                    .run();
+                try {
+                    await env.DB.prepare("INSERT INTO users (id, username, password_hash, salt) VALUES (?, ?, ?, ?)")
+                        .bind(userId, rawUsername.toLowerCase(), passwordHash, salt)
+                        .run();
+                } catch (e) {
+                    // UNIQUE 约束兜底：并发注册同名用户时给友好提示而不是 500
+                    return jsonResponse({ error: "用户名已被注册" }, 400, headers);
+                }
 
                 const token = await signJwt({
                     sub: userId,
@@ -406,7 +414,7 @@ export default {
                     return jsonResponse({ error: "name 不能为空" }, 400, headers);
                 }
 
-                const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+                const ip = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
                 const ua = request.headers.get("user-agent") || "unknown";
                 const logDelta = delta ? { ...delta, ip, ua } : { ip, ua };
 
@@ -841,11 +849,42 @@ export default {
                         return jsonResponse({ error: "Missing userId parameter" }, 400, headers);
                     }
 
-                    const { results } = await env.DB.prepare("SELECT id, name, version, created_at FROM question_sets WHERE user_id = ?")
-                        .bind(targetUid)
-                        .all();
+                    const { results } = await env.DB.prepare(`
+                        SELECT id, name, version, created_at,
+                            (SELECT COUNT(*) FROM questions q WHERE q.question_set_id = question_sets.id) AS question_count
+                        FROM question_sets WHERE user_id = ? ORDER BY id DESC
+                    `).bind(targetUid).all();
 
                     return jsonResponse({ ok: true, sets: results }, 200, headers);
+                }
+
+                // 7.5 SET DETAILS (bank info + questions by setId, used by admin.html)
+                if (action === "set-details" && request.method === "GET") {
+                    const setId = url.searchParams.get("setId");
+                    if (!setId) {
+                        return jsonResponse({ error: "Missing setId parameter" }, 400, headers);
+                    }
+
+                    const set = await env.DB.prepare("SELECT id, user_id, name, version, created_at FROM question_sets WHERE id = ?")
+                        .bind(setId)
+                        .first();
+                    if (!set) {
+                        return jsonResponse({ error: "Set not found" }, 404, headers);
+                    }
+
+                    const { results } = await env.DB.prepare("SELECT content FROM questions WHERE question_set_id = ?")
+                        .bind(set.id)
+                        .all();
+                    const questions = results.map(row => {
+                        try { return JSON.parse(row.content); } catch (e) { return null; }
+                    }).filter(Boolean);
+
+                    return jsonResponse({
+                        ok: true,
+                        bank_info: { id: set.id, name: set.name, version: set.version, created_at: set.created_at },
+                        user_id: set.user_id,
+                        questions
+                    }, 200, headers);
                 }
 
                 // 8. UPDATE USER BANK
@@ -879,7 +918,7 @@ export default {
 
         } catch (e) {
             console.error(e);
-            return jsonResponse({ error: "Internal Server Error", detail: e.message }, 500, headers);
+            return jsonResponse({ error: "Internal Server Error" }, 500, headers);
         }
     }
 };

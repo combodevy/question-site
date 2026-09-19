@@ -20,6 +20,10 @@ db/
 # Logs
 *.log
 
+# Cloudflare Pages staging output
+.pages-dist/
+
 # OS files
 .DS_Store
-Thumbs.db
+Thumbs.db# Wrangler local dev secrets
+worker/.dev.vars

@@ -1,11 +1,10 @@
-assist by Gemini＆Claude 在Gemini和Claude下完成
 # Question Site - Flexible Edition (LMS Genesis)
 
 ## 📖 项目概述 (Project Overview)
 
-这是一个**现代化、无服务器架构 (Serverless) 的在线题库与刷题平台**。它专为个人学习者和小型团队设计，提供灵活的题库管理、智能刷题练习、错题分析以及多端实时同步功能。
+这是一个**纯 Cloudflare 免费方案**的在线题库与刷题平台：前端托管在 **Cloudflare Pages**，后端 API 是 **Cloudflare Workers**，数据库为 **Cloudflare D1 (SQLite)**，全程不依赖 GitHub Pages、Vercel、Supabase 或任何第三方服务。
 
-项目采用 **前后端分离 (Decoupled)** 架构，前端为纯静态单页应用 (SPA)，后端基于 Vercel Serverless Functions + Supabase (PostgreSQL)，并通过 **Cloudflare Workers WebSocket 网关** 实现多设备实时同步（可选集成 Ably 作为备用通道）。
+项目采用前后端分离架构，前端为纯静态单页应用 (SPA，无构建工具)，多设备数据通过后端乐观锁 + 增量同步保持一致。
 
 ---
 
@@ -13,170 +12,151 @@ assist by Gemini＆Claude 在Gemini和Claude下完成
 
 ```mermaid
 graph TD
-    User["User (Browser/Mobile)"] -->|HTTPS| Frontend["Frontend (GitHub Pages)"]
-    Frontend -->|"REST API"| Backend["Backend (Vercel Functions)"]
-    Frontend -->|WebSocket| Realtime["Realtime Gateway (Cloudflare Workers)"]
-    Realtime -->|"Event: set-updated"| Frontend
-    Backend -->|SQL| DB["Supabase PostgreSQL"]
-    Backend -->|"Verify Token"| Auth["Supabase Auth"]
-    Frontend -->|Store| Local["LocalStorage"]
+    User["User (Browser/Mobile)"] -->|HTTPS| Frontend["Frontend (Cloudflare Pages)"]
+    Frontend -->|"REST API + Bearer JWT"| Backend["API (Cloudflare Workers)"]
+    Backend -->|SQL| DB["Cloudflare D1 (SQLite)"]
+    Frontend -->|Store| Local["IndexedDB (离线优先)"]
 ```
 
 ### 核心技术栈 (Tech Stack)
 
-*   **前端 (Frontend)**:
-    *   **HTML5 / Vanilla JS (ES6+)**: 无构建工具，直接运行，轻量高效。
-    *   **Tailwind CSS (CDN)**: 原子化 CSS 框架，快速构建响应式 UI。
-    *   **Alpine.js (Implicit)**: 借鉴其思想的原生响应式实现。
-    *   **WebSocket Realtime**: 通过 Cloudflare Workers 网关实现多设备实时同步；在未配置网关时可回退到 Ably。
-*   **后端 (Backend)**:
-    *   **Vercel Serverless Functions**: Node.js 运行时，提供 RESTful API（保存 / 加载题库、Admin 接口等）。
-    *   **Cloudflare Workers + Durable Objects**: 作为自建 Realtime Gateway，按 userId 维护 WebSocket 连接并广播更新事件。
-    *   **pg (node-postgres)**: 连接 PostgreSQL 数据库。
-    *   **jose / jsonwebtoken**: 处理 JWT 身份验证与 JWKS 校验。
-*   **数据库 & 鉴权 (DB & Auth)**:
-    *   **Supabase Auth**: 管理用户注册、登录及 Token 分发（支持“用户名 + 密码”登录，内部映射为虚拟邮箱）。
-    *   **Supabase PostgreSQL**: 存储题库数据、版本号及同步日志。
+*   **前端**: HTML5 / Vanilla JS (ES Modules，无构建工具)、Tailwind CSS (CDN)、IndexedDB 本地存储
+*   **后端**: Cloudflare Workers（单文件 `worker/index.js`，原生 Web Crypto 实现 JWT 签发/校验与 PBKDF2 密码哈希）
+*   **数据库**: Cloudflare D1，四张表 `users` / `question_sets` / `questions` / `sync_logs`（迁移见 `worker/migrations/`）
 
 ---
 
 ## ✨ 核心功能 (Key Features)
 
-1.  **智能题库管理 (Question Bank Management)**
-    *   支持无限层级的 **科目 (Subject) -> 章节 (Chapter)** 结构。
-    *   支持 **单选 (MCQ)**、**多选 (Multi)**、**判断 (True/False)** 三种题型。
-    *   支持 JSON 文件导入/导出，以及 AI 辅助文档导入 (Word/PDF/Txt)。
+1.  **题库管理**：无限层级「科目 → 章节」；单选 / 多选 / 判断三种题型；JSON 导入导出（导入前预览、可改归属、重复与相似题检测）；科目/章节重命名与软删除回收站。
+2.  **多模式刷题**：顺序 / 随机 / 错题突击 / 智能推荐（可接入大模型按遗忘曲线排序）；作答时长统计。
+3.  **云端同步**：IndexedDB 离线优先 + 400ms 防抖上传；基于版本号的乐观锁（冲突返回 409 并自动恢复）；作答记录增量上传（`historyAppend`）；ETag 条件加载（304 省流量）；60 秒轮询兜底，可选 WebSocket 实时推送（`REALTIME_WS_URL`）。
+4.  **AI 能力**（自带 API Key，浏览器直连）：GLM / DeepSeek / OpenAI / Gemini / Moonshot / Qwen / 百川 / MiniMax / 自定义兼容端点；AI 题目问答、错题分析排序、Word/PDF/文本识别出题。
+5.  **管理后台** (`admin.html`)：用户列表（最近活跃 / IP / 设备）、建用户、批量删除、题库透视与可视化编辑（`set-details` / `users-update-bank`）、全局广播（单人 / 多选 / 全员）、系统日志。
 
-2.  **多模式刷题 (Practice Modes)**
-    *   **顺序练习**: 按章节顺序刷题。
-    *   **随机练习**: 全库或指定科目随机抽取。
-    *   **智能推荐**: 基于艾宾浩斯遗忘曲线或错题频率推荐题目。
-    *   **模拟考试**: 限时模拟，自动评分。
+### 👤 注册与登录 (Auth Behavior)
 
-3.  **云端同步与冲突解决 (Cloud Sync & Conflict Resolution)**
-    *   **增量同步**: 仅传输变更数据，节省流量。
-    *   **乐观锁 (Optimistic Locking)**: 基于版本号 (Version) 防止多设备并发覆盖。
-    *   **实时推送**: 一端更新，多端自动收到通知并拉取最新数据（Cloudflare Workers 网关广播 `set-updated` 事件，前端自动触发 `load-from-cloud`）。
-    *   **离线支持**: 优先读写本地 LocalStorage，网络恢复后自动同步。
-
-4.  **AI 辅助学习 (AI Integration)**
-    *   集成 DeepSeek / OpenAI / Gemini 等大模型。
-    *   **AI 题目解析**: 自动分析错题原因。
-    *   **AI 文档导入**: 自动识别非结构化文档中的题目并转为 JSON。
-
-5.  **高级管理面板 (Admin Panel)**
-    *   **用户管理**: 查看所有用户，支持多选、批量删除和一键增员 (与前端会话完全隔离的独立 Auth 写入)。
-    *   **题库透视**: 可视化查看和编辑任意用户的题库内容，支持实时修改题干和选项。
-    *   **全局广播 (Broadcast)**: 批量向指定用户或全员推送题库，支持从 Word/PDF/TXT 智能导入或直接 JSON 灌入。依托后端的基于 ID 无损拉链式合并 (Deep Merge) 机制，推送永远不会覆盖或丢失用户的历史题库与错题记录。
-    *   **系统日志**: 实时监控系统同步状态、IP 来源和异常信息。
-
----
-
-### 👤 用户注册与登录 (Auth Behavior)
-
-*   前端登录 / 注册界面只要求输入「用户名 + 密码」，不会提示或发送任何邮件。
-*   系统内部会将用户名映射为虚拟邮箱（例如 `alice` → `alice@user.local`），以利用 Supabase 的 email 唯一约束。
-*   同一个用户名只能注册一次；重复注册会返回“用户名已被注册”的提示。
-*   管理后台 (`admin.html`) 也使用同一套 Supabase Auth 机制，支持管理员账号的用户名登录。
+*   只需「用户名 + 密码」，不发送邮件；同一用户名（不区分大小写）只能注册一次，密码至少 6 位。
+*   登录后签发 HS256 JWT（7 天有效），前端存于 localStorage。
+*   管理员由 `ADMIN_USERNAMES`（默认 `admin`）判定：**部署后请第一时间注册该用户名**，否则会被他人抢注。
 
 ---
 
 ## 📂 项目结构 (Project Structure)
 
-### 前端 (Root Directory)
-| 文件名 | 描述 (Description) |
+| 路径 | 说明 |
 | :--- | :--- |
-| `index.html` | **用户主应用**。包含刷题、题库管理、AI 助手等核心功能。 |
-| `admin.html` | **管理后台**。提供用户管理、全局推送、日志监控和可视化编辑器。 |
-| `config.js` | **配置文件**。定义后端 API 地址、Supabase URL 和 Key。 |
-| `README.md` | 项目说明文档。 |
+| `index.html` | 用户主应用（刷题 / 题库 / 分析 / AI 助手） |
+| `admin.html` | 管理后台（单文件，含全部管理逻辑） |
+| `config.js` | 前端唯一配置：`window.API_BASE` 指向 Worker 域名 |
+| `js/` | ES 模块：`app` 入口、`auth` 登录、`data/sync/realtime` 数据与同步、`ai` AI + `quiz` 刷题、`ui` 弹窗与编辑器、`router` 路由、`db` IndexedDB、`utils` 工具、`chart` 原生 Canvas 图表、`views/*` 视图 |
+| `worker/index.js` | 后端 API（Auth + 题库 CRUD + Admin 全部接口） |
+| `worker/migrations/` | D1 建表迁移 |
+| `worker/wrangler.json` | Worker 配置（D1 绑定、`ADMIN_USERNAMES`） |
+| `scripts/stage-pages.mjs` | Pages 部署前的文件整理脚本 |
 
-### 后端 API (`/api`)
-| 文件名 | 描述 (Description) |
+### 后端 API 一览 (`worker/index.js`)
+
+| 端点 | 说明 |
 | :--- | :--- |
-| `save-question-set.js` | **核心保存接口**。处理题库数据的事务性保存、版本检查和去重。 |
-| `load-question-set.js` | **核心加载接口**。获取最新题库，包含基于 ID 的拉链式安全深度合并 (Deep Merge) 与数据清洗逻辑。 |
-| `ably-auth.js` | **Ably 鉴权接口 (可选)**。生成 Ably Token Request，在未启用自建网关时为前端提供实时通道。 |
-| `sync-logs.js` | **日志查询接口**。提供同步历史记录，用于前端诊断面板。 |
-| `_auth.js` | **鉴权中间件**。验证 Supabase JWT Token (支持 Secret 和 JWKS)。 |
-| `_db.js` | **数据库工具**。管理 PostgreSQL 连接池 (Connection Pool)。 |
-| `_cors.js` | **跨域工具**。统一处理 CORS 响应头和 Preflight 请求。 |
-| **Admin API** | **统一路由架构**：通过 `/api/admin/[action].js` (Catch-all Router) 代理背后所有带下划线的内网接口 (如 `_push-broadcast.js` 等)，零负担完美绕过 Vercel Hobby 免费版最高 12 个 Serverless 函数的数量限制界限。 |
+| `POST /api/auth/signup` `/api/auth/login` | 注册 / 登录，返回 JWT |
+| `GET /api/load-question-set` | 加载题库（支持 `historyAfter` 增量、ETag/304） |
+| `POST /api/save-question-set` | 保存题库（乐观锁、全量/增量、题目指纹去重） |
+| `GET /api/sync-logs` | 当前用户同步日志（50 条） |
+| `GET /api/admin/users-list` | 用户列表（含最近活跃 / IP / 设备，50 条） |
+| `POST /api/admin/create-user` `/api/admin/delete-users` | 建用户 / 批量删除（级联清理题库与日志） |
+| `GET /api/admin/users-sets` `set-details` `users-get-bank` | 查看用户题集 / 单个题集详情 / 题库 |
+| `POST /api/admin/users-update-bank` | 管理员整库替换（setId + name + questions） |
+| `POST /api/admin/push-broadcast` | 全局广播（追加式，`target: user/multi/all`） |
+| `GET /api/admin/system-logs` | 全站同步日志（100 条） |
 
 ---
 
-## 🚀 部署指南 (Deployment)
+## 🚀 部署指南 (Deployment · 全程 Cloudflare 免费版)
 
-### 1. 数据库设置 (Supabase)
-在 Supabase SQL Editor 中执行以下建表语句（后端 API 会自动尝试创建，但建议手动初始化）：
+> 前置要求：Node.js 18+，一个 Cloudflare 账号；先运行 `npx wrangler login` 完成授权。**不需要 GitHub**——以下全部通过 Wrangler 直传。
 
-```sql
--- 题库主表
-create table question_sets (
-    id serial primary key,
-    user_id text not null,
-    name text not null,
-    created_at timestamptz default now(),
-    version integer not null default 0,
-    state jsonb
-);
+### 1. 创建 D1 数据库并建表
 
--- 题目详情表
-create table questions (
-    id serial primary key,
-    question_set_id integer not null references question_sets(id) on delete cascade,
-    content jsonb not null
-);
-
--- 同步日志表
-create table sync_logs (
-    id serial primary key,
-    user_id text not null,
-    delta jsonb,
-    status text not null,
-    error text,
-    created_at timestamptz default now()
-);
+```bash
+cd worker
+npx wrangler d1 create question-site-db
+# 把输出的 database_id 填入 worker/wrangler.json 的 d1_databases[0].database_id
+npx wrangler d1 migrations apply question-site-db --remote
 ```
 
-### 2. 后端部署 (Vercel)
-1.  将项目导入 Vercel。
-2.  配置 **Environment Variables**:
-    *   `SUPABASE_URL`: Supabase 项目地址。
-    *   `SUPABASE_ANON_KEY`: Supabase 公钥。
-    *   `SUPABASE_DB_URL`: PostgreSQL 连接字符串 (建议使用 Transaction Pooler, Port 6543)。
-    *   `SUPABASE_JWT_SECRET`: (可选) 用于快速本地验证 JWT。
-    *   `ABLY_API_KEY`: (可选) Ably Realtime 的 API Key，用于在未配置 WebSocket 网关时提供备用实时通道。
-    *   `REALTIME_NOTIFY_URL`: (可选) Cloudflare Workers 网关的 `/notify` 地址，用于后端在保存 / 管理员更新题库后主动推送事件。
-    *   `REALTIME_NOTIFY_SECRET`: (可选) 与网关约定的鉴权密钥；若网关未开启鉴权，可留空。
-    *   `CORS_ORIGIN`: 允许的前端域名 (如 `https://your-github-page.io`)。
+### 2. 配置并部署后端 Worker
 
-### 3. 前端部署 (GitHub Pages)
-1.  修改 `config.js` 中的 `API_BASE` 为 Vercel 分配的后端域名，并根据需要设置 `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `REALTIME_WS_URL`。
-2.  开启 GitHub Pages 服务，指向根目录。
+```bash
+# 设置 JWT 签名密钥（至少 8 位，建议 32 位以上随机字符串；不要提交进 git）
+npx wrangler secret put JWT_SECRET
+# 部署
+npm run deploy:worker
+```
 
-### 4. 实时网关部署 (可选，Cloudflare Workers)
+部署完成后记下 Worker 域名（形如 `https://question-site-api.<你的子域>.workers.dev`）。
 
-1. 在 Cloudflare 中创建一个 Workers 项目（推荐模板：`Worker + Durable Objects`），主入口为 `src/index.js`。
-2. 在 `wrangler.jsonc` 中配置：
-    * `durable_objects.bindings = [{ "name": "USER_ROOM", "class_name": "UserRoom" }]`
-    * `migrations = [{ "tag": "v1", "new_sqlite_classes": ["UserRoom"] }]`
-3. 运行 `wrangler deploy` 部署后，记下分配的域名，例如:  
-   `https://qs-realtime-v2.xxx.workers.dev`
-4. 在前端 `config.js` 中配置：
-    * `window.REALTIME_WS_URL = "wss://qs-realtime-v2.xxx.workers.dev/realtime"`
-5. 在 Vercel 环境变量中配置：
-    * `REALTIME_NOTIFY_URL = "https://qs-realtime-v2.xxx.workers.dev/notify"`
-    * 如需鉴权，可在 Worker 中开启 Authorization 校验，并在 Vercel 同步 `REALTIME_NOTIFY_SECRET`。
+### 3. 配置前端并部署 Pages
+
+1.  修改根目录 `config.js`：
+
+```js
+window.API_BASE = "https://question-site-api.<你的子域>.workers.dev";
+```
+
+2.  部署（脚本会先整理 `.pages-dist/` 再上传，避免把 worker 源码传成静态资源）：
+
+```bash
+npm run deploy:pages
+```
+
+得到前端地址（形如 `https://question-site-front.pages.dev`）。
+
+### 4. 打通 CORS（重要）
+
+在 Cloudflare 控制台 → Workers → `question-site-api` → Settings → Variables，添加环境变量：
+
+| 变量 | 值 |
+| :--- | :--- |
+| `CORS_ORIGIN` | `https://question-site-front.pages.dev`（你的 Pages 域名） |
+| `ADMIN_USERNAMES` | `admin`（管理员用户名，多个用逗号分隔；也可直接写在 `worker/wrangler.json` 的 vars 里） |
+
+不配置时 Worker 仅放行 `*.question-site-front.pages.dev` 和 `localhost:8788`。
+
+### 5. 初始化管理员
+
+打开 `https://<你的pages域名>/admin.html`，用 `ADMIN_USERNAMES` 中的用户名（默认 `admin`）注册并登录。**请尽快完成，防止被抢注。**
+
+### 可选：WebSocket 实时推送
+
+自建网关不在本仓库内；如部署了网关，在前端 `index.html` 之前设置 `window.REALTIME_WS_URL = "wss://…/realtime"` 即可启用，未配置时自动退化为 60 秒轮询。
+
+---
+
+## 💻 本地开发 (Local Development)
+
+```bash
+# 终端 1：本地 Worker + 本地 D1（自动使用 .wrangler/state 下的 SQLite）
+cd worker
+npx wrangler d1 migrations apply question-site-db --local
+npx wrangler dev --port 8787
+
+# 终端 2：本地静态站（8788 在 Worker 的 CORS 白名单内）
+node scripts/stage-pages.mjs
+npx wrangler pages dev .pages-dist --port 8788
+# 然后临时把 config.js 的 API_BASE 改为 http://localhost:8787（勿提交）
+```
 
 ---
 
 ## ⚠️ 开发者注意事项 (Developer Notes)
 
-*   **不要直接修改 `index.html` 中的逻辑**，除非你完全理解 `saveToCloud` 的并发锁机制。
-*   **数据库连接**：后端使用了 `pg` 连接池，请确保 Vercel 函数并未长时间占用连接，推荐使用 Supabase 的 PgBouncer (Transaction Mode)。
-*   **版本控制**：前端与后端的版本号 (`version`) 必须严格匹配，否则会触发 `409 Conflict` 错误。
+*   **版本控制**：前端与后端的 `version` 必须严格匹配，否则返回 `409 Conflict`；前端收到 409 会自动拉取最新数据并重试一次。
+*   **保存原子性**：后端使用 `env.DB.batch()` 一次原子写入（含版本号自增、题目重写、同步日志），不要改成逐条执行。
+*   **本地脏数据保护**：本地有未上传修改（`_bankDirty`）时，轮询/推送触发的加载只会推进版本号并增量并入作答记录，不会覆盖本地题库。
+*   **D1 限额**：单条 SQL 100KB、单查询绑定参数 100 个（见 [Cloudflare D1 Limits](https://developers.cloudflare.com/d1/platform/limits/)）；超大题库保存时注意载荷体积。
+*   **安全基线**：JWT_SECRET 走 `wrangler secret`（勿写进 wrangler.json）；JWT 与 AI API Key 均存于浏览器 localStorage，属个人/小团队工具的取舍；登录接口无内置限速，如公开部署建议在 Worker 前加 Cloudflare WAF 规则。
 
 ---
 
-*Claude, Gemini 编译  | 2026*
+*Claude, Gemini 编译 | 2026*

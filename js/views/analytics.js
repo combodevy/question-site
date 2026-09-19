@@ -261,7 +261,7 @@
                                         const totalSec = Math.round(item.totalMs / 1000);
                                         const qText = App.utils.escapeHTML(item.q.q).slice(0, 40);
                                         return `
-                                            <div class="flex flex-col gap-0.5 border-b border-[var(--border)] pb-1 last:border-b-0 cursor-pointer" onclick="App.views.analytics.showQuestionPopover('${item.q.id}', ${avgSecRounded}, ${totalSec}, ${item.attempts}, this)">
+                                            <div class="flex flex-col gap-0.5 border-b border-[var(--border)] pb-1 last:border-b-0 cursor-pointer" data-qtime-idx="${idx}">
                                                 <div class="flex items-center justify-between">
                                                     <span class="text-[10px] text-[var(--sub)]">#${idx + 1}</span>
                                                     <span class="text-[10px] text-[var(--sub)]">${item.attempts} 次</span>
@@ -273,6 +273,15 @@
                                             </div>
                                         `;
                                     }).join('');
+                                    // 题目 ID 不进入 HTML 字符串，避免内联 onclick 被注入
+                                    qTimeEl.querySelectorAll('[data-qtime-idx]').forEach(el => {
+                                        el.addEventListener('click', () => {
+                                            const item = qTimeList[parseInt(el.dataset.qtimeIdx, 10)];
+                                            if (!item) return;
+                                            const avgSec = item.avgMs / 1000;
+                                            this.showQuestionPopover(item.q.id, Math.round(avgSec * 10) / 10, Math.round(item.totalMs / 1000), item.attempts, el);
+                                        });
+                                    });
                                 }
                             }
 
@@ -375,6 +384,4 @@
                             }
                         }
                     }
-                }
-            
-};
+                };

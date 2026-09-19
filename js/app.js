@@ -3,7 +3,7 @@ import { utils } from './utils.js';
 import { chart } from './chart.js';
 import { auth } from './auth.js';
 import { data, sync, realtime } from './data.js';
-import { ai } from './ai.js';
+import { ai, quiz } from './ai.js';
 import { router } from './router.js';
 import { ui } from './ui.js';
 import { dashboard } from './views/dashboard.js';
@@ -21,6 +21,7 @@ const App = {
     sync,
     realtime,
     ai,
+    quiz,
     router,
     ui,
     views: {
