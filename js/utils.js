@@ -130,12 +130,12 @@ export const utils = {
 
             if (isCorrect) {
                 return `<div class="mt-1 py-1 px-2 rounded bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 font-bold flex items-start gap-1.5 text-xs transition-colors">
-                            <span class="flex-shrink-0">✅</span>
+                            <span class="flex-shrink-0">✓</span>
                             <span class="leading-snug">${char}. ${hlOptText}</span>
                         </div>`;
             } else {
                 return `<div class="mt-1 py-1 px-2 rounded text-[var(--sub)] flex items-start gap-1.5 text-xs opacity-75 transition-colors">
-                            <span class="flex-shrink-0 text-rose-400 opacity-80">❌</span>
+                            <span class="flex-shrink-0 text-rose-400 opacity-80">✕</span>
                             <span class="leading-snug">${char}. ${hlOptText}</span>
                         </div>`;
             }
@@ -180,5 +180,34 @@ export const utils = {
         if (!maxLen) return 1;
         const dist = this.editDistance(a, b);
         return 1 - dist / maxLen;
+    },
+    // 导入清洗：只保留单选/多选/判断题，并去掉选项前多余的字母前缀
+    sanitizeImportedBank(obj) {
+        const allowed = new Set(['mcq', 'multi', 'tf']);
+        const result = {};
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return result;
+
+        for (const [sub, chapDict] of Object.entries(obj)) {
+            if (!chapDict || typeof chapDict !== 'object' || Array.isArray(chapDict)) continue;
+            const cleanedChaps = {};
+            for (const [chap, arr] of Object.entries(chapDict)) {
+                if (!Array.isArray(arr)) continue;
+                const cleanedQs = arr
+                    .filter(q => q && allowed.has(q.type))
+                    .map(q => {
+                        const copy = { ...q };
+                        if ((copy.type === 'mcq' || copy.type === 'multi') && Array.isArray(copy.o)) {
+                            copy.o = copy.o.map(opt => {
+                                if (typeof opt !== 'string') return opt;
+                                return opt.replace(/^\s*[A-ZＡ-Ｚ][\.\．、，\)\）]\s*/, '');
+                            });
+                        }
+                        return copy;
+                    });
+                if (cleanedQs.length > 0) cleanedChaps[chap] = cleanedQs;
+            }
+            if (Object.keys(cleanedChaps).length > 0) result[sub] = cleanedChaps;
+        }
+        return result;
     }
 };

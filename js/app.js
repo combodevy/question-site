@@ -3,7 +3,7 @@ import { utils } from './utils.js';
 import { chart } from './chart.js';
 import { auth } from './auth.js';
 import { data, sync, realtime } from './data.js';
-import { ai, quiz } from './ai.js';
+import { quiz } from './quiz.js';
 import { router } from './router.js';
 import { ui } from './ui.js';
 import { dashboard } from './views/dashboard.js';
@@ -20,7 +20,6 @@ const App = {
     data,
     sync,
     realtime,
-    ai,
     quiz,
     router,
     ui,
@@ -34,7 +33,6 @@ const App = {
         await this.data.init();
         this.ui.initTheme();
         this.auth.init();
-        this.ai.init();
         this.router.init();
         this.ui._initGlobalBackTop();
     }

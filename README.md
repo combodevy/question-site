@@ -29,10 +29,9 @@ graph TD
 ## ✨ 核心功能 (Key Features)
 
 1.  **题库管理**：无限层级「科目 → 章节」；单选 / 多选 / 判断三种题型；JSON 导入导出（导入前预览、可改归属、重复与相似题检测）；科目/章节重命名与软删除回收站。
-2.  **多模式刷题**：顺序 / 随机 / 错题突击 / 智能推荐（可接入大模型按遗忘曲线排序）；作答时长统计。
+2.  **多模式刷题**：顺序 / 随机 / 错题突击 / 智能推荐；作答时长统计。
 3.  **云端同步**：IndexedDB 离线优先 + 400ms 防抖上传；基于版本号的乐观锁（冲突返回 409 并自动恢复）；作答记录增量上传（`historyAppend`）；ETag 条件加载（304 省流量）；60 秒轮询兜底，可选 WebSocket 实时推送（`REALTIME_WS_URL`）。
-4.  **AI 能力**（自带 API Key，浏览器直连）：GLM / DeepSeek / OpenAI / Gemini / Moonshot / Qwen / 百川 / MiniMax / 自定义兼容端点；AI 题目问答、错题分析排序、Word/PDF/文本识别出题。
-5.  **管理后台** (`admin.html`)：用户列表（最近活跃 / IP / 设备）、建用户、批量删除、题库透视与可视化编辑（`set-details` / `users-update-bank`）、全局广播（单人 / 多选 / 全员）、系统日志。
+4.  **管理后台** (`admin.html`)：用户列表（最近活跃 / IP / 设备）、建用户、批量删除、题库透视与可视化编辑（`set-details` / `users-update-bank`）、全局广播（单人 / 多选 / 全员）、系统日志。
 
 ### 👤 注册与登录 (Auth Behavior)
 
@@ -46,10 +45,10 @@ graph TD
 
 | 路径 | 说明 |
 | :--- | :--- |
-| `index.html` | 用户主应用（刷题 / 题库 / 分析 / AI 助手） |
+| `index.html` | 用户主应用（刷题 / 题库 / 分析） |
 | `admin.html` | 管理后台（单文件，含全部管理逻辑） |
 | `config.js` | 前端唯一配置：`window.API_BASE` 指向 Worker 域名 |
-| `js/` | ES 模块：`app` 入口、`auth` 登录、`data/sync/realtime` 数据与同步、`ai` AI + `quiz` 刷题、`ui` 弹窗与编辑器、`router` 路由、`db` IndexedDB、`utils` 工具、`chart` 原生 Canvas 图表、`views/*` 视图 |
+| `js/` | ES 模块：`app` 入口、`auth` 登录、`data/sync/realtime` 数据与同步、`quiz` 刷题、`ui` 弹窗与编辑器、`router` 路由、`db` IndexedDB、`utils` 工具、`chart` 原生 Canvas 图表、`views/*` 视图 |
 | `worker/index.js` | 后端 API（Auth + 题库 CRUD + Admin 全部接口） |
 | `worker/migrations/` | D1 建表迁移 |
 | `worker/wrangler.json` | Worker 配置（D1 绑定、`ADMIN_USERNAMES`） |
@@ -155,7 +154,7 @@ npx wrangler pages dev .pages-dist --port 8788
 *   **保存原子性**：后端使用 `env.DB.batch()` 一次原子写入（含版本号自增、题目重写、同步日志），不要改成逐条执行。
 *   **本地脏数据保护**：本地有未上传修改（`_bankDirty`）时，轮询/推送触发的加载只会推进版本号并增量并入作答记录，不会覆盖本地题库。
 *   **D1 限额**：单条 SQL 100KB、单查询绑定参数 100 个（见 [Cloudflare D1 Limits](https://developers.cloudflare.com/d1/platform/limits/)）；超大题库保存时注意载荷体积。
-*   **安全基线**：JWT_SECRET 走 `wrangler secret`（勿写进 wrangler.json）；JWT 与 AI API Key 均存于浏览器 localStorage，属个人/小团队工具的取舍；登录接口无内置限速，如公开部署建议在 Worker 前加 Cloudflare WAF 规则。
+*   **安全基线**：JWT_SECRET 走 `wrangler secret`（勿写进 wrangler.json）；JWT 存于浏览器 localStorage，属个人/小团队工具的取舍；登录接口无内置限速，如公开部署建议在 Worker 前加 Cloudflare WAF 规则。
 
 ---
 

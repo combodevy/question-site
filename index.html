@@ -10,7 +10,6 @@
   - App.auth: JWT 原生鉴权 (Login/Signup via Cloudflare Worker)
   - App.data: 题库数据管理、本地存储 (LocalStorage) 与云端同步
   - App.sync: 云端数据同步与版本冲突解决
-  - App.ai: 大模型 API 集成 (题目解析 / 文档导入)
   - App.ui: DOM 操作、弹窗管理和视图渲染
   - App.router: Hash 路由页面切换
   
@@ -36,11 +35,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3/dist/index.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Native Auth (No Supabase) -->
-    <!-- 文档解析库：DOCX 转文本 -->
-    <script src="https://unpkg.com/mammoth/mammoth.browser.min.js"></script>
-    <!-- 文档解析库：PDF 转文本 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -67,22 +61,7 @@
             }
         }
     </script>
-    <script>
-            (function () {
-                const workerUrl = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-                window.pdfjsReady = new Promise((resolve) => {
-                    const check = () => {
-                        if (window.pdfjsLib && window.pdfjsLib.GlobalWorkerOptions) {
-                            window.pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
-                            resolve();
-                        } else {
-                            setTimeout(check, 100);
-                        }
-                    };
-                    check();
-                });
-            })();
-    </script>
+
     <style>
         :root {
             --bg: #f8fafc;
@@ -466,7 +445,7 @@
                             </svg></span>
                         <div>
                             <div class="font-bold text-sm md:text-base text-[var(--text)]">学习分析报告</div>
-                            <div class="text-[10px] md:text-xs text-[var(--sub)]">可视化数据面板 · AI 深度行为解读</div>
+                            <div class="text-[10px] md:text-xs text-[var(--sub)]">可视化数据面板</div>
                         </div>
                     </div>
                     <svg class="w-4 h-4 md:w-5 md:h-5 text-[var(--sub)]" fill="none" stroke="currentColor"
@@ -490,22 +469,8 @@
                                 高频错题
                             </h2>
                             <div class="flex items-center gap-2">
-                                <label class="flex items-center gap-1.5 cursor-pointer select-none"
-                                    title="开启后将由 AI 分析错题，按遗忘曲线和薄弱程度智能排序">
-                                    <div class="relative">
-                                        <input type="checkbox" id="ai-mode-toggle" class="sr-only peer">
-                                        <div
-                                            class="w-7 h-4 bg-[var(--border)] rounded-full peer-checked:bg-primary-500 transition-colors">
-                                        </div>
-                                        <div
-                                            class="absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform peer-checked:translate-x-3">
-                                        </div>
-                                    </div>
-                                    <span
-                                        class="text-[10px] text-[var(--sub)] font-bold peer-checked:text-primary-600">🧠
-                                        AI</span>
-                                </label>
-                                <button onclick="App.quiz.initWithAI()"
+
+                                <button onclick="App.quiz.init('mistakes')"
                                     class="text-[10px] md:text-xs font-bold text-red-500 bg-red-50 px-2.5 py-1 rounded-full active:bg-red-100 transition-colors whitespace-nowrap">错题突击
                                     →</button>
                             </div>
@@ -695,13 +660,11 @@
                             <span
                                 class="text-[9px] md:text-[10px] font-bold text-primary-600 bg-primary-50 px-2 py-0.5 rounded truncate max-w-[120px]"
                                 id="q-sub">Subject</span>
-                            <span id="q-ai-tag" class="hidden text-[9px] font-bold px-2 py-0.5 rounded border"></span>
                         </div>
                         <h3 class="text-lg md:text-2xl font-medium leading-relaxed text-[var(--text)]" id="q-text">
                             Loading...</h3>
-                        <div id="multi-hint"
-                            class="hidden mt-2 text-xs font-bold text-primary-600 bg-primary-50 inline-block px-2 py-1 rounded border border-primary-100">
-                            ✨ 多项选择 (请选择所有正确选项，确认无误后点击下方按钮)
+                        <div id="multi-hint" class="hidden mt-2 text-xs text-[var(--sub)]">
+                            多项选择，请选出所有正确选项后提交
                         </div>
                     </div>
 
@@ -956,7 +919,13 @@
         onclick="App.ui.closeDrawer()"></div>
     <div id="insight-drawer"
         class="fixed right-0 top-0 h-full w-[85%] md:w-[400px] bg-[var(--card)] shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col">
-        <div class="p-5 border-b border-[var(--border)] flex-none">
+        <div class="p-5 border-b border-[var(--border)] flex-none relative">
+            <button onclick="App.ui.closeDrawer()"
+                class="absolute right-4 top-4 text-[var(--sub)] hover:text-[var(--text)] p-1">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
             <div class="text-[10px] text-[var(--sub)] font-bold uppercase mb-2" id="drawer-meta">Subject • Chapter</div>
             <div class="text-sm font-medium mb-4 leading-relaxed" id="drawer-q">Loading...</div>
             <div id="drawer-history" class="mb-1">
@@ -965,35 +934,6 @@
             </div>
         </div>
 
-        <div id="ai-chat-messages"
-            class="flex-grow overflow-y-auto custom-scroll p-4 flex flex-col gap-3 bg-[var(--bg)]/50">
-            <div id="ai-chat-welcome" class="text-xs text-[var(--sub)] text-center py-4">
-                ✨ 对这道题有疑问？向 AI 提问吧 (Ask AI about this question)
-            </div>
-        </div>
-
-        <div class="p-3 border-t border-[var(--border)] flex-none bg-[var(--card)]">
-            <div class="flex gap-2 items-end">
-                <textarea id="ai-chat-input" placeholder="问问 AI... (Ask AI...)" rows="1"
-                    oninput="App.ai.autoResize(this)" onkeydown="App.ai.handleKeydown(event)"
-                    class="flex-grow text-xs bg-[var(--bg)] border border-[var(--border)] rounded-xl px-3 py-2 outline-none focus:border-primary-500 resize-none transition-colors max-h-24 custom-scroll shadow-sm"></textarea>
-                <button onclick="App.ai.send()" id="ai-send-btn"
-                    class="w-8 h-8 mb-0.5 flex-shrink-0 bg-primary-600 text-white rounded-xl flex items-center justify-center active:scale-90 transition-transform disabled:opacity-40 shadow-sm">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
-                </button>
-            </div>
-            <div class="flex justify-between items-center mt-2 px-1">
-                <button onclick="App.ai.clearChat()"
-                    class="text-[10px] text-[var(--sub)] hover:text-red-400 transition-colors font-medium">清空对话 (Clear
-                    Chat)</button>
-                <button onclick="App.ui.closeDrawer()"
-                    class="text-[10px] text-[var(--sub)] hover:text-[var(--text)] transition-colors font-medium">关闭抽屉
-                    (Close Drawer)</button>
-            </div>
-        </div>
     </div>
 
     <!-- 系统设置弹窗 -->
@@ -1117,148 +1057,6 @@
             </div>
             <div class="p-4 md:p-6 space-y-4 overflow-y-auto custom-scroll flex-grow">
                 
-                <div class="space-y-3">
-                    <div class="text-xs font-bold text-[var(--sub)] uppercase tracking-wider">AI 模型配置</div>
-                    
-                    <div>
-                        <label class="text-[10px] text-[var(--sub)] mb-1 block">选择模型提供商</label>
-                        <select id="config-provider-select" onchange="App.ai.onProviderChange(this.value)"
-                            class="w-full text-xs bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-2.5 outline-none focus:border-primary-500">
-                            <option value="glm">🇨🇳 GLM-4-Flash（智谱 AI）</option>
-                            <option value="deepseek">🇨🇳 DeepSeek-Chat</option>
-                            <option value="openai">🌐 GPT-4o-mini（OpenAI）</option>
-                            <option value="gemini">🌐 Gemini 2.0 Flash（Google）</option>
-                            <option value="moonshot">🇨🇳 Moonshot (Kimi)</option>
-                            <option value="qwen">🇨🇳 通义千问 (Qwen)</option>
-                            <option value="baichuan">🇨🇳 百川 Baichuan</option>
-                            <option value="minimax">🇨🇳 MiniMax</option>
-                            <option value="custom">🔧 自定义 OpenAI 兼容 API</option>
-                        </select>
-                    </div>
-                    
-                    <div>
-                        <div class="flex items-center justify-between mb-1">
-                            <label class="text-[10px] text-[var(--sub)]">API Key</label>
-                            <a id="config-docs-link" href="#" target="_blank" rel="noopener"
-                                class="text-[10px] text-primary-600 hover:underline">获取 Key →</a>
-                        </div>
-                        <div class="flex gap-2">
-                            <input type="password" id="config-api-key" placeholder="输入 API Key，可换行填写多个"
-                                class="flex-grow text-xs bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-2 outline-none focus:border-primary-500">
-                            <button onclick="App.ai.saveApiKey()"
-                                class="bg-primary-600 text-white px-4 py-2 rounded-xl text-xs font-bold active:scale-95 transition-transform whitespace-nowrap">保存</button>
-                        </div>
-                        <div class="mt-1 text-[9px] text-[var(--sub)]">
-                            单个提供商可填写多个 Key，用换行或逗号分隔；只有一个 Key 时也完全支持。
-                        </div>
-                    </div>
-                    
-                    <div class="space-y-1">
-                        <div class="flex items-center justify-between">
-                            <label class="text-[10px] text-[var(--sub)]">自定义模型名称 (可选)</label>
-                            <button onclick="App.ui.toggleAIAdvanced()"
-                                class="text-[10px] text-[var(--sub)] hover:text-[var(--text)] px-2 py-0.5 rounded-lg border border-[var(--border)] bg-[var(--bg)]">
-                                高级参数
-                            </button>
-                        </div>
-                        <input id="config-model-name" placeholder="留空则使用默认模型，例如 glm-4-flash"
-                            class="w-full text-xs bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-2 outline-none focus:border-primary-500" />
-                        <div class="mt-1 text-[9px] text-[var(--sub)]">
-                            可填同一厂商下的任意已开通模型名称，如 glm-4-flash、glm-4-air 等。
-                        </div>
-                    </div>
-                    
-                    <div id="ai-advanced-panel"
-                        class="mt-2 border border-[var(--border)] rounded-xl px-3 py-2 bg-[var(--bg)] space-y-2 hidden">
-                        <div class="flex items-center justify-between">
-                            <span class="text-[10px] font-bold text-[var(--sub)]">高级参数</span>
-                            <span class="text-[9px] text-[var(--sub)]">影响 AI 回复风格和长度</span>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div class="space-y-1">
-                                <div class="flex items-center gap-1">
-                                    <span class="text-[10px] text-[var(--sub)]">Temperature</span>
-                                    <button
-                                        class="w-3 h-3 rounded-full bg-[var(--border)] flex items-center justify-center text-[8px] text-[var(--sub)]"
-                                        onclick="App.ui.showAITooltip(event,'ai-tip-temperature')">?</button>
-                                </div>
-                                <input id="ai-param-temperature" type="number" step="0.1" min="0" max="2"
-                                    class="w-full text-[10px] bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1 outline-none"
-                                    placeholder="0.7" />
-                            </div>
-                            <div class="space-y-1">
-                                <div class="flex items-center gap-1">
-                                    <span class="text-[10px] text-[var(--sub)]">Top P</span>
-                                    <button
-                                        class="w-3 h-3 rounded-full bg-[var(--border)] flex items-center justify-center text-[8px] text-[var(--sub)]"
-                                        onclick="App.ui.showAITooltip(event,'ai-tip-top-p')">?</button>
-                                </div>
-                                <input id="ai-param-top-p" type="number" step="0.05" min="0" max="1"
-                                    class="w-full text-[10px] bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1 outline-none"
-                                    placeholder="1.0" />
-                            </div>
-                            <div class="space-y-1">
-                                <div class="flex items-center gap-1">
-                                    <span class="text-[10px] text-[var(--sub)]">Max Tokens</span>
-                                    <button
-                                        class="w-3 h-3 rounded-full bg-[var(--border)] flex items-center justify-center text-[8px] text-[var(--sub)]"
-                                        onclick="App.ui.showAITooltip(event,'ai-tip-max-tokens')">?</button>
-                                </div>
-                                <input id="ai-param-max-tokens" type="number" min="1"
-                                    class="w-full text-[10px] bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1 outline-none"
-                                    placeholder="1024" />
-                            </div>
-                            <div class="space-y-1">
-                                <div class="flex items-center gap-1">
-                                    <span class="text-[10px] text-[var(--sub)]">Presence Penalty</span>
-                                    <button
-                                        class="w-3 h-3 rounded-full bg-[var(--border)] flex items-center justify-center text-[8px] text-[var(--sub)]"
-                                        onclick="App.ui.showAITooltip(event,'ai-tip-presence')">?</button>
-                                </div>
-                                <input id="ai-param-presence" type="number" step="0.1" min="-2" max="2"
-                                    class="w-full text-[10px] bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1 outline-none"
-                                    placeholder="0.0" />
-                            </div>
-                            <div class="space-y-1">
-                                <div class="flex items-center gap-1">
-                                    <span class="text-[10px] text-[var(--sub)]">Frequency Penalty</span>
-                                    <button
-                                        class="w-3 h-3 rounded-full bg-[var(--border)] flex items-center justify-center text-[8px] text-[var(--sub)]"
-                                        onclick="App.ui.showAITooltip(event,'ai-tip-frequency')">?</button>
-                                </div>
-                                <input id="ai-param-frequency" type="number" step="0.1" min="-2" max="2"
-                                    class="w-full text-[10px] bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1 outline-none"
-                                    placeholder="0.0" />
-                            </div>
-                            <div class="space-y-1">
-                                <div class="flex items-center gap-1">
-                                    <span class="text-[10px] text-[var(--sub)]">Timeout (ms)</span>
-                                    <button
-                                        class="w-3 h-3 rounded-full bg-[var(--border)] flex items-center justify-center text-[8px] text-[var(--sub)]"
-                                        onclick="App.ui.showAITooltip(event,'ai-tip-timeout')">?</button>
-                                </div>
-                                <input id="ai-param-timeout" type="number" min="0"
-                                    class="w-full text-[10px] bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1 outline-none"
-                                    placeholder="60000" />
-                            </div>
-                        </div>
-                        <div class="flex items-center justify-between pt-1">
-                            <span class="text-[9px] text-[var(--sub)]">Timeout 填 0 表示不超时</span>
-                            <button onclick="App.ai.saveAdvancedParams()"
-                                class="px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[10px] text-primary-600 font-bold hover:bg-[var(--bg)] active:scale-95">
-                                保存高级参数
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div class="text-[10px] text-[var(--sub)] bg-[var(--bg)] rounded-lg px-3 py-2 font-mono">
-                        当前模型：<span id="config-current-model"
-                            class="text-primary-600 font-bold">--</span>
-                    </div>
-                </div>
-                
-                <div class="h-px bg-[var(--border)]"></div>
-                
                 <div class="space-y-2">
                     <div class="text-xs font-bold text-[var(--sub)] uppercase tracking-wider mb-2">题库管理</div>
                     <input type="file" id="import-file" class="hidden" accept=".json"
@@ -1355,15 +1153,7 @@
                     <p class="text-[11px] text-[var(--sub)] leading-relaxed">
                         先在此处预览题库结构和每一道题的归属，再决定是否真正导入到当前题库。
                     </p>
-                    <div
-                        class="inline-flex rounded-xl border border-[var(--border)] bg-[var(--bg)] overflow-hidden text-[11px]">
-                        <button id="import-tab-btn-json" onclick="App.ui.switchImportTab('json')"
-                            class="px-3 py-1.5 flex-1 text-center bg-[var(--card)] text-[var(--text)] font-bold transition-colors">JSON
-                            文件</button>
-                        <button id="import-tab-btn-ai" onclick="App.ui.switchImportTab('ai')"
-                            class="px-3 py-1.5 flex-1 text-center bg-transparent text-[var(--sub)] font-bold transition-colors">AI
-                            文档导入</button>
-                    </div>
+
                 </div>
 
                 <!-- JSON 导入预览 -->
@@ -1441,32 +1231,6 @@
                     </div>
                 </div>
 
-                <!-- AI 导入说明 -->
-                <div id="import-tab-ai" class="space-y-3 hidden">
-                    <div class="text-[11px] text-[var(--sub)] leading-relaxed">
-                        AI 导入适合从 Word / PDF / 文本中自动抽取选择题和判断题，并生成 JSON 预览后导入题库。
-                    </div>
-                    <div
-                        class="border border-dashed border-purple-200 rounded-xl p-3 bg-purple-50/40 flex flex-col gap-2">
-                        <div class="text-[11px] text-purple-700 font-bold">AI 文档导入流程</div>
-                        <ol class="list-decimal list-inside text-[11px] text-purple-700 space-y-0.5">
-                            <li>上传包含试题的 .txt / .md / .docx / .pdf 文件，或粘贴原始试题文本。</li>
-                            <li>点击「生成 JSON 预览」，在 AI 弹窗中检查题库结构和题目内容。</li>
-                            <li>确认无误后，再点击「导入预览 JSON 到题库」。</li>
-                        </ol>
-                        <div class="pt-1">
-                            <button onclick="App.ui.closeModal('import-center'); App.ui.toggleModal('ai-import')"
-                                class="px-3 py-2 rounded-xl border border-purple-300 bg-white text-purple-700 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-transform">
-                                打开 AI 导入面板
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M9 5l7 7-7 7" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
             <div class="p-4 border-t border-[var(--border)] bg-[var(--bg)] flex justify-end gap-3 rounded-b-2xl">
                 <button onclick="App.ui.closeModal('import-center')"
                     class="btn px-3 py-2.5 bg-[var(--card)] border border-[var(--border)] text-[var(--text)] rounded-xl text-[11px] shadow-sm hover:bg-[var(--bg-hover)] active:scale-95">
@@ -1476,107 +1240,6 @@
                     class="btn px-4 py-2.5 bg-primary-600 text-white rounded-xl text-xs md:text-sm shadow-md hover:bg-primary-700 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                     disabled>
                     导入预览中的题目
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- AI 文档识别导入题库弹窗 -->
-    <div id="modal-ai-import"
-        class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm hidden opacity-0 pointer-events-none">
-        <div class="card w-full max-w-lg rounded-2xl shadow-2xl p-0 flex flex-col max-h-[85vh]">
-            <div
-                class="p-4 border-b border-[var(--border)] flex items-center justify-between bg-[var(--bg-hover)] rounded-t-2xl">
-                <div class="flex items-center gap-2">
-                    <!-- Back Button -->
-                    <button onclick="App.ui.closeModal('ai-import'); App.ui.toggleModal('import-center')"
-                        class="text-[var(--sub)] hover:text-[var(--text)] p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center justify-center"
-                        title="返回导入中心">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-                        </svg>
-                    </button>
-                    <h3 class="font-bold text-base">AI 识别文档生成题库</h3>
-                </div>
-                <button onclick="App.ui.closeModal('ai-import')" class="text-[var(--sub)] hover:text-[var(--text)] p-1">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
-                        </path>
-                    </svg>
-                </button>
-            </div>
-            <div class="p-4 md:p-5 space-y-3 overflow-y-auto custom-scroll">
-                <p class="text-xs text-[var(--sub)] leading-relaxed">
-                    1️⃣ 上传包含试题的文档（支持 <span class="font-mono">.txt / .md / .docx / .pdf</span>）或直接在下方文本框粘贴试题原文。<br>
-                    2️⃣ 点击「AI 识别并导入」，系统会调用已配置的大模型自动抽取选择题 / 判断题并排版成题库 JSON，直接合并进当前题库。
-                </p>
-                <div class="space-y-2">
-                    <div class="flex items-center justify-between gap-2">
-                        <button onclick="document.getElementById('ai-import-file').click()"
-                            class="px-3 py-2 rounded-xl border border-purple-200 bg-purple-50 text-purple-700 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-transform">
-                            选择文档文件…
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5m0 0l5 5m-5-5v12"></path>
-                            </svg>
-                        </button>
-                        <span id="ai-import-file-name"
-                            class="flex-1 text-[10px] text-right text-[var(--sub)] truncate">未选择文件</span>
-                    </div>
-                    <input type="file" id="ai-import-file" class="hidden" accept=".txt,.md,.docx,.pdf"
-                        onchange="App.ui.handleAIImportFile(event)">
-                </div>
-                <div class="space-y-1">
-                    <label for="ai-import-raw" class="text-[11px] text-[var(--sub)] font-bold">原始试题文本（可编辑，可直接粘贴）</label>
-                    <textarea id="ai-import-raw" rows="6"
-                        class="w-full text-xs bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-2 outline-none focus:border-primary-500 custom-scroll leading-relaxed"
-                        placeholder="示例：&#10;【单选题】以下哪项是……？&#10;A. 选项一&#10;B. 选项二&#10;C. 选项三&#10;D. 选项四&#10;正确答案：B&#10;&#10;【判断题】……说法是否正确？（   ）&#10;正确答案：T / F"></textarea>
-                </div>
-                <div class="space-y-1">
-                    <label for="ai-import-preview"
-                        class="text-[11px] text-[var(--sub)] font-bold flex items-center justify-between">
-                        <span>AI 输出 JSON 预览（只读）</span>
-                        <span class="text-[10px] opacity-70">请确认结构正确再导入</span>
-                    </label>
-                    <textarea id="ai-import-preview" rows="8"
-                        class="w-full text-[11px] font-mono bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-2 outline-none custom-scroll leading-relaxed"
-                        readonly placeholder="点击下方「生成 JSON 预览」后，会在这里显示 AI 生成的题库 JSON。"></textarea>
-                </div>
-                <div id="ai-import-status" class="text-[10px] text-[var(--sub)]"></div>
-                <div class="mt-2 border-t border-[var(--border)] pt-2">
-                    <label class="flex items-center justify-between text-[11px] text-[var(--sub)] cursor-pointer">
-                        <span>显示 AI 调用监控</span>
-                        <div class="relative">
-                            <input type="checkbox" id="ai-monitor-toggle" class="sr-only peer"
-                                onchange="App.ai.toggleMonitor(this.checked)">
-                            <div
-                                class="w-7 h-4 bg-[var(--border)] rounded-full peer-checked:bg-primary-500 transition-colors">
-                            </div>
-                            <div
-                                class="absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform peer-checked:translate-x-3">
-                            </div>
-                        </div>
-                    </label>
-                    <div id="ai-monitor-panel"
-                        class="mt-2 text-[11px] text-[var(--sub)] bg-[var(--bg)] rounded-lg px-3 py-2 border border-[var(--border)] max-h-32 overflow-y-auto custom-scroll hidden">
-                        <div id="ai-monitor-summary"></div>
-                        <div id="ai-monitor-requests" class="mt-1 space-y-1"></div>
-                    </div>
-                    <!-- 导入结果与疑似相似题提示 -->
-                    <div id="ai-import-report"
-                        class="mt-2 text-[11px] text-[var(--sub)] bg-[var(--bg)] rounded-lg px-3 py-2 border border-dashed border-[var(--border)] hidden">
-                    </div>
-                </div>
-            </div>
-            <div
-                class="p-4 border-t border-[var(--border)] bg-[var(--bg)] flex flex-wrap justify-end gap-3 rounded-b-2xl">
-                <button onclick="App.ai.importFromRawText()"
-                    class="btn px-3 py-2.5 bg-[var(--card)] border border-[var(--border)] text-[var(--text)] rounded-xl text-[11px] shadow-sm hover:bg-[var(--bg-hover)] active:scale-95">
-                    🧠 生成 JSON 预览
-                </button>
-                <button onclick="App.ai.importFromPreview()"
-                    class="btn px-4 py-2.5 bg-primary-600 text-white rounded-xl text-xs md:text-sm shadow-md hover:bg-primary-700 active:scale-95">
-                    导入预览 JSON 到题库
                 </button>
             </div>
         </div>

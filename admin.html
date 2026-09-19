@@ -512,47 +512,27 @@
                             </div>
                             <div class="space-y-3 border border-gray-200 rounded-xl p-4 bg-gray-50">
                                 <h4 class="text-sm font-bold text-gray-800 flex items-center gap-2">
-                                    <span>Questions Data (JSON or AI Import)</span>
+                                    <span>Questions Data (JSON)</span>
                                 </h4>
 
                                 <div
                                     class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                                     <div class="flex items-center gap-2">
-                                        <button onclick="document.getElementById('ai-import-file').click()"
-                                            class="px-3 py-2 rounded-xl border border-purple-200 bg-purple-50 text-purple-700 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-transform hover:bg-purple-100">
-                                            📄 Select Document (TXT/MD/DOCX/PDF)...
-                                        </button>
                                         <button onclick="document.getElementById('ai-import-json').click()"
                                             class="px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-transform hover:bg-emerald-100">
-                                            { } Import JSON Directly
+                                            Import JSON File
                                         </button>
                                     </div>
                                     <div class="flex flex-col items-end gap-1">
-                                        <span id="ai-import-file-name"
-                                            class="text-[10px] text-gray-500 truncate max-w-[150px]">No file
-                                            selected</span>
                                         <a href="data:application/json;charset=utf-8,%5B%0A%20%20%7B%0A%20%20%20%20%22q%22%3A%20%22Question%20text%3F%22%2C%0A%20%20%20%20%22o%22%3A%20%5B%22Option%20A%22%2C%20%22Option%20B%22%2C%20%22Option%20C%22%2C%20%22Option%20D%22%5D%2C%0A%20%20%20%20%22a%22%3A%20%22A%22%2C%0A%20%20%20%20%22type%22%3A%20%22mcq%22%2C%0A%20%20%20%20%22sub%22%3A%20%22Subject%20Name%22%2C%0A%20%20%20%20%22chap%22%3A%20%22Chapter%201%22%0A%20%20%7D%0A%5D"
                                             download="template.json"
                                             class="text-[10px] text-blue-500 hover:underline">Download JSON Template</a>
                                     </div>
                                 </div>
-                                <input type="file" id="ai-import-file" class="hidden" accept=".txt,.md,.docx,.pdf"
-                                    onchange="Admin.ai.handleAIImportFile(event)">
                                 <input type="file" id="ai-import-json" class="hidden" accept=".json"
-                                    onchange="Admin.ai.handleAIImportFile(event)">
+                                    onchange="Admin.handleJsonImportFile(event)">
 
-                                <div class="space-y-1">
-                                    <label for="ai-import-raw" class="text-[11px] text-gray-500 font-bold">Raw Question
-                                        Text (Editable, can paste directly)</label>
-                                    <textarea id="ai-import-raw" rows="6"
-                                        class="w-full text-xs bg-white border border-gray-300 rounded-xl px-3 py-2 outline-none focus:border-blue-500 custom-scroll leading-relaxed"
-                                        placeholder="Paste question text here..."></textarea>
-                                </div>
 
-                                <button onclick="Admin.ai.importFromRawText()" id="btn-ai-generate"
-                                    class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-2 px-4 rounded-xl hover:from-purple-700 hover:to-indigo-700 transition-all shadow-md shadow-purple-500/20 active:scale-95 text-sm flex justify-center items-center gap-2">
-                                    <span>✨ AI Parse Text to JSON</span>
-                                </button>
 
                                 <div class="space-y-1 pt-2 border-t border-gray-200">
                                     <label for="push-json"
@@ -569,7 +549,7 @@
                             <div class="pt-6 flex justify-end pb-2">
                                 <button onclick="Admin.pushBroadcast()" id="btn-push"
                                     class="bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold py-3 px-8 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg shadow-blue-500/20 active:scale-95">
-                                    🚀 Push to Users
+                                    Push to Users
                                 </button>
                             </div>
                         </div>
@@ -646,274 +626,6 @@
         }
 
         window.Admin = {
-            ai: {
-                _provider: 'glm',
-                _apiKey: '',
-                _isLoading: false,
-                _importSessionId: 0,
-                _importReader: null,
-                _providers: {
-                    glm: { endpoint: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', model: 'glm-4-flash', storageKey: 'lms_api_key_glm', authHeader: (key) => `Bearer ${key}` },
-                    deepseek: { endpoint: 'https://api.deepseek.com/chat/completions', model: 'deepseek-chat', storageKey: 'lms_api_key_deepseek', authHeader: (key) => `Bearer ${key}` },
-                    openai: { endpoint: 'https://api.openai.com/v1/chat/completions', model: 'gpt-4o-mini', storageKey: 'lms_api_key_openai', authHeader: (key) => `Bearer ${key}` },
-                    gemini: { endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model: 'gemini-2.0-flash', storageKey: 'lms_api_key_gemini', authHeader: (key) => `Bearer ${key}` },
-                    moonshot: { endpoint: 'https://api.moonshot.cn/v1/chat/completions', model: 'moonshot-v1-8k', storageKey: 'lms_api_key_moonshot', authHeader: (key) => `Bearer ${key}` },
-                    qwen: { endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', model: 'qwen-plus', storageKey: 'lms_api_key_qwen', authHeader: (key) => `Bearer ${key}` },
-                    baichuan: { endpoint: 'https://api.baichuan-ai.com/v1/chat/completions', model: 'Baichuan4', storageKey: 'lms_api_key_baichuan', authHeader: (key) => `Bearer ${key}` },
-                    minimax: { endpoint: 'https://api.minimax.chat/v1/text/chatcompletion_v2', model: 'abab6.5-chat', storageKey: 'lms_api_key_minimax', authHeader: (key) => `Bearer ${key}` },
-                    custom: { endpoint: '', model: 'gpt-4o-mini', storageKey: 'lms_api_key_custom', authHeader: (key) => `Bearer ${key}` }
-                },
-
-                init() {
-                    this._provider = localStorage.getItem('lms_ai_provider') || 'glm';
-                    const cfg = this._providers[this._provider];
-                    this._apiKey = cfg ? (localStorage.getItem(cfg.storageKey) || '') : '';
-                },
-
-                getAdvancedParams() {
-                    const temp = parseFloat(localStorage.getItem('lms_ai_param_temperature') || '');
-                    const maxTokens = parseInt(localStorage.getItem('lms_ai_param_max_tokens') || '', 10);
-                    return {
-                        temperature: isFinite(temp) ? temp : 0.7,
-                        max_tokens: isFinite(maxTokens) && maxTokens > 0 ? maxTokens : 4096,
-                    };
-                },
-
-                async call(messages, maxTokens = null, temperature = null) {
-                    const cfg = this._providers[this._provider];
-                    if (!cfg) throw new Error('Unknown Provider');
-                    if (!this._apiKey) throw new Error('API Key missing (configure frontend Settings first)');
-
-                    const adv = this.getAdvancedParams();
-                    const finalTemp = temperature !== null ? temperature : adv.temperature;
-                    const bodyMax = maxTokens !== null ? maxTokens : adv.max_tokens;
-
-                    const payload = { model: cfg.model, messages, temperature: finalTemp };
-                    if (this._provider !== 'gemini' && this._provider !== 'minimax') payload.max_tokens = bodyMax;
-
-                    const headers = { 'Content-Type': 'application/json', 'Authorization': cfg.authHeader(this._apiKey) };
-                    const res = await fetch(cfg.endpoint, { method: 'POST', headers, body: JSON.stringify(payload) });
-
-                    if (!res.ok) {
-                        const errText = await res.text();
-                        let errMsg = `HTTP ${res.status} ${res.statusText}`;
-                        try {
-                            const parsed = JSON.parse(errText);
-                            errMsg = parsed.error?.message || parsed.message || parsed.msg || errMsg;
-                        } catch (e) { }
-                        throw new Error(errMsg);
-                    }
-                    const data = await res.json();
-                    if (data.choices && data.choices[0] && data.choices[0].message) {
-                        return data.choices[0].message.content;
-                    }
-                    throw new Error("Invalid response format from API");
-                },
-
-                _extractJson(text) {
-                    if (typeof text !== 'string') return text;
-                    const arrMatch = text.match(/\[[\s\S]*\]/);
-                    const objMatch = text.match(/\{[\s\S]*\}/);
-                    if (arrMatch && objMatch) return arrMatch.index < objMatch.index ? arrMatch[0] : objMatch[0];
-                    return arrMatch ? arrMatch[0] : (objMatch ? objMatch[0] : text);
-                },
-
-                buildImportPrompt(rawText) {
-                    const example = `{
-  "Default Subject": {
-    "Chapter 1": [
-      {
-        "id": "ex-001",
-        "type": "mcq",
-        "q": "Question?",
-        "o": ["A", "B", "C", "D"],
-        "a": "B"
-      }
-    ]
-  }
-}`;
-                    return `Please automatically identify objective questions (mcq, multi, tf) from the raw text and output a JSON. Ignore subjective questions.
-Ensure valid JSON output matching this structure:
-${example}
-
-Raw Text:
-${rawText}`;
-                },
-
-                sanitizeImportedBank(obj) {
-                    const allowed = new Set(['mcq', 'multi', 'tf']);
-                    const result = {};
-                    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return result;
-
-                    for (const [sub, chapDict] of Object.entries(obj)) {
-                        if (!chapDict || typeof chapDict !== 'object' || Array.isArray(chapDict)) continue;
-                        const cleanedChaps = {};
-                        for (const [chap, arr] of Object.entries(chapDict)) {
-                            if (!Array.isArray(arr)) continue;
-                            const cleanedQs = arr.filter(q => q && allowed.has(q.type)).map(q => {
-                                const copy = { ...q };
-                                if ((copy.type === 'mcq' || copy.type === 'multi') && Array.isArray(copy.o)) {
-                                    copy.o = copy.o.map(o => typeof o === 'string' ? o.replace(/^\s*[A-ZＡ-Ｚ][\.\．、，\)\）]\s*/, '') : o);
-                                }
-                                return copy;
-                            });
-                            if (cleanedQs.length > 0) cleanedChaps[chap] = cleanedQs;
-                        }
-                        if (Object.keys(cleanedChaps).length > 0) result[sub] = cleanedChaps;
-                    }
-                    return result;
-                },
-
-                async handleAIImportFile(e) {
-                    const file = e.target.files[0];
-                    if (!file) return;
-                    this._importSessionId += 1;
-                    const sessionId = this._importSessionId;
-
-                    if (this._importReader && this._importReader.readyState === 1) try { this._importReader.abort(); } catch (err) { }
-                    this._importReader = null;
-
-                    const nameEl = document.getElementById('ai-import-file-name');
-                    if (nameEl) nameEl.textContent = `${file.name} (${Math.round(file.size / 1024)} KB)`;
-
-                    const statusEl = document.getElementById('ai-import-status');
-                    const textArea = document.getElementById('ai-import-raw');
-
-                    const setStatus = (msg) => { if (sessionId === this._importSessionId && statusEl) statusEl.textContent = msg; };
-                    const setRaw = (txt) => { if (sessionId === this._importSessionId && textArea) textArea.value = txt || ''; };
-
-                    setStatus("Reading and parsing file...");
-                    const ext = file.name.toLowerCase().split('.').pop();
-
-                    try {
-                        if (ext === 'txt' || ext === 'md' || ext === 'json') {
-                            const reader = new FileReader();
-                            this._importReader = reader;
-                            reader.onload = (ev) => {
-                                if (sessionId !== this._importSessionId) return;
-                                setRaw(ev.target.result || '');
-                                setStatus("Text file read successfully. You can now click AI Parse.");
-                                if (ext === 'json') {
-                                    document.getElementById('push-json').value = ev.target.result;
-                                    setStatus("JSON file loaded into Final Questions area.");
-                                }
-                            };
-                            reader.readAsText(file, 'UTF-8');
-                        } else if (ext === 'docx') {
-                            if (!window.mammoth) return setStatus("❌ mammoth library missing.");
-                            const arrayBuffer = await file.arrayBuffer();
-                            const result = await mammoth.extractRawText({ arrayBuffer });
-                            if (sessionId !== this._importSessionId) return;
-                            setRaw(result.value || '');
-                            setStatus("DOCX parsed successfully.");
-                        } else if (ext === 'pdf') {
-                            if (!window.pdfjsLib) return setStatus("❌ pdf.js library missing.");
-                            const arrayBuffer = await file.arrayBuffer();
-                            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                            let text = '';
-                            for (let i = 1; i <= pdf.numPages; i++) {
-                                if (sessionId !== this._importSessionId) return;
-                                const page = await pdf.getPage(i);
-                                const content = await page.getTextContent();
-                                text += content.items.map(item => item.str).join(' ') + '\n\n';
-                                setStatus(`Parsing PDF page ${i}/${pdf.numPages}...`);
-                            }
-                            if (sessionId !== this._importSessionId) return;
-                            setRaw(text.trim());
-                            setStatus("PDF parsed successfully. You can now click AI Parse.");
-                        } else {
-                            setStatus("❌ Only .txt / .md / .docx / .pdf / .json are supported.");
-                        }
-                    } catch (err) {
-                        setStatus("❌ Error: " + err.message);
-                    } finally {
-                        e.target.value = null;
-                    }
-                },
-
-                async importFromRawText() {
-                    if (this._isLoading) return;
-                    this.init(); // Refresh config from localStorage
-                    if (!this._apiKey) return alert("Please configure AI API Key in frontend settings first.");
-
-                    const textarea = document.getElementById('ai-import-raw');
-                    const previewEl = document.getElementById('push-json');
-                    const statusEl = document.getElementById('ai-import-status');
-                    const raw = textarea ? textarea.value.trim() : '';
-
-                    if (!raw) return alert("Please paste or upload document text first.");
-
-                    const maxLen = 20000;
-                    const limited = raw.length > maxLen ? raw.slice(0, maxLen) : raw;
-                    const segments = [];
-                    for (let i = 0; i < limited.length; i += 4000) segments.push(limited.slice(i, i + 4000));
-
-                    this._isLoading = true;
-                    if (statusEl) statusEl.textContent = "🧠 Calling AI... this may take a moment.";
-
-                    try {
-                        let finalResult = null;
-                        const isSingleSegment = segments.length === 1;
-                        let merged = {};
-
-                        for (let i = 0; i < segments.length; i++) {
-                            const seg = segments[i];
-                            const prompt = this.buildImportPrompt(seg);
-                            if (statusEl) statusEl.textContent = `🧠 Processing segment ${i + 1} / ${segments.length}...`;
-
-                            const reply = await this.call([{ role: 'user', content: prompt }], 4096, 0.2);
-                            const cleaned = this._extractJson(reply);
-                            const obj = JSON.parse(cleaned);
-
-                            // If it's a flat array, we just concatenate it if possible, else wrap it
-                            if (Array.isArray(obj)) {
-                                if (!finalResult) finalResult = [];
-                                finalResult = finalResult.concat(obj);
-                            } else {
-                                const sanitized = this.sanitizeImportedBank(obj);
-                                for (const [sub, chapDict] of Object.entries(sanitized)) {
-                                    if (!merged[sub]) merged[sub] = {};
-                                    for (const [chap, arr] of Object.entries(chapDict)) {
-                                        if (!merged[sub][chap]) merged[sub][chap] = [];
-                                        merged[sub][chap] = merged[sub][chap].concat(arr);
-                                    }
-                                }
-                            }
-                        }
-
-                        let outObj = null;
-                        if (finalResult && finalResult.length > 0) {
-                            outObj = finalResult;
-                        } else if (Object.keys(merged).length > 0) {
-                            // Convert the nested dictionary back to a flat array like the original Push Broadcast uses
-                            outObj = [];
-                            for (const [sub, chapDict] of Object.entries(merged)) {
-                                for (const [chap, arr] of Object.entries(chapDict)) {
-                                    arr.forEach(q => {
-                                        outObj.push({ ...q, sub, chap });
-                                    });
-                                }
-                            }
-                        }
-
-                        if (!outObj || Object.keys(outObj).length === 0) {
-                            alert("AI could not find or extract any valid objective questions.");
-                            if (statusEl) statusEl.textContent = "⚠️ No valid questions extracted.";
-                            return;
-                        }
-
-                        if (previewEl) previewEl.value = JSON.stringify(outObj, null, 2);
-                        if (statusEl) statusEl.textContent = "✅ Successfully generated JSON! Ready to push.";
-                    } catch (e) {
-                        console.error("AI import error", e);
-                        if (statusEl) statusEl.textContent = "❌ AI generation failed: " + e.message;
-                        alert("AI extraction failed. Check browser console.");
-                    } finally {
-                        this._isLoading = false;
-                    }
-                }
-            },
-
             token: null,
             currentEditingUserId: null,
 
@@ -1059,6 +771,21 @@ ${rawText}`;
                     this.fetchUsers();
                 } catch (e) {
                     msg.innerText = 'Error: ' + e.message;
+                }
+            },
+
+            async handleJsonImportFile(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                const statusEl = document.getElementById('ai-import-status');
+                try {
+                    const text = await file.text();
+                    document.getElementById('push-json').value = text;
+                    if (statusEl) statusEl.textContent = 'JSON file loaded.';
+                } catch (err) {
+                    if (statusEl) statusEl.textContent = 'Error: ' + err.message;
+                } finally {
+                    e.target.value = null;
                 }
             },
 

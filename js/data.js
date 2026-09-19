@@ -8,6 +8,9 @@ export const data = {
                 // 回收站存储 Key
                 trashKey: 'lms_v26_trash',
                 bankNameKey: 'lms_v26_bank_name',
+                // 记录本地数据属于哪个账号，防止同设备换账号后串数据
+                lastUserIdKey: 'lms_v26_last_user',
+                _currentUserId: null,
 
                 // 刷题历史
                 history: [],
@@ -84,8 +87,8 @@ export const data = {
                             } else {
                                 this.bank = {};
                             }
-                            if (window.App && App.ai && typeof App.ai.sanitizeImportedBank === 'function') {
-                                const sanitized = App.ai.sanitizeImportedBank(this.bank);
+                            if (window.App && App.utils && typeof App.utils.sanitizeImportedBank === 'function') {
+                                const sanitized = App.utils.sanitizeImportedBank(this.bank);
                                 const before = JSON.stringify(this.bank);
                                 const after = JSON.stringify(sanitized);
                                 if (before !== after) {
@@ -150,6 +153,8 @@ export const data = {
                         await deleteDBItem(this.bankNameKey);
                         await deleteDBItem(this.historyKey);
                         await deleteDBItem(this.trashKey);
+                        await deleteDBItem(this.lastUserIdKey);
+                        this._currentUserId = null;
                     } catch (e) {
                         console.error(e);
                     }
@@ -198,8 +203,8 @@ export const data = {
                         const prevHistory = Array.isArray(this.history) ? this.history.slice() : [];
 
                         const parsed = JSON.parse(jsonStr);
-                        const sanitizedInput = (window.App && App.ai && typeof App.ai.sanitizeImportedBank === 'function')
-                            ? App.ai.sanitizeImportedBank(parsed)
+                        const sanitizedInput = (window.App && App.utils && typeof App.utils.sanitizeImportedBank === 'function')
+                            ? App.utils.sanitizeImportedBank(parsed)
                             : parsed;
                         const validationResult = this.validateSchema(sanitizedInput);
                         if (validationResult !== true) {
@@ -952,7 +957,36 @@ export const data = {
                             // 2. 解析云端返回的数据包
                             const state = data.state && typeof data.state === "object" ? data.state : null;
                             if (!state) {
-                                // 如果云端是空的（新用户），初始化版本号
+                                // 云端为空（新用户）：若本地数据属于另一个账号，先清掉避免串号
+                                const uid = App.auth && typeof App.auth.getUserId === 'function' ? App.auth.getUserId() : '';
+                                let prevUid = null;
+                                try { prevUid = await getDBItem(this.lastUserIdKey); } catch (e) { }
+                                if (prevUid && typeof prevUid === 'string' && uid && prevUid !== uid) {
+                                    this.bank = {};
+                                    this.bankName = '';
+                                    this.history = [];
+                                    this.trash = {};
+                                    this.hiddenMistakeIds = [];
+                                    this.lastPracticeTime = null;
+                                    this._cachedQuestions = null;
+                                    this._questionMap = null;
+                                    this._errFreqCache = null;
+                                    this._lastSyncedCounts = { questions: 0, history: 0, trash: 0 };
+                                    this._lastSyncedQuestionIds = [];
+                                    this._historyAppendBuffer = [];
+                                    this._lastHistoryTimestamp = 0;
+                                    try {
+                                        await deleteDBItem(this.bankKey);
+                                        await deleteDBItem(this.bankNameKey);
+                                        await deleteDBItem(this.historyKey);
+                                        await deleteDBItem(this.trashKey);
+                                    } catch (e) { }
+                                }
+                                if (uid) {
+                                    this._currentUserId = uid;
+                                    try { await setDBItem(this.lastUserIdKey, uid); } catch (e) { }
+                                }
+                                // 初始化版本号
                                 if (typeof data.version === "number" && Number.isFinite(data.version)) {
                                     this.remoteVersion = data.version;
                                 } else {
@@ -1074,6 +1108,14 @@ export const data = {
                                 trash: trashCount
                             };
                             this._lastSyncedQuestionIds = allIds;
+                            // 记录本地数据归属账号
+                            {
+                                const uid = App.auth && typeof App.auth.getUserId === 'function' ? App.auth.getUserId() : '';
+                                if (uid && uid !== this._currentUserId) {
+                                    this._currentUserId = uid;
+                                    try { await setDBItem(this.lastUserIdKey, uid); } catch (e) { }
+                                }
+                            }
                             // 关键：同步后必须失效派生缓存，否则页面加载时先用本地旧数据
                             // 渲染填充的缓存会一直挡住云端新数据，直到下次编辑才刷新
                             this._cachedQuestions = null;

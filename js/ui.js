@@ -44,53 +44,6 @@
                     }
                 },
 
-                toggleAIAdvanced() {
-                    const panel = App.dom.get('ai-advanced-panel');
-                    if (!panel) return;
-                    panel.classList.toggle('hidden');
-                },
-
-                showAITooltip(event, id) {
-                    event.stopPropagation();
-                    const existing = document.getElementById('ai-param-tooltip');
-                    if (existing) existing.remove();
-                    const map = {
-                        'ai-tip-temperature': '控制随机性：0 更谨慎，值越大回答越发散。',
-                        'ai-tip-top-p': '核采样比例：与 temperature 类似，一般二者只调一个。',
-                        'ai-tip-max-tokens': '限制单次回复的最大 Token 数，防止回答过长。',
-                        'ai-tip-presence': '鼓励提及新主题，值越大越不重复已出现的内容。',
-                        'ai-tip-frequency': '惩罚重复词汇，值越大越少出现重复句子。',
-                        'ai-tip-timeout': 'HTTP 请求超时时间，单位毫秒，填 0 表示不超时。'
-                    };
-                    const text = map[id] || '';
-                    if (!text) return;
-                    const tip = document.createElement('div');
-                    tip.id = 'ai-param-tooltip';
-                    tip.className = 'fixed z-50 max-w-xs text-[10px] text-[var(--sub)] bg-[var(--card)] border border-[var(--border)] rounded-lg px-2 py-1 shadow-lg';
-                    tip.textContent = text;
-                    document.body.appendChild(tip);
-                    const rect = event.currentTarget.getBoundingClientRect();
-                    const tipRect = tip.getBoundingClientRect();
-                    let left = rect.left + rect.width / 2 - tipRect.width / 2;
-                    if (left < 8) left = 8;
-                    if (left + tipRect.width > window.innerWidth - 8) left = window.innerWidth - tipRect.width - 8;
-                    let top = rect.bottom + 6;
-                    if (top + tipRect.height > window.innerHeight - 8) top = rect.top - tipRect.height - 6;
-                    tip.style.left = left + 'px';
-                    tip.style.top = top + 'px';
-                    const hide = () => {
-                        tip.remove();
-                        document.removeEventListener('click', hide, true);
-                        window.removeEventListener('scroll', hide, true);
-                        window.removeEventListener('resize', hide, true);
-                    };
-                    setTimeout(() => {
-                        document.addEventListener('click', hide, true);
-                        window.addEventListener('scroll', hide, true);
-                        window.addEventListener('resize', hide, true);
-                    }, 0);
-                },
-
                 _initGlobalBackTop() {
                     const btn = App.dom.get('global-back-top');
                     if (!btn) return;
@@ -130,35 +83,10 @@
                     });
                 },
 
-                openImportCenter(defaultTab = 'json') {
+                openImportCenter() {
                     this.toggleModal('import-center');
-                    App.ui.switchImportTab(defaultTab);
                     const statusEl = App.dom.get('import-json-status');
-                    if (statusEl && defaultTab === 'json') {
-                        statusEl.textContent = '尚未选择文件';
-                    }
-                },
-
-                switchImportTab(tab) {
-                    const isJson = tab === 'json';
-                    const btnJson = App.dom.get('import-tab-btn-json');
-                    const btnAi = App.dom.get('import-tab-btn-ai');
-                    const tabJson = App.dom.get('import-tab-json');
-                    const tabAi = App.dom.get('import-tab-ai');
-                    if (btnJson && btnAi) {
-                        btnJson.classList.toggle('bg-[var(--card)]', isJson);
-                        btnJson.classList.toggle('text-[var(--text)]', isJson);
-                        btnJson.classList.toggle('bg-transparent', !isJson);
-                        btnJson.classList.toggle('text-[var(--sub)]', !isJson);
-                        btnAi.classList.toggle('bg-[var(--card)]', !isJson);
-                        btnAi.classList.toggle('text-[var(--text)]', !isJson);
-                        btnAi.classList.toggle('bg-transparent', isJson);
-                        btnAi.classList.toggle('text-[var(--sub)]', isJson);
-                    }
-                    if (tabJson && tabAi) {
-                        tabJson.classList.toggle('hidden', !isJson);
-                        tabAi.classList.toggle('hidden', isJson);
-                    }
+                    if (statusEl) statusEl.textContent = '尚未选择文件';
                 },
 
                 handleJsonPreviewUpload(e) {
@@ -187,9 +115,9 @@
                     if (statusEl) statusEl.textContent = `正在读取文件：${file.name}`;
 
                     if (file.size > 5 * 1024 * 1024) {
-                        alert("文件过大，请上传 5MB 以内的题库文件。(File exceeds 5MB limit.)");
+                        alert("文件过大，请上传 5MB 以内的题库文件。");
                         e.target.value = null;
-                        if (statusEl) statusEl.textContent = "❌ 文件过大，已取消解析。";
+                        if (statusEl) statusEl.textContent = "文件过大，已取消解析。";
                         return;
                     }
 
@@ -201,7 +129,7 @@
                             try {
                                 parsed = JSON.parse(text);
                             } catch (err) {
-                                if (statusEl) statusEl.textContent = "❌ JSON 解析失败：" + (err.message || err.toString());
+                                if (statusEl) statusEl.textContent = "JSON 解析失败：" + (err.message || err.toString());
                                 if (structEl) structEl.innerHTML = '<div class="text-[10px] text-[var(--sub)] italic">JSON 解析失败，无法预览。</div>';
                                 if (listEl) listEl.innerHTML = '<div class="text-[10px] text-[var(--sub)] italic">JSON 解析失败，无法预览。</div>';
                                 return;
@@ -209,14 +137,14 @@
 
                             const check = App.data.validateSchema(parsed);
                             if (check !== true) {
-                                if (statusEl) statusEl.textContent = "❌ 结构校验失败：" + check;
+                                if (statusEl) statusEl.textContent = "结构校验失败：" + check;
                                 if (structEl) structEl.innerHTML = '<div class="text-[10px] text-[var(--sub)] italic">结构校验失败，请根据模板调整 JSON。</div>';
                                 if (listEl) listEl.innerHTML = '<div class="text-[10px] text-[var(--sub)] italic">结构校验失败，无法生成预览。</div>';
                                 return;
                             }
 
-                            const sanitized = (window.App && App.ai && typeof App.ai.sanitizeImportedBank === 'function')
-                                ? App.ai.sanitizeImportedBank(parsed)
+                            const sanitized = (window.App && App.utils && typeof App.utils.sanitizeImportedBank === 'function')
+                                ? App.utils.sanitizeImportedBank(parsed)
                                 : parsed;
 
                             const flat = [];
@@ -345,15 +273,15 @@
 
                             if (statusEl) {
                                 statusEl.textContent = flat.length
-                                    ? `✅ 解析成功：检测到 ${flat.length} 道题（科目 ${subjSet.size} 个，章节 ${chapSet.size} 个）。`
-                                    : "⚠️ 解析完成，但未检测到任何符合条件的题目。";
+                                    ? `解析成功：检测到 ${flat.length} 道题（科目 ${subjSet.size} 个，章节 ${chapSet.size} 个）。`
+                                    : "解析完成，但未检测到任何符合条件的题目。";
                             }
                         } finally {
                             e.target.value = null;
                         }
                     };
                     reader.onerror = () => {
-                        if (statusEl) statusEl.textContent = "❌ 文件读取失败。";
+                        if (statusEl) statusEl.textContent = "文件读取失败。";
                         e.target.value = null;
                     };
                     reader.readAsText(file, 'UTF-8');
@@ -374,10 +302,10 @@
                     }
                     const report = App.data.importBank(JSON.stringify(data));
                     if (!report) {
-                        if (statusEl) statusEl.textContent = "❌ 导入失败，请检查 JSON 格式或控制台错误信息。";
+                        if (statusEl) statusEl.textContent = "导入失败，请检查 JSON 格式或控制台错误信息。";
                         return;
                     }
-                    if (statusEl) statusEl.textContent = "✅ 已根据预览 JSON 成功导入题库。";
+                    if (statusEl) statusEl.textContent = "已根据预览 JSON 成功导入题库。";
                 },
 
                 applyJsonMetaChange(idx) {
@@ -565,8 +493,8 @@
                     if (applyBtn) applyBtn.disabled = !flat.length;
                     if (statusEl) {
                         statusEl.textContent = flat.length
-                            ? `✅ 预览已更新：当前将导入 ${flat.length} 道题（科目 ${subjSet.size} 个，章节 ${chapSet.size} 个）。`
-                            : "⚠️ 当前预览中不再包含任何题目。";
+                            ? `预览已更新：当前将导入 ${flat.length} 道题（科目 ${subjSet.size} 个，章节 ${chapSet.size} 个）。`
+                            : "当前预览中不再包含任何题目。";
                     }
                 },
 
@@ -610,7 +538,6 @@
                         }
                     }
 
-                    App.ai.setContext(q);
 
                     backdrop.classList.remove('hidden');
                     drawer.classList.remove('translate-x-full');
@@ -632,7 +559,7 @@
 
                     // 修复 4: 增加文件大小限制 (5MB上限)，防止大文件阻塞主线程 (Prevent Main Thread Blocking)
                     if (file.size > 5 * 1024 * 1024) {
-                        alert("文件过大，请上传 5MB 以内的题库文件。(File exceeds 5MB limit.)");
+                        alert("文件过大，请上传 5MB 以内的题库文件。");
                         e.target.value = null;
                         return;
                     }
@@ -657,126 +584,6 @@
                     reader.onerror = () => alert('文件读取失败 (File read error)');
                     reader.readAsText(file, 'UTF-8');
                     e.target.value = null;
-                },
-
-                // AI 文档导入：根据文件类型提取纯文本并填充到文本框中
-                async handleAIImportFile(e) {
-                    const file = e.target.files[0];
-                    if (!file) return;
-                    this._importSessionId += 1;
-                    const sessionId = this._importSessionId;
-                    if (this._importReader && this._importReader.readyState === 1) {
-                        try { this._importReader.abort(); } catch (e) { }
-                    }
-                    this._importReader = null;
-
-                    const nameEl = App.dom.get('ai-import-file-name');
-                    if (nameEl) {
-                        const sizeKb = Math.round(file.size / 1024);
-                        nameEl.textContent = `${file.name} (${sizeKb} KB)`;
-                    }
-
-                    const statusEl = App.dom.get('ai-import-status');
-                    const textArea = App.dom.get('ai-import-raw');
-
-                    const setStatus = (msg) => { if (sessionId === this._importSessionId && statusEl) statusEl.textContent = msg; };
-                    const setRaw = (txt) => { if (sessionId === this._importSessionId && textArea) textArea.value = txt || ''; };
-
-                    setStatus("正在读取并解析文件内容…");
-
-                    const ext = file.name.toLowerCase().split('.').pop();
-
-                    try {
-                        if (ext === 'txt' || ext === 'md') {
-                            const reader = new FileReader();
-                            this._importReader = reader;
-                            reader.onload = (event) => {
-                                if (sessionId !== this._importSessionId) return;
-                                setRaw(event.target.result || '');
-                                setStatus("文本文件读取完成，可以点击「AI 识别并导入」。");
-                            };
-                            reader.onerror = () => { if (sessionId === this._importSessionId) setStatus("❌ 文本文件读取失败。"); };
-                            reader.readAsText(file, 'UTF-8');
-                        } else if (ext === 'docx') {
-                            if (!window.mammoth) {
-                                setStatus("❌ 未找到 DOCX 解析库 mammoth，无法解析 Word 文档。");
-                                return;
-                            }
-                            const reader = new FileReader();
-                            this._importReader = reader;
-                            reader.onload = async (event) => {
-                                try {
-                                    if (sessionId !== this._importSessionId) return;
-                                    const arrayBuffer = event.target.result;
-                                    const result = await mammoth.extractRawText({ arrayBuffer });
-                                    if (sessionId !== this._importSessionId) return;
-                                    setRaw(result.value || '');
-                                    setStatus("DOCX 文档解析完成，可以点击「AI 识别并导入」。");
-                                    if (arrayBuffer) {
-                                        event.target.result = null;
-                                    }
-                                } catch (err) {
-                                    console.error("DOCX parse error", err);
-                                    setStatus("❌ 解析 DOCX 文档失败，请确认文件格式是否正确。");
-                                }
-                            };
-                            reader.onerror = () => { if (sessionId === this._importSessionId) setStatus("❌ 读取 DOCX 文件失败。"); };
-                            reader.readAsArrayBuffer(file);
-                        } else if (ext === 'pdf') {
-                            const reader = new FileReader();
-                            this._importReader = reader;
-                            reader.onload = async (event) => {
-                                try {
-                                    if (window.pdfjsReady) {
-                                        await window.pdfjsReady;
-                                    }
-                                    if (!window.pdfjsLib) {
-                                        setStatus("❌ 未找到 PDF 解析库 pdf.js，无法解析 PDF 文档。");
-                                        return;
-                                    }
-                                    if (sessionId !== this._importSessionId) return;
-                                    const arrayBuffer = event.target.result;
-                                    const uint8Array = new Uint8Array(arrayBuffer);
-                                    const loadingTask = window.pdfjsLib.getDocument({ data: uint8Array });
-                                    const pdf = await loadingTask.promise;
-
-                                    let text = '';
-                                    const batchSize = 10;
-                                    for (let i = 1; i <= pdf.numPages; i += batchSize) {
-                                        if (sessionId !== this._importSessionId) return;
-                                        const end = Math.min(i + batchSize - 1, pdf.numPages);
-                                        for (let pageNum = i; pageNum <= end; pageNum++) {
-                                            if (sessionId !== this._importSessionId) return;
-                                            const page = await pdf.getPage(pageNum);
-                                            const content = await page.getTextContent();
-                                            const strings = content.items.map(item => item.str);
-                                            text += strings.join(' ') + '\n\n';
-                                        }
-                                        // 批处理之间让出主线程，避免长时间阻塞界面
-                                        await new Promise(resolve => setTimeout(resolve, 0));
-                                        setStatus(`正在解析 PDF 第 ${end}/${pdf.numPages} 页…`);
-                                    }
-
-                                    if (sessionId !== this._importSessionId) return;
-                                    setRaw(text.trim());
-                                    setStatus("PDF 文档解析完成，可以点击「AI 识别并导入」。");
-                                    text = null;
-                                } catch (err) {
-                                    console.error("PDF parse error", err);
-                                    setStatus("❌ 解析 PDF 文档失败，请确认文件格式是否正常。");
-                                }
-                            };
-                            reader.onerror = () => { if (sessionId === this._importSessionId) setStatus("❌ 读取 PDF 文件失败。"); };
-                            reader.readAsArrayBuffer(file);
-                        } else {
-                            setStatus("❌ 当前仅支持 .txt / .md / .docx / .pdf 文件类型。");
-                        }
-                    } catch (err) {
-                        console.error('AI import file handling error', err);
-                        setStatus("❌ 文件处理过程中发生错误：" + (err.message || '未知错误'));
-                    } finally {
-                        e.target.value = null;
-                    }
                 },
 
                 downloadTemplate() {

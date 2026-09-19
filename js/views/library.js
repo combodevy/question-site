@@ -333,7 +333,7 @@
                                     }).join(' , ');
                                 }
 
-                                ansPreview = `<span class="font-bold text-primary-600">✅ 答案：${inlineAns}</span>`;
+                                ansPreview = `<span class="font-bold text-primary-600">答案：${inlineAns}</span>`;
                                 detailsHtml = `<div class="mt-2 hidden details-panel bg-slate-50 dark:bg-slate-800 p-2 rounded-lg border border-[var(--border)]">` +
                                     App.utils.getDetailedOptionHTML(q, q.a, this._searchQuery) +
                                     `</div>`;
