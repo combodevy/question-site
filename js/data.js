@@ -206,8 +206,9 @@ export const data = {
                         const prevHistory = Array.isArray(this.history) ? this.history.slice() : [];
 
                         const parsed = JSON.parse(jsonStr);
+                        const idStats = {};
                         const sanitizedInput = (window.App && App.utils && typeof App.utils.sanitizeImportedBank === 'function')
-                            ? App.utils.sanitizeImportedBank(parsed)
+                            ? App.utils.sanitizeImportedBank(parsed, idStats)
                             : parsed;
                         const validationResult = this.validateSchema(sanitizedInput);
                         if (validationResult !== true) {
@@ -219,6 +220,7 @@ export const data = {
                             added: 0,
                             updated: 0,
                             skippedSame: 0,
+                            fixedIds: idStats.fixedIds || 0,
                             importPairs: [],   // id 相同但内容不同的覆盖记录
                             similarPairs: []   // id 不同但题干高度相似的记录
                         };

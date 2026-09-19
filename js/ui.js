@@ -135,17 +135,21 @@
                                 return;
                             }
 
-                            const check = App.data.validateSchema(parsed);
+                            // 先清洗（会自动改写重复/缺失的题目 ID）再做结构校验，
+                            // 保证预览数量与实际导入数量一致
+                            const idStats = {};
+                            const sanitized = (window.App && App.utils && typeof App.utils.sanitizeImportedBank === 'function')
+                                ? App.utils.sanitizeImportedBank(parsed, idStats)
+                                : parsed;
+
+                            const check = App.data.validateSchema(sanitized);
                             if (check !== true) {
                                 if (statusEl) statusEl.textContent = "结构校验失败：" + check;
                                 if (structEl) structEl.innerHTML = '<div class="text-[10px] text-[var(--sub)] italic">结构校验失败，请根据模板调整 JSON。</div>';
                                 if (listEl) listEl.innerHTML = '<div class="text-[10px] text-[var(--sub)] italic">结构校验失败，无法生成预览。</div>';
                                 return;
                             }
-
-                            const sanitized = (window.App && App.utils && typeof App.utils.sanitizeImportedBank === 'function')
-                                ? App.utils.sanitizeImportedBank(parsed)
-                                : parsed;
+                            App.ui._jsonImportIdStats = idStats;
 
                             const flat = [];
                             const subjSet = new Set();
@@ -272,8 +276,11 @@
                             if (applyBtn) applyBtn.disabled = !flat.length;
 
                             if (statusEl) {
+                                const fixNote = (App.ui._jsonImportIdStats && App.ui._jsonImportIdStats.fixedIds)
+                                    ? `，已自动改写 ${App.ui._jsonImportIdStats.fixedIds} 个重复或缺失的题目 ID`
+                                    : '';
                                 statusEl.textContent = flat.length
-                                    ? `解析成功：检测到 ${flat.length} 道题（科目 ${subjSet.size} 个，章节 ${chapSet.size} 个）。`
+                                    ? `解析成功：检测到 ${flat.length} 道题（科目 ${subjSet.size} 个，章节 ${chapSet.size} 个${fixNote}）。`
                                     : "解析完成，但未检测到任何符合条件的题目。";
                             }
                         } finally {
@@ -305,7 +312,10 @@
                         if (statusEl) statusEl.textContent = "导入失败，请检查 JSON 格式或控制台错误信息。";
                         return;
                     }
-                    if (statusEl) statusEl.textContent = "已根据预览 JSON 成功导入题库。";
+                    if (statusEl) {
+                        statusEl.textContent = `导入完成：新增 ${report.added} 道、更新 ${report.updated} 道、内容相同跳过 ${report.skippedSame} 道。`
+                            + (report.fixedIds ? `（自动改写 ${report.fixedIds} 个重复/缺失 ID）` : '');
+                    }
                 },
 
                 applyJsonMetaChange(idx) {

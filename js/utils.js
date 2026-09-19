@@ -181,11 +181,25 @@ export const utils = {
         const dist = this.editDistance(a, b);
         return 1 - dist / maxLen;
     },
-    // 导入清洗：只保留单选/多选/判断题，并去掉选项前多余的字母前缀
-    sanitizeImportedBank(obj) {
+    // 导入清洗：只保留单选/多选/判断题，去掉选项前多余的字母前缀，
+    // 并规范化题目 ID——缺失/非字符串的 id 自动生成确定性 id，
+    // 重复的 id 追加确定性后缀（-d2、-d3…），保证预览数量与实际导入数量一致、不丢题。
+    // 可选的 stats 对象用于回填改写统计（fixedIds：被改写的 id 数，ignored：被忽略的非客观题数）。
+    sanitizeImportedBank(obj, stats) {
         const allowed = new Set(['mcq', 'multi', 'tf']);
         const result = {};
-        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return result;
+        const seenIds = new Set();
+        let fixedIds = 0;
+        let ignored = 0;
+        const hashId = (s) => {
+            let h = 5381;
+            for (let i = 0; i < s.length; i++) { h = ((h << 5) + h + s.charCodeAt(i)) | 0; }
+            return 'auto-' + (h >>> 0).toString(36);
+        };
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+            if (stats) { stats.fixedIds = 0; stats.ignored = 0; }
+            return result;
+        }
 
         for (const [sub, chapDict] of Object.entries(obj)) {
             if (!chapDict || typeof chapDict !== 'object' || Array.isArray(chapDict)) continue;
@@ -193,7 +207,11 @@ export const utils = {
             for (const [chap, arr] of Object.entries(chapDict)) {
                 if (!Array.isArray(arr)) continue;
                 const cleanedQs = arr
-                    .filter(q => q && allowed.has(q.type))
+                    .filter(q => {
+                        if (q && allowed.has(q.type)) return true;
+                        ignored++;
+                        return false;
+                    })
                     .map(q => {
                         const copy = { ...q };
                         if ((copy.type === 'mcq' || copy.type === 'multi') && Array.isArray(copy.o)) {
@@ -202,12 +220,28 @@ export const utils = {
                                 return opt.replace(/^\s*[A-ZＡ-Ｚ][\.\．、，\)\）]\s*/, '');
                             });
                         }
+                        // ID 规范化
+                        if (typeof copy.id !== 'string' || !copy.id.trim()) {
+                            copy.id = hashId(JSON.stringify([sub, chap, copy.type, copy.q, copy.a, Array.isArray(copy.o) ? copy.o : []]));
+                            fixedIds++;
+                        } else if (copy.id !== q.id) {
+                            fixedIds++;
+                        }
+                        if (seenIds.has(copy.id)) {
+                            const base = copy.id;
+                            let n = 2;
+                            while (seenIds.has(base + '-d' + n)) n++;
+                            copy.id = base + '-d' + n;
+                            fixedIds++;
+                        }
+                        seenIds.add(copy.id);
                         return copy;
                     });
                 if (cleanedQs.length > 0) cleanedChaps[chap] = cleanedQs;
             }
             if (Object.keys(cleanedChaps).length > 0) result[sub] = cleanedChaps;
         }
+        if (stats) { stats.fixedIds = fixedIds; stats.ignored = ignored; }
         return result;
     }
 };
