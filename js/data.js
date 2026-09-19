@@ -25,6 +25,8 @@ export const data = {
 
                 // 运行时缓存
                 _cachedQuestions: null,
+                // 本地编辑序号：每次本地数据变动自增，用于判断保存期间是否有新编辑
+                _editSeq: 0,
                 _questionMap: null,
                 _errFreqCache: null,
                 _isHistoryDirty: true,
@@ -161,6 +163,7 @@ export const data = {
                 },
 
                 saveHistory() {
+                    this._editSeq++;
                     this._safeSetItem(this.historyKey, JSON.stringify({
                         history: this.history,
                         lastPracticeTime: this.lastPracticeTime,
@@ -402,6 +405,7 @@ export const data = {
 
                 // 持久化题库
                 persistBank() {
+                    this._editSeq++;
                     this._safeSetItem(this.bankKey, JSON.stringify(this.bank));
                     if (this.bankName) {
                         this._safeSetItem(this.bankNameKey, this.bankName);
@@ -578,7 +582,9 @@ export const data = {
                         return;
                     }
                     if (this._cloudLoading) {
-                        this._saveAgainPending = true;
+                        // 加载在途：改用 _deferredSave 标记（加载完成的各出口都会消费它并重试保存），
+                        // 不能用 _saveAgainPending——没有任何加载路径会消费它，保存会被静默吞掉
+                        this._deferredSave = true;
                         return;
                     }
 
@@ -696,6 +702,8 @@ export const data = {
                         });
 
 
+                        // 记录发起保存时的编辑序号：若保存期间又有新编辑，成功后不能清掉脏标记
+                        const editSeqAtSave = this._editSeq;
                         let res;
                         try {
                             if (window.App && App.sync && typeof App.sync.setStatus === 'function') {
@@ -819,7 +827,11 @@ export const data = {
                                 if (window.App && App.sync && typeof App.sync.showSyncStatus === 'function') {
                                     App.sync.showSyncStatus('success', delta);
                                 }
-                                this._bankDirty = false;
+                                // 只有当保存期间没有新的本地编辑时才清脏标记；
+                                // 否则保持 _bankDirty，防止轮询加载用旧云数据覆盖更新的本地状态
+                                if (this._editSeq === editSeqAtSave) {
+                                    this._bankDirty = false;
+                                }
                                 this.bankName = inferredName;
                                 this._safeSetItem(this.bankNameKey, this.bankName);
                                 this._retryAfterConflictOnce = 0;
@@ -951,6 +963,11 @@ export const data = {
                                 return;
                             }
                             if (!data || !data.ok) {
+                                this._syncReady = true;
+                                if (this._deferredSave) {
+                                    this._deferredSave = false;
+                                    this.saveToCloudDebounced();
+                                }
                                 return;
                             }
 
@@ -1000,9 +1017,11 @@ export const data = {
                                 return;
                             }
 
-                            // 2.5 本地有未上传的修改时不覆盖本地数据（防止轮询/实时推送冲掉本地编辑）：
-                            // 仅推进版本号，并把服务端新增的作答记录按时间戳增量并入本地
-                            if (this._bankDirty) {
+                            // 2.4 本地存在未落库的修改（保存仍在途 / 保存被挂起 / 脏标记）时，
+                            // 这次加载一律不应用——否则加载会用旧云数据覆盖更新的本地状态。
+                            // 服务端新增的作答记录仍按时间戳增量并入本地；等挂起的保存上传
+                            // 完成后，版本号由保存结果对齐，下一次加载自然收敛。
+                            if (this._isSaving || this._deferredSave || this._bankDirty) {
                                 if (typeof data.version === "number" && Number.isFinite(data.version)) {
                                     this.remoteVersion = data.version;
                                 }
@@ -1143,6 +1162,7 @@ export const data = {
 
                 // 持久化回收站
                 persistTrash() {
+                    this._editSeq++;
                     this._safeSetItem(this.trashKey, JSON.stringify(this.trash));
                     if (!this._suppressCloudSync && this.saveToCloudDebounced) {
                         this.saveToCloudDebounced();
