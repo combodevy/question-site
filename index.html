@@ -284,15 +284,6 @@
                 </svg>
             </button>
             
-            <!-- Import Center -->
-            <button onclick="App.ui.openImportCenter('json')"
-                class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border border-slate-200/40 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-all duration-200 active:scale-95"
-                title="题库导入中心">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4h16v4H4zM4 12h16v8H4zM9 16h6" />
-                </svg>
-            </button>
-            
             <!-- Trash Modal -->
             <button onclick="App.ui.openTrashModal()"
                 class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border border-slate-200/40 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-all duration-200 active:scale-95"
@@ -361,6 +352,13 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
                 <span>同步记录</span>
+            </button>
+            <button data-act="password"
+                class="account-menu-item flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[var(--text)] hover:bg-[var(--bg)] active:bg-[var(--bg)] transition-colors text-left">
+                <svg class="w-4 h-4 text-slate-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 2a8 8 0 11-16 0 8 8 0 0116 0zm-9 4h2m-2 0a2 2 0 114 0 2 2 0 01-4 0zm0 0V9" />
+                </svg>
+                <span>修改密码</span>
             </button>
             <div class="h-px bg-[var(--border)] my-1.5"></div>
             <button data-act="logout"
@@ -982,6 +980,35 @@
             </div>
         </div>
 
+    </div>
+
+    <!-- 修改密码弹窗 -->
+    <div id="modal-password"
+        class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm hidden opacity-0 pointer-events-none">
+        <div class="card w-full max-w-sm rounded-2xl shadow-2xl p-5 flex flex-col gap-3 bg-[var(--card)] border border-[var(--border)]">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-base">修改密码</h3>
+                <button onclick="App.ui.closeModal('password')" class="text-[var(--sub)] hover:text-[var(--text)] p-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="flex flex-col gap-2">
+                <label class="text-[10px] text-[var(--sub)]">原密码</label>
+                <input id="pw-old" type="password" autocomplete="current-password"
+                    class="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none focus:border-primary-500">
+                <label class="text-[10px] text-[var(--sub)]">新密码（至少 6 位）</label>
+                <input id="pw-new" type="password" autocomplete="new-password"
+                    class="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none focus:border-primary-500">
+                <label class="text-[10px] text-[var(--sub)]">确认新密码</label>
+                <input id="pw-new2" type="password" autocomplete="new-password"
+                    class="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none focus:border-primary-500">
+            </div>
+            <div id="pw-status" class="text-[10px] text-[var(--sub)] min-h-[1rem]"></div>
+            <button id="pw-submit" onclick="App.ui.submitPasswordChange()"
+                class="btn px-3 py-2.5 bg-primary-600 text-white rounded-xl text-xs font-bold active:scale-95 transition-transform">确认修改</button>
+        </div>
     </div>
 
     <!-- 系统设置弹窗 -->

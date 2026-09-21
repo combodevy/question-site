@@ -305,6 +305,49 @@ export default {
             }
             const userId = user.sub;
 
+            // 2.5 CHANGE PASSWORD（需验证原密码；旧 JWT 在有效期内仍可用，属无状态令牌的已知取舍）
+            if (path === "/api/auth/change-password" && request.method === "POST") {
+                const body = await request.json();
+                const oldPassword = typeof body.oldPassword === "string" ? body.oldPassword : "";
+                const newPassword = typeof body.newPassword === "string" ? body.newPassword : "";
+                if (!oldPassword || !newPassword) {
+                    return jsonResponse({ error: "请填写原密码和新密码" }, 400, headers);
+                }
+                if (newPassword.length < 6) {
+                    return jsonResponse({ error: "新密码至少需要 6 位" }, 400, headers);
+                }
+                if (newPassword === oldPassword) {
+                    return jsonResponse({ error: "新密码不能与原密码相同" }, 400, headers);
+                }
+                const row = await env.DB.prepare("SELECT password_hash, salt FROM users WHERE id = ?")
+                    .bind(userId)
+                    .first();
+                if (!row) {
+                    return jsonResponse({ error: "账户不存在或已被删除" }, 401, headers);
+                }
+                const oldHash = await hashPassword(oldPassword, row.salt);
+                if (oldHash !== row.password_hash) {
+                    return jsonResponse({ error: "原密码不正确" }, 400, headers);
+                }
+                const newSalt = generateSalt();
+                const newHash = await hashPassword(newPassword, newSalt);
+                await env.DB.prepare("UPDATE users SET password_hash = ?, salt = ? WHERE id = ?")
+                    .bind(newHash, newSalt, userId)
+                    .run();
+                return jsonResponse({ ok: true }, 200, headers);
+            }
+
+            // 2.6 账户存在性校验：管理员删除用户后，旧令牌仍有效（无状态 JWT），
+            // 但必须阻止幽灵用户继续写库重建题集
+            if (path.startsWith("/api/save-question-set")) {
+                const stillExists = await env.DB.prepare("SELECT id FROM users WHERE id = ?")
+                    .bind(userId)
+                    .first();
+                if (!stillExists) {
+                    return jsonResponse({ error: "账户已被管理员删除" }, 401, headers);
+                }
+            }
+
 
             // 3. LOAD QUESTION SET
             if (path === "/api/load-question-set" && request.method === "GET") {

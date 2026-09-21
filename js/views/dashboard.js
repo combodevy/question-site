@@ -11,7 +11,10 @@
                         if (ml) {
                             ml.innerHTML = '';
                             if (s.total === 0) {
-                                ml.innerHTML = `<div class="p-6 text-center text-[var(--sub)] text-xs border border-dashed border-[var(--border)] rounded-xl m-4">请先导入题库 (Please import a question bank first).</div>`;
+                                ml.innerHTML = `<div class="p-6 flex flex-col items-center gap-3 text-center border border-dashed border-[var(--border)] rounded-xl m-4">
+                                    <div class="text-[var(--sub)] text-xs">题库还是空的，先导入一份题目开始练习吧。</div>
+                                    <button onclick="App.ui.openImportCenter()" class="px-4 py-1.5 rounded-full bg-primary-600 text-white text-[11px] font-bold shadow-sm active:scale-95 transition-transform">导入题库</button>
+                                </div>`;
                             } else if (s.topMistakes.length === 0) {
                                 ml.innerHTML = `<div class="p-6 text-center text-[var(--sub)] text-xs border border-dashed border-[var(--border)] rounded-xl m-4">暂无错题数据，太棒了！(No mistakes recorded yet!)</div>`;
                             } else {

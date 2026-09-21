@@ -9,7 +9,7 @@
                         c.innerHTML = '';
                         const subs = App.data.getSubjects();
                         if (subs.length === 0) {
-                            c.innerHTML = '<div class="text-center text-[var(--sub)] mt-10">未检测到题库，请前往右上角设置导入题库 JSON 文件。</div>';
+                            c.innerHTML = '<div class="text-center text-[var(--sub)] mt-10">未检测到题库，请点击右上角头像，通过「导入题库」导入 JSON 文件。</div>';
                             return;
                         }
 

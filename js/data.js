@@ -798,9 +798,10 @@ export const data = {
                                 console.error("保存题库到云端失败", data);
                                 // token 失效（401）：停止重试保存，自动登出
                                 if (res.status === 401) {
+                                    const reason = (data && data.error) || '登录已过期';
                                     if (window.App && App.auth && typeof App.auth.logout === 'function') {
                                         App.auth.logout();
-                                        alert('登录已过期，请重新登录。');
+                                        alert(reason + '，请重新登录。');
                                     }
                                     return;
                                 }
@@ -968,9 +969,10 @@ export const data = {
                                 // token 失效（401）：自动登出并提示重新登录，避免每次轮询都报同步失败
                                 if (res.status === 401) {
                                     this._syncReady = false;
+                                    const reason = (data && data.error) || '登录已过期';
                                     if (window.App && App.auth && typeof App.auth.logout === 'function') {
                                         App.auth.logout();
-                                        alert('登录已过期，请重新登录。');
+                                        alert(reason + '，请重新登录。');
                                     }
                                     return;
                                 }
@@ -1650,7 +1652,9 @@ export const sync = {
                             list.appendChild(line);
                         });
                     }
+                    if (modal._closeTimer) { clearTimeout(modal._closeTimer); modal._closeTimer = null; }
                     modal.classList.remove('hidden');
+                    void modal.offsetWidth;
                     modal.classList.remove('opacity-0', 'pointer-events-none');
                     if (!modal.dataset.bound) {
                         modal.addEventListener('click', (e) => {
@@ -1665,8 +1669,9 @@ export const sync = {
                     const modal = document.getElementById('sync-log-modal');
                     if (!modal) return;
                     modal.classList.add('opacity-0', 'pointer-events-none');
-                    setTimeout(() => {
+                    modal._closeTimer = setTimeout(() => {
                         modal.classList.add('hidden');
+                        modal._closeTimer = null;
                     }, 200);
                 },
                 startAutoPull(intervalMs) {

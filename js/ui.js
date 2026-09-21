@@ -2,12 +2,37 @@
 
                 _importSessionId: 0,
                 _importReader: null,
+                // ===== 弹层开/关基元 =====
+                // 关闭时 200ms 后才加 hidden（保留淡出动画），因此「打开」必须先取消
+                // 未完成的关闭计时器，否则快速关闭再打开会被旧计时器重新隐藏——
+                // 这正是回收站弹窗「点了没反应」的根因。
+                _showModalEl(el) {
+                    if (!el) return;
+                    if (el._closeTimer) {
+                        clearTimeout(el._closeTimer);
+                        el._closeTimer = null;
+                    }
+                    el.classList.remove('hidden');
+                    // 强制重排：确保 display 变更先生效，透明度过渡可靠触发
+                    void el.offsetWidth;
+                    el.classList.remove('opacity-0', 'pointer-events-none');
+                },
+
+                _hideModalEl(el) {
+                    if (!el) return;
+                    el.classList.add('opacity-0', 'pointer-events-none');
+                    if (el._closeTimer) clearTimeout(el._closeTimer);
+                    el._closeTimer = setTimeout(() => {
+                        el.classList.add('hidden');
+                        el._closeTimer = null;
+                    }, 200);
+                },
+
                 toggleModal(id) {
                     const el = App.dom.get(`modal-${id}`);
                     if (!el) return;
 
                     if (el.classList.contains('hidden')) {
-                        el.classList.remove('hidden');
                         if (id === 'smart-practice') {
                             const container = App.dom.get('smart-subjects-list');
                             if (container) {
@@ -30,7 +55,7 @@
                                 }
                             }
                         }
-                        setTimeout(() => el.classList.remove('opacity-0', 'pointer-events-none'), 10);
+                        this._showModalEl(el);
                     } else {
                         this.closeModal(id);
                     }
@@ -39,8 +64,7 @@
                 closeModal(id) {
                     const el = App.dom.get(`modal-${id}`);
                     if (el && !el.classList.contains('hidden')) {
-                        el.classList.add('opacity-0', 'pointer-events-none');
-                        setTimeout(() => el.classList.add('hidden'), 200);
+                        this._hideModalEl(el);
                     }
                 },
 
@@ -496,10 +520,54 @@
                         App.ui.openImportCenter();
                     } else if (act === 'sync') {
                         App.sync.openLogPanel();
+                    } else if (act === 'password') {
+                        this.openPasswordModal();
                     } else if (act === 'logout') {
                         if (confirm('确定要退出登录吗？\n本地缓存会清空，题库和学习记录都保留在云端，下次登录自动恢复。')) {
                             App.auth.logout();
                         }
+                    }
+                },
+
+                // ===== 修改密码 =====
+                openPasswordModal() {
+                    ['pw-old', 'pw-new', 'pw-new2'].forEach(id => { const el = App.dom.get(id); if (el) el.value = ''; });
+                    const statusEl = App.dom.get('pw-status');
+                    if (statusEl) statusEl.textContent = '';
+                    this.toggleModal('password');
+                },
+
+                async submitPasswordChange() {
+                    const statusEl = App.dom.get('pw-status');
+                    const submitBtn = App.dom.get('pw-submit');
+                    const oldPw = (App.dom.getValue('pw-old') || '').trim();
+                    const newPw = (App.dom.getValue('pw-new') || '').trim();
+                    const newPw2 = (App.dom.getValue('pw-new2') || '').trim();
+                    const fail = (msg) => { if (statusEl) statusEl.textContent = msg; };
+                    if (!oldPw || !newPw || !newPw2) return fail('请填写完整三个密码框。');
+                    if (newPw.length < 6) return fail('新密码至少需要 6 位。');
+                    if (newPw !== newPw2) return fail('两次输入的新密码不一致。');
+                    if (newPw === oldPw) return fail('新密码不能与原密码相同。');
+                    const token = await App.auth.getToken();
+                    if (!token) return fail('登录状态已失效，请重新登录后再试。');
+                    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '提交中…'; }
+                    try {
+                        const res = await fetch((App.apiBase || '') + '/api/auth/change-password', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                            body: JSON.stringify({ oldPassword: oldPw, newPassword: newPw })
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            fail((data && data.error) || `修改失败 (HTTP ${res.status})`);
+                            return;
+                        }
+                        if (statusEl) statusEl.textContent = '密码修改成功，下次登录请使用新密码。';
+                        setTimeout(() => this.closeModal('password'), 1200);
+                    } catch (e) {
+                        fail('网络异常，请稍后重试。');
+                    } finally {
+                        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '确认修改'; }
                     }
                 },
 
@@ -657,8 +725,7 @@
                         list.appendChild(item);
                     });
 
-                    modal.classList.remove('hidden');
-                    setTimeout(() => modal.classList.remove('opacity-0', 'pointer-events-none'), 10);
+                    this._showModalEl(modal);
                 },
 
                 // 应用疑似相似题审查结果：根据用户选择软删对应题目
@@ -811,8 +878,7 @@
                         }
                     }
 
-                    modal.classList.remove('hidden');
-                    setTimeout(() => modal.classList.remove('opacity-0', 'pointer-events-none'), 10);
+                    this._showModalEl(modal);
                 },
 
                 onQuestionTypeChange() {
@@ -1055,8 +1121,7 @@
                         });
                     }
 
-                    modal.classList.remove('hidden');
-                    setTimeout(() => modal.classList.remove('opacity-0', 'pointer-events-none'), 10);
+                    this._showModalEl(modal);
                 },
 
                 openBankManager() {
@@ -1114,17 +1179,13 @@
                         this._bankMgrCurrentSubject = subjects[0] || '';
                     }
                     this.renderBankManager();
-                    modal.classList.remove('hidden');
-                    setTimeout(() => {
-                        modal.classList.remove('opacity-0', 'pointer-events-none');
-                    }, 10);
+                    this._showModalEl(modal);
                 },
 
                 closeBankManager() {
                     const modal = App.dom.get('modal-bank-manager');
                     if (!modal) return;
-                    modal.classList.add('opacity-0', 'pointer-events-none');
-                    setTimeout(() => modal.classList.add('hidden'), 150);
+                    this._hideModalEl(modal);
                 },
 
                 renderBankManager() {
