@@ -159,6 +159,10 @@
                         if (window.App && App.data && typeof App.data.clearAllForLogout === "function") {
                             App.data.clearAllForLogout();
                         }
+                        // 登出后立即清空界面上的旧统计，避免显示上一个账号的数据
+                        if (window.App && App.router && typeof App.router.refresh === "function") {
+                            App.router.refresh();
+                        }
                         if (window.App && App.sync && typeof App.sync.stopAutoPull === "function") {
                             App.sync.stopAutoPull();
                         }

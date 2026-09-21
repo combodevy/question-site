@@ -325,6 +325,10 @@
                     }
                     // 导入必然触发云端保存（防抖 400ms）；监视保存结果并反馈
                     this._watchImportSave(statusEl);
+                    // 立即刷新底层视图：弹窗后面如果是首页/题库页，统计数字和列表马上反映新题
+                    if (window.App && App.router && typeof App.router.refresh === 'function') {
+                        App.router.refresh();
+                    }
                 },
 
                 // 导入后监视云端保存：成功补一句提示，失败给重试按钮
@@ -597,39 +601,6 @@
                     drawer.classList.add('translate-x-full');
                     backdrop.classList.add('opacity-0');
                     setTimeout(() => backdrop.classList.add('hidden'), 300);
-                },
-
-                handleFileUpload(e) {
-                    const file = e.target.files[0];
-                    if (!file) return;
-
-                    // 修复 4: 增加文件大小限制 (5MB上限)，防止大文件阻塞主线程 (Prevent Main Thread Blocking)
-                    if (file.size > 5 * 1024 * 1024) {
-                        alert("文件过大，请上传 5MB 以内的题库文件。");
-                        e.target.value = null;
-                        return;
-                    }
-
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        const text = event.target.result;
-                        const report = App.data.importBank(text);
-                        if (!report) {
-                            alert('导入失败，请检查 JSON 内容。');
-                        } else {
-                            const msgLines = [
-                                `题库导入完成：`,
-                                `- 新增题目：${report.added}`,
-                                `- 覆盖更新：${report.updated}`,
-                                `- 完全重复跳过：${report.skippedSame}`,
-                                report.similarPairs.length ? `- 疑似相似题组：${report.similarPairs.length} 组` : ''
-                            ].filter(Boolean);
-                            alert(msgLines.join('\n'));
-                        }
-                    };
-                    reader.onerror = () => alert('文件读取失败 (File read error)');
-                    reader.readAsText(file, 'UTF-8');
-                    e.target.value = null;
                 },
 
                 downloadTemplate() {
@@ -1060,6 +1031,8 @@
                             if (action === 'restore') {
                                 App.data.restoreFromTrash(sub, chap, id);
                                 App.ui.openTrashModal();
+                                // 底层视图同步刷新：题库列表/统计立即反映恢复的题
+                                if (window.App && App.router && typeof App.router.refresh === 'function') App.router.refresh();
                             } else if (action === 'destroy') {
                                 if (confirm('确定要永久删除这道题吗？此操作不可恢复。')) {
                                     App.data.destroyFromTrash(sub, chap, id);

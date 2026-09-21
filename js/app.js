@@ -42,6 +42,31 @@ window.addEventListener('DOMContentLoaded', async () => {
     window.App = App;
     await App.init();
 
+    // ===== 自动同步时机补全 =====
+    // 1. 切回标签页时拉一次云端（ETag 命中 304 几乎零成本；管理员推送的题库能即时出现）。
+    //    节流 15 秒，避免快速切换标签页时频繁请求。
+    let lastVisibilityPull = 0;
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'visible') return;
+        const now = Date.now();
+        if (now - lastVisibilityPull < 15000) return;
+        if (!window.App || !App.auth || !App.auth.session) return;
+        if (!App.data || !App.data._syncReady || App.data._cloudLoading || App.data._isSaving) return;
+        lastVisibilityPull = now;
+        App.data.loadFromCloud();
+    });
+
+    // 2. 网络恢复时：立即补传本地未同步的修改 + 拉取云端最新
+    window.addEventListener('online', () => {
+        if (!window.App || !App.auth || !App.auth.session) return;
+        if (App.data && typeof App.data.saveToCloudDebounced === 'function') {
+            App.data.saveToCloudDebounced();
+        }
+        if (App.data && typeof App.data.loadFromCloud === 'function') {
+            App.data.loadFromCloud();
+        }
+    });
+
     // 跨标签页数据同步同步监听
     window.addEventListener('storage', async (e) => {
         if (!e.key) return;
@@ -64,7 +89,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // 绑定全局云端保存按钮（右键打开同步历史记录）与账户模态框事件
+    // 绑定全局云端保存按钮（左键/右键都打开同步历史记录）与账户模态框事件
     const saveBtn = document.getElementById("save-cloud-btn");
     const overlayLoginBtn = document.getElementById("auth-overlay-login-btn");
     const authBtn = document.getElementById("auth-btn");
@@ -76,6 +101,12 @@ window.addEventListener('DOMContentLoaded', async () => {
     const showStatus = (msg) => { if (statusEl) statusEl.textContent = msg || ''; };
 
     if (saveBtn) {
+        // 左键同样打开同步记录面板（右键已有绑定），提高可发现性
+        saveBtn.addEventListener("click", function () {
+            if (window.App && App.sync && typeof App.sync.openLogPanel === "function") {
+                App.sync.openLogPanel();
+            }
+        });
         saveBtn.addEventListener("contextmenu", function (e) {
             e.preventDefault();
             if (window.App && App.sync && typeof App.sync.openLogPanel === "function") {

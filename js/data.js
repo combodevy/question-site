@@ -545,6 +545,9 @@ export const data = {
                     if (App && App.ui && typeof App.ui.renderBankManager === 'function') {
                         App.ui.renderBankManager();
                     }
+                        if (window.App && App.router && typeof App.router.refresh === 'function') {
+                            App.router.refresh();
+                        }
                 },
 
                 deleteSubjectInteractive(sub) {
@@ -553,6 +556,9 @@ export const data = {
                     if (App && App.ui && typeof App.ui.renderBankManager === 'function') {
                         App.ui.renderBankManager();
                     }
+                        if (window.App && App.router && typeof App.router.refresh === 'function') {
+                            App.router.refresh();
+                        }
                 },
 
                 renameChapterInteractive(sub, chap) {
@@ -562,6 +568,9 @@ export const data = {
                     if (App && App.ui && typeof App.ui.renderBankManager === 'function') {
                         App.ui.renderBankManager();
                     }
+                        if (window.App && App.router && typeof App.router.refresh === 'function') {
+                            App.router.refresh();
+                        }
                 },
 
                 deleteChapterInteractive(sub, chap) {
@@ -570,6 +579,9 @@ export const data = {
                     if (App && App.ui && typeof App.ui.renderBankManager === 'function') {
                         App.ui.renderBankManager();
                     }
+                        if (window.App && App.router && typeof App.router.refresh === 'function') {
+                            App.router.refresh();
+                        }
                 },
 
                 /**
@@ -1302,6 +1314,9 @@ export const data = {
                     this.persistTrash();
                     if (window.App && App.ui && typeof App.ui.openTrashModal === 'function') {
                         App.ui.openTrashModal();
+                    }
+                    if (window.App && App.router && typeof App.router.refresh === 'function') {
+                        App.router.refresh();
                     }
                 },
 
