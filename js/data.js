@@ -1446,7 +1446,11 @@ export const data = {
                     });
 
                     let streak = 0;
-                    for (let i = 0; i <= 365; i++) {
+                    // 今天还没刷不影响连续天数：从昨天开始回溯（今天刷了则含今天）
+                    const todayKey = new Date().toISOString().slice(0, 10);
+                    const todayHas = h.some(x => new Date(x.t).toISOString().slice(0, 10) === todayKey);
+                    const startOffset = todayHas ? 0 : 1;
+                    for (let i = startOffset; i <= 365; i++) {
                         const d = new Date(); d.setDate(d.getDate() - i);
                         const ds = d.toISOString().slice(0, 10);
                         if (h.some(x => new Date(x.t).toISOString().slice(0, 10) === ds)) streak++;

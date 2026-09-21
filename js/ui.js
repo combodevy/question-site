@@ -151,136 +151,15 @@
                             }
                             App.ui._jsonImportIdStats = idStats;
 
-                            const flat = [];
-                            const subjSet = new Set();
-                            const chapSet = new Set();
-                            let mcqCount = 0, multiCount = 0, tfCount = 0;
-
-                            for (const sub in sanitized) {
-                                const chapDict = sanitized[sub] || {};
-                                let subTotal = 0;
-                                const chapsInfo = [];
-                                for (const chap in chapDict) {
-                                    const arr = Array.isArray(chapDict[chap]) ? chapDict[chap] : [];
-                                    if (!arr.length) continue;
-                                    chapSet.add(`${sub}::${chap}`);
-                                    let cMcq = 0, cMulti = 0, cTf = 0;
-                                    arr.forEach(q => {
-                                        if (!q) return;
-                                        const type = q.type;
-                                        if (type === 'mcq') { mcqCount++; cMcq++; }
-                                        else if (type === 'multi') { multiCount++; cMulti++; }
-                                        else if (type === 'tf') { tfCount++; cTf++; }
-                                        flat.push({
-                                            sub,
-                                            chap,
-                                            type,
-                                            q: q.q || ''
-                                        });
-                                    });
-                                    const chapTotal = arr.length;
-                                    subTotal += chapTotal;
-                                    chapsInfo.push({ chap, total: chapTotal, mcq: cMcq, multi: cMulti, tf: cTf });
-                                }
-                                if (chapsInfo.length) {
-                                    subjSet.add(sub);
-                                }
-                            }
-
-                            const total = flat.length;
-                            if (totalEl) totalEl.textContent = String(total);
-                            if (subEl) subEl.textContent = String(subjSet.size);
-                            if (chapEl) chapEl.textContent = String(chapSet.size);
-                            if (mcqEl) mcqEl.textContent = String(mcqCount);
-                            if (multiEl) multiEl.textContent = String(multiCount);
-                            if (tfEl) tfEl.textContent = String(tfCount);
-
-                            if (structEl) {
-                                if (!total) {
-                                    structEl.innerHTML = '<div class="text-[10px] text-[var(--sub)] italic">未检测到任何单选 / 多选 / 判断题。</div>';
-                                } else {
-                                    const blocks = [];
-                                    for (const sub of Array.from(subjSet)) {
-                                        const chapDict = sanitized[sub] || {};
-                                        let subTotal = 0;
-                                        const rows = [];
-                                        for (const chap in chapDict) {
-                                            const arr = Array.isArray(chapDict[chap]) ? chapDict[chap] : [];
-                                            if (!arr.length) continue;
-                                            const chapTotal = arr.length;
-                                            subTotal += chapTotal;
-                                            let cMcq = 0, cMulti = 0, cTf = 0;
-                                            arr.forEach(q => {
-                                                if (q.type === 'mcq') cMcq++;
-                                                else if (q.type === 'multi') cMulti++;
-                                                else if (q.type === 'tf') cTf++;
-                                            });
-                                            rows.push(`
-                                                <div class="flex items-center gap-2 text-[10px]">
-                                                    <span class="truncate flex-1">${App.utils.escapeHTML(chap)}</span>
-                                                    <span class="text-[var(--sub)]">${chapTotal} 题 · 单选 ${cMcq} · 多选 ${cMulti} · 判断 ${cTf}</span>
-                                                </div>
-                                            `);
-                                        }
-                                        blocks.push(`
-                                            <div class="mb-2 last:mb-0">
-                                                <div class="flex items-center justify-between mb-1">
-                                                    <div class="text-[10px] font-bold text-[var(--text)]">${App.utils.escapeHTML(sub)}</div>
-                                                    <div class="text-[10px] text-[var(--sub)]">${subTotal} 题</div>
-                                                </div>
-                                                <div class="space-y-0.5">${rows.join('')}</div>
-                                            </div>
-                                        `);
-                                    }
-                                    structEl.innerHTML = blocks.join('') || '<div class="text-[10px] text-[var(--sub)] italic">未检测到任何题目。</div>';
-                                }
-                            }
-
-                            if (listEl) {
-                                if (!flat.length) {
-                                    listEl.innerHTML = '<div class="text-[10px] text-[var(--sub)] italic">暂无题目预览。</div>';
-                                } else {
-                                    const previewItems = flat.slice(0, 50);
-                                    listEl.innerHTML = previewItems.map((item, idx) => {
-                                        const typeLabel = item.type === 'mcq' ? '单选' : (item.type === 'multi' ? '多选' : '判断');
-                                        const qText = App.utils.escapeHTML(String(item.q || '')).slice(0, 80);
-                                        const subEsc = App.utils.escapeHTML(item.sub);
-                                        const chapEsc = App.utils.escapeHTML(item.chap);
-                                        const idEsc = App.utils.escapeHTML(item.id || '');
-                                        return `
-                                            <div class="border-b border-[var(--border)] pb-1 last:border-b-0" id="import-json-row-${idx}" data-sub="${subEsc}" data-chap="${chapEsc}" data-qid="${idEsc}">
-                                                <div class="flex items-center justify-between gap-1">
-                                                    <span class="text-[10px] text-[var(--sub)]">#${idx + 1}</span>
-                                                    <span class="text-[10px] text-[var(--sub)] truncate flex-1 text-right">${subEsc} / ${chapEsc}</span>
-                                                </div>
-                                                <div class="flex items-center justify-between gap-1 mt-0.5">
-                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full border border-[var(--border)] text-[9px] text-[var(--sub)]">${typeLabel}</span>
-                                                    <span class="text-[11px] text-[var(--text)] flex-1 text-right">${qText}${String(item.q || '').length > 80 ? '…' : ''}</span>
-                                                </div>
-                                                <div class="mt-1 flex items-center gap-1 text-[10px] text-[var(--sub)]">
-                                                    <span>科目</span>
-                                                    <input class="import-json-sub-input flex-1 min-w-[80px] bg-[var(--card)] border border-[var(--border)] rounded px-1 py-0.5 outline-none" value="${subEsc}">
-                                                    <span>章节</span>
-                                                    <input class="import-json-chap-input flex-1 min-w-[80px] bg-[var(--card)] border border-[var(--border)] rounded px-1 py-0.5 outline-none" value="${chapEsc}">
-                                                    <button class="px-1.5 py-0.5 border border-[var(--border)] rounded text-[10px] text-primary-600 hover:bg-primary-50"
-                                                        onclick="App.ui.applyJsonMetaChange(${idx})">应用</button>
-                                                </div>
-                                            </div>
-                                        `;
-                                    }).join('');
-                                }
-                            }
-
+                            const r = App.ui._renderJsonPreviewData(sanitized);
                             App.ui._jsonImportPreview = sanitized;
-                            App.ui._jsonImportPreviewCount = flat.length;
-                            if (applyBtn) applyBtn.disabled = !flat.length;
 
                             if (statusEl) {
                                 const fixNote = (App.ui._jsonImportIdStats && App.ui._jsonImportIdStats.fixedIds)
                                     ? `，已自动改写 ${App.ui._jsonImportIdStats.fixedIds} 个重复或缺失的题目 ID`
                                     : '';
-                                statusEl.textContent = flat.length
-                                    ? `解析成功：检测到 ${flat.length} 道题（科目 ${subjSet.size} 个，章节 ${chapSet.size} 个${fixNote}）。`
+                                statusEl.textContent = r.total
+                                    ? `解析成功：检测到 ${r.total} 道题（科目 ${r.subjCount} 个，章节 ${r.chapCount} 个${fixNote}）。`
                                     : "解析完成，但未检测到任何符合条件的题目。";
                             }
                         } finally {
@@ -292,6 +171,135 @@
                         e.target.value = null;
                     };
                     reader.readAsText(file, 'UTF-8');
+                },
+
+                // 预览渲染公共函数：统计数量、渲染科目结构和题目列表，并刷新计数卡片。
+                // flat 始终携带题目 id，保证行内「应用」按钮可以修改归属（此前首次加载漏传 id 导致按钮必报错）。
+                _renderJsonPreviewData(data) {
+                    const flat = [];
+                    const subjSet = new Set();
+                    const chapSet = new Set();
+                    let mcqCount = 0, multiCount = 0, tfCount = 0;
+
+                    for (const sub in data) {
+                        const chapDict = data[sub] || {};
+                        let hasAny = false;
+                        for (const chap in chapDict) {
+                            const arrQ = Array.isArray(chapDict[chap]) ? chapDict[chap] : [];
+                            if (!arrQ.length) continue;
+                            hasAny = true;
+                            chapSet.add(`${sub}::${chap}`);
+                            arrQ.forEach(qItem => {
+                                if (!qItem) return;
+                                const type = qItem.type;
+                                if (type === 'mcq') mcqCount++;
+                                else if (type === 'multi') multiCount++;
+                                else if (type === 'tf') tfCount++;
+                                flat.push({
+                                    sub,
+                                    chap,
+                                    type,
+                                    q: qItem.q || '',
+                                    id: qItem.id || ''
+                                });
+                            });
+                        }
+                        if (hasAny) {
+                            subjSet.add(sub);
+                        }
+                    }
+
+                    const total = flat.length;
+                    const setText = (id, v) => { const el = App.dom.get(id); if (el) el.textContent = String(v); };
+                    setText('import-json-total', total);
+                    setText('import-json-subjects', subjSet.size);
+                    setText('import-json-chapters', chapSet.size);
+                    setText('import-json-mcq', mcqCount);
+                    setText('import-json-multi', multiCount);
+                    setText('import-json-tf', tfCount);
+
+                    const structEl = App.dom.get('import-json-struct');
+                    if (structEl) {
+                        if (!total) {
+                            structEl.innerHTML = '<div class="text-[10px] text-[var(--sub)] italic">未检测到任何单选 / 多选 / 判断题。</div>';
+                        } else {
+                            const blocks = [];
+                            for (const sub of Array.from(subjSet)) {
+                                const chapDict = data[sub] || {};
+                                let subTotal = 0;
+                                const rows = [];
+                                for (const chap in chapDict) {
+                                    const arrQ = Array.isArray(chapDict[chap]) ? chapDict[chap] : [];
+                                    if (!arrQ.length) continue;
+                                    const chapTotal = arrQ.length;
+                                    subTotal += chapTotal;
+                                    let cMcq = 0, cMulti = 0, cTf = 0;
+                                    arrQ.forEach(qItem => {
+                                        if (qItem.type === 'mcq') cMcq++;
+                                        else if (qItem.type === 'multi') cMulti++;
+                                        else if (qItem.type === 'tf') cTf++;
+                                    });
+                                    rows.push(`
+                                        <div class="flex items-center gap-2 text-[10px]">
+                                            <span class="truncate flex-1">${App.utils.escapeHTML(chap)}</span>
+                                            <span class="text-[var(--sub)]">${chapTotal} 题 · 单选 ${cMcq} · 多选 ${cMulti} · 判断 ${cTf}</span>
+                                        </div>
+                                    `);
+                                }
+                                blocks.push(`
+                                    <div class="mb-2 last:mb-0">
+                                        <div class="flex items-center justify-between mb-1">
+                                            <div class="text-[10px] font-bold text-[var(--text)]">${App.utils.escapeHTML(sub)}</div>
+                                            <div class="text-[10px] text-[var(--sub)]">${subTotal} 题</div>
+                                        </div>
+                                        <div class="space-y-0.5">${rows.join('')}</div>
+                                    </div>
+                                `);
+                            }
+                            structEl.innerHTML = blocks.join('') || '<div class="text-[10px] text-[var(--sub)] italic">未检测到任何题目。</div>';
+                        }
+                    }
+
+                    const listEl = App.dom.get('import-json-list');
+                    if (listEl) {
+                        if (!flat.length) {
+                            listEl.innerHTML = '<div class="text-[10px] text-[var(--sub)] italic">暂无题目预览。</div>';
+                        } else {
+                            const previewItems = flat.slice(0, 50);
+                            listEl.innerHTML = previewItems.map((item, idx) => {
+                                const typeLabel = item.type === 'mcq' ? '单选' : (item.type === 'multi' ? '多选' : '判断');
+                                const qText = App.utils.escapeHTML(String(item.q || '')).slice(0, 80);
+                                const subEsc = App.utils.escapeHTML(item.sub);
+                                const chapEsc = App.utils.escapeHTML(item.chap);
+                                const idEsc = App.utils.escapeHTML(item.id || '');
+                                return `
+                                    <div class="border-b border-[var(--border)] pb-1 last:border-b-0" id="import-json-row-${idx}" data-sub="${subEsc}" data-chap="${chapEsc}" data-qid="${idEsc}">
+                                        <div class="flex items-center justify-between gap-1">
+                                            <span class="text-[10px] text-[var(--sub)]">#${idx + 1}</span>
+                                            <span class="text-[10px] text-[var(--sub)] truncate flex-1 text-right">${subEsc} / ${chapEsc}</span>
+                                        </div>
+                                        <div class="flex items-center justify-between gap-1 mt-0.5">
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded-full border border-[var(--border)] text-[9px] text-[var(--sub)]">${typeLabel}</span>
+                                            <span class="text-[11px] text-[var(--text)] flex-1 text-right">${qText}${String(item.q || '').length > 80 ? '…' : ''}</span>
+                                        </div>
+                                        <div class="mt-1 flex items-center gap-1 text-[10px] text-[var(--sub)]">
+                                            <span>科目</span>
+                                            <input class="import-json-sub-input flex-1 min-w-[80px] bg-[var(--card)] border border-[var(--border)] rounded px-1 py-0.5 outline-none" value="${subEsc}">
+                                            <span>章节</span>
+                                            <input class="import-json-chap-input flex-1 min-w-[80px] bg-[var(--card)] border border-[var(--border)] rounded px-1 py-0.5 outline-none" value="${chapEsc}">
+                                            <button class="px-1.5 py-0.5 border border-[var(--border)] rounded text-[10px] text-primary-600 hover:bg-primary-50"
+                                                onclick="App.ui.applyJsonMetaChange(${idx})">应用</button>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('');
+                        }
+                    }
+
+                    const applyBtn = App.dom.get('import-json-apply-btn');
+                    if (applyBtn) applyBtn.disabled = !flat.length;
+                    App.ui._jsonImportPreviewCount = total;
+                    return { total, subjCount: subjSet.size, chapCount: chapSet.size };
                 },
 
                 async applyJsonPreviewImport() {
@@ -413,137 +421,11 @@
 
                     App.ui._jsonImportPreview = data;
 
-                    const flat = [];
-                    const subjSet = new Set();
-                    const chapSet = new Set();
-                    let mcqCount = 0, multiCount = 0, tfCount = 0;
-                    const totalEl = App.dom.get('import-json-total');
-                    const subEl = App.dom.get('import-json-subjects');
-                    const chapEl = App.dom.get('import-json-chapters');
-                    const mcqEl = App.dom.get('import-json-mcq');
-                    const multiEl = App.dom.get('import-json-multi');
-                    const tfEl = App.dom.get('import-json-tf');
-                    const structEl = App.dom.get('import-json-struct');
-                    const listEl = App.dom.get('import-json-list');
-                    const applyBtn = App.dom.get('import-json-apply-btn');
+                    const r = App.ui._renderJsonPreviewData(data);
 
-                    for (const sub in data) {
-                        const chapDict = data[sub] || {};
-                        let hasAny = false;
-                        for (const chap in chapDict) {
-                            const arrQ = Array.isArray(chapDict[chap]) ? chapDict[chap] : [];
-                            if (!arrQ.length) continue;
-                            hasAny = true;
-                            chapSet.add(`${sub}::${chap}`);
-                            arrQ.forEach(qItem => {
-                                if (!qItem) return;
-                                const type = qItem.type;
-                                if (type === 'mcq') mcqCount++;
-                                else if (type === 'multi') multiCount++;
-                                else if (type === 'tf') tfCount++;
-                                flat.push({
-                                    sub,
-                                    chap,
-                                    type,
-                                    q: qItem.q || '',
-                                    id: qItem.id || ''
-                                });
-                            });
-                        }
-                        if (hasAny) {
-                            subjSet.add(sub);
-                        }
-                    }
-
-                    const total = flat.length;
-                    App.ui._jsonImportPreviewCount = total;
-                    if (totalEl) totalEl.textContent = String(total);
-                    if (subEl) subEl.textContent = String(subjSet.size);
-                    if (chapEl) chapEl.textContent = String(chapSet.size);
-                    if (mcqEl) mcqEl.textContent = String(mcqCount);
-                    if (multiEl) multiEl.textContent = String(multiCount);
-                    if (tfEl) tfEl.textContent = String(tfCount);
-
-                    if (structEl) {
-                        if (!total) {
-                            structEl.innerHTML = '<div class="text-[10px] text-[var(--sub)] italic">未检测到任何单选 / 多选 / 判断题。</div>';
-                        } else {
-                            const blocks = [];
-                            for (const sub of Array.from(subjSet)) {
-                                const chapDict = data[sub] || {};
-                                let subTotal = 0;
-                                const rows = [];
-                                for (const chap in chapDict) {
-                                    const arrQ = Array.isArray(chapDict[chap]) ? chapDict[chap] : [];
-                                    if (!arrQ.length) continue;
-                                    const chapTotal = arrQ.length;
-                                    subTotal += chapTotal;
-                                    let cMcq = 0, cMulti = 0, cTf = 0;
-                                    arrQ.forEach(qItem => {
-                                        if (qItem.type === 'mcq') cMcq++;
-                                        else if (qItem.type === 'multi') cMulti++;
-                                        else if (qItem.type === 'tf') cTf++;
-                                    });
-                                    rows.push(`
-                                        <div class="flex items-center gap-2 text-[10px]">
-                                            <span class="truncate flex-1">${App.utils.escapeHTML(chap)}</span>
-                                            <span class="text-[var(--sub)]">${chapTotal} 题 · 单选 ${cMcq} · 多选 ${cMulti} · 判断 ${cTf}</span>
-                                        </div>
-                                    `);
-                                }
-                                blocks.push(`
-                                    <div class="mb-2 last:mb-0">
-                                        <div class="flex items-center justify-between mb-1">
-                                            <div class="text-[10px] font-bold text-[var(--text)]">${App.utils.escapeHTML(sub)}</div>
-                                            <div class="text-[10px] text-[var(--sub)]">${subTotal} 题</div>
-                                        </div>
-                                        <div class="space-y-0.5">${rows.join('')}</div>
-                                    </div>
-                                `);
-                            }
-                            structEl.innerHTML = blocks.join('') || '<div class="text-[10px] text-[var(--sub)] italic">未检测到任何题目。</div>';
-                        }
-                    }
-
-                    if (listEl) {
-                        if (!flat.length) {
-                            listEl.innerHTML = '<div class="text-[10px] text-[var(--sub)] italic">暂无题目预览。</div>';
-                        } else {
-                            const previewItems = flat.slice(0, 50);
-                            listEl.innerHTML = previewItems.map((item, idx) => {
-                                const typeLabel = item.type === 'mcq' ? '单选' : (item.type === 'multi' ? '多选' : '判断');
-                                const qText = App.utils.escapeHTML(String(item.q || '')).slice(0, 80);
-                                const subEsc = App.utils.escapeHTML(item.sub);
-                                const chapEsc = App.utils.escapeHTML(item.chap);
-                                const idEsc = App.utils.escapeHTML(item.id || '');
-                                return `
-                                    <div class="border-b border-[var(--border)] pb-1 last:border-b-0" id="import-json-row-${idx}" data-sub="${subEsc}" data-chap="${chapEsc}" data-qid="${idEsc}">
-                                        <div class="flex items-center justify-between gap-1">
-                                            <span class="text-[10px] text-[var(--sub)]">#${idx + 1}</span>
-                                            <span class="text-[10px] text-[var(--sub)] truncate flex-1 text-right">${subEsc} / ${chapEsc}</span>
-                                        </div>
-                                        <div class="flex items-center justify-between gap-1 mt-0.5">
-                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded-full border border-[var(--border)] text-[9px] text-[var(--sub)]">${typeLabel}</span>
-                                            <span class="text-[11px] text-[var(--text)] flex-1 text-right">${qText}${String(item.q || '').length > 80 ? '…' : ''}</span>
-                                        </div>
-                                        <div class="mt-1 flex items-center gap-1 text-[10px] text-[var(--sub)]">
-                                            <span>科目</span>
-                                            <input class="import-json-sub-input flex-1 min-w-[80px] bg-[var(--card)] border border-[var(--border)] rounded px-1 py-0.5 outline-none" value="${subEsc}">
-                                            <span>章节</span>
-                                            <input class="import-json-chap-input flex-1 min-w-[80px] bg-[var(--card)] border border-[var(--border)] rounded px-1 py-0.5 outline-none" value="${chapEsc}">
-                                            <button class="px-1.5 py-0.5 border border-[var(--border)] rounded text-[10px] text-primary-600 hover:bg-primary-50"
-                                                onclick="App.ui.applyJsonMetaChange(${idx})">应用</button>
-                                        </div>
-                                    </div>
-                                `;
-                            }).join('');
-                        }
-                    }
-
-                    if (applyBtn) applyBtn.disabled = !flat.length;
                     if (statusEl) {
-                        statusEl.textContent = flat.length
-                            ? `预览已更新：当前将导入 ${flat.length} 道题（科目 ${subjSet.size} 个，章节 ${chapSet.size} 个）。`
+                        statusEl.textContent = r.total
+                            ? `预览已更新：当前将导入 ${r.total} 道题（科目 ${r.subjCount} 个，章节 ${r.chapCount} 个）。`
                             : "当前预览中不再包含任何题目。";
                     }
                 },

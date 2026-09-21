@@ -30,7 +30,7 @@
     </script>
     <meta charset="UTF-8">
     <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+        content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>LMS Genesis | 灵活题库版 (Flexible Edition)</title>
 
     <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3/dist/index.js"></script>
@@ -247,7 +247,6 @@
 <body
     class="h-screen flex flex-col overflow-hidden text-sm md:text-base selection:bg-primary-100 selection:text-primary-700">
 
-    <!-- 顶部导航 -->
     <!-- 顶部导航 -->
     <header class="h-14 px-4 md:px-6 border-b border-slate-100 dark:border-slate-800/60 bg-white dark:bg-slate-950 flex items-center justify-between sticky top-0 z-30 transition-all duration-300">
         <div class="flex items-center gap-2.5 select-none">
@@ -559,7 +558,7 @@
                             </div>
                             <div class="flex flex-wrap items-center gap-2">
                                 <select id="lib-filter" onchange="App.views.library.render()"
-                                    class="text-xs bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1.5 outline-none max-w-[100px]">
+                                    class="text-xs bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1.5 outline-none max-w-[160px]">
                                     <option value="all">全科目</option>
                                 </select>
                                 <select id="lib-type" onchange="App.views.library.handleTypeChange()"
@@ -1085,7 +1084,8 @@
                             <div class="flex items-center gap-3">
                                 <div class="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12h.01M9 12h.01M11.5 17.5c1.657 0 3-1.12 3-2.5h-6c0 1.38 1.343 2.5 3 2.5zm0-13C6.813 4.5 3.5 7.567 3.5 11.25c0 2.485 1.507 4.652 3.772 5.7l-.772 2.8 3.25-1.95a8 8 0 003.0.65c4.687 0 8-3.067 8-6.75S16.187 4.5 11.5 4.5z" />
+                                        <rect x="9" y="9" width="12" height="12" rx="2" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
                                     </svg>
                                 </div>
                                 <span>疑似相似题审查</span>

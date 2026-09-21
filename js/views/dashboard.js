@@ -64,7 +64,8 @@
                                 const d = new Date(); d.setDate(d.getDate() - i);
                                 const ds = d.toISOString().slice(0, 10);
                                 const recs = h.filter(x => new Date(x.t).toISOString().slice(0, 10) === ds);
-                                pts.push(recs.length ? Math.round((recs.filter(x => x.r).length / recs.length) * 100) : 0);
+                                // 当天无练习传 null（图表断线），不画成误导性的 0%
+                                pts.push(recs.length ? Math.round((recs.filter(x => x.r).length / recs.length) * 100) : null);
                             }
                             requestAnimationFrame(() => App.chart.draw('dashboardChart', pts));
                         }

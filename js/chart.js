@@ -22,36 +22,61 @@
                     cvs.height = parent.clientHeight;
                     const w = cvs.width, h = cvs.height;
                     const pad = 10;
+                    const isDarkMode = document.documentElement.classList.contains('dark');
+                    const labelColor = isDarkMode ? '#94a3b8' : '#64748b';
 
                     ctx.clearRect(0, 0, w, h);
 
                     if (!dataPoints || dataPoints.length === 0) return;
-                    if (dataPoints.length === 1) {
-                        ctx.fillStyle = '#64748b'; ctx.font = '10px Inter'; ctx.textAlign = 'center';
-                        ctx.fillText(dataPoints[0] + '%', w / 2, h / 2);
+                    // null = 当天无练习：跳过该点并断开线段，而不是误画成 0%
+                    const valid = dataPoints.filter(v => v !== null && v !== undefined);
+                    if (valid.length === 0) return;
+                    if (valid.length === 1) {
+                        ctx.fillStyle = labelColor; ctx.font = '10px Inter'; ctx.textAlign = 'center';
+                        ctx.fillText(valid[0] + '%', w / 2, h / 2);
                         return;
                     }
 
                     ctx.strokeStyle = '#0d9488'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
                     ctx.beginPath();
                     const step = (w - pad * 2) / (dataPoints.length - 1);
+                    // 标签稀疏化：点太多时只标一部分，避免互相重叠
+                    const labelEvery = valid.length > 10 ? Math.ceil(valid.length / 8) : 1;
+                    let validIdx = 0;
+                    let started = false;
+                    let firstX = null, lastX = null;
+                    let hasGap = false;
 
                     dataPoints.forEach((val, i) => {
                         const x = pad + i * step;
+                        if (val === null || val === undefined) {
+                            if (started) { started = false; hasGap = true; }
+                            return;
+                        }
                         const y = h - pad - (val / 100 * (h - pad * 2));
-                        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-                        ctx.fillStyle = '#64748b'; ctx.font = '10px Inter'; ctx.textAlign = 'center';
-                        ctx.fillText(val + '%', x, y - 8);
+                        if (!started) { ctx.moveTo(x, y); started = true; }
+                        else ctx.lineTo(x, y);
+                        if (firstX === null) firstX = x;
+                        lastX = x;
+                        if (validIdx % labelEvery === 0 || i === dataPoints.length - 1) {
+                            ctx.fillStyle = labelColor; ctx.font = '10px Inter'; ctx.textAlign = 'center';
+                            ctx.fillText(val + '%', x, y - 8);
+                        }
+                        validIdx++;
                     });
                     ctx.stroke();
 
-                    const grad = ctx.createLinearGradient(0, 0, 0, h);
-                    grad.addColorStop(0, 'rgba(13, 148, 136, 0.2)');
-                    grad.addColorStop(1, 'rgba(13, 148, 136, 0)');
-                    ctx.fillStyle = grad;
-                    ctx.lineTo(pad + (dataPoints.length - 1) * step, h);
-                    ctx.lineTo(pad, h);
-                    ctx.fill();
+                    // 有断线（缺数据天）时不做渐变填充，避免跨缺口造出假面积
+                    if (!hasGap) {
+                        const grad = ctx.createLinearGradient(0, 0, 0, h);
+                        grad.addColorStop(0, 'rgba(13, 148, 136, 0.2)');
+                        grad.addColorStop(1, 'rgba(13, 148, 136, 0)');
+                        ctx.fillStyle = grad;
+                        ctx.lineTo(lastX, h);
+                        ctx.lineTo(firstX, h);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
                 },
 
                 drawBar(canvasId, labels, values, colors) {

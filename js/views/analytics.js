@@ -311,7 +311,7 @@
                                 const ds = d.toISOString().slice(0, 10);
                                 const recs = filteredHistory.filter(x => new Date(x.t).toISOString().slice(0, 10) === ds);
                                 if (!recs.length) {
-                                    dailyAccSub.push(0);
+                                    dailyAccSub.push(null); // 无练习日断线，不画 0%
                                 } else {
                                     const c = recs.filter(x => x.r).length;
                                     dailyAccSub.push(Math.round(c / recs.length * 100));
