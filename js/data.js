@@ -776,6 +776,14 @@ export const data = {
                             const data = await res.json();
                             if (!res.ok || !data) {
                                 console.error("保存题库到云端失败", data);
+                                // token 失效（401）：停止重试保存，自动登出
+                                if (res.status === 401) {
+                                    if (window.App && App.auth && typeof App.auth.logout === 'function') {
+                                        App.auth.logout();
+                                        alert('登录已过期，请重新登录。');
+                                    }
+                                    return;
+                                }
                                 if (window.App && App.sync && typeof App.sync.showSyncStatus === 'function') {
                                     const msg = (data && (data.error || data.detail)) || '未知错误';
                                     App.sync.showSyncStatus('error', delta, msg);
@@ -937,6 +945,15 @@ export const data = {
                             }
                             if (!res.ok) {
                                 console.error("从云端加载题库失败", res.status);
+                                // token 失效（401）：自动登出并提示重新登录，避免每次轮询都报同步失败
+                                if (res.status === 401) {
+                                    this._syncReady = false;
+                                    if (window.App && App.auth && typeof App.auth.logout === 'function') {
+                                        App.auth.logout();
+                                        alert('登录已过期，请重新登录。');
+                                    }
+                                    return;
+                                }
                                 if (window.App && App.sync && typeof App.sync.showSyncStatus === 'function') {
                                     App.sync.showSyncStatus('error', null, '从云端加载题库失败 (HTTP ' + res.status + ')');
                                 }
@@ -1574,7 +1591,7 @@ export const sync = {
                         logs.forEach(l => {
                             const line = document.createElement('div');
                             line.className = 'flex flex-col gap-1 px-3 py-2 border-b border-[var(--border)]';
-                            const time = l.created_at ? new Date(l.created_at).toLocaleString() : '';
+                            const time = (() => { const d = App.utils.parseUtcDate(l.created_at); return d ? d.toLocaleString() : ''; })();
                             const status = l.status || 'unknown';
                             const delta = l.delta || {};
                             const qd = delta.questions || 0;

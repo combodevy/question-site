@@ -308,7 +308,7 @@ export default {
 
             // 3. LOAD QUESTION SET
             if (path === "/api/load-question-set" && request.method === "GET") {
-                const set = await env.DB.prepare("SELECT id, name, state, version FROM question_sets WHERE user_id = ? LIMIT 1")
+                const set = await env.DB.prepare("SELECT id, name, state, version FROM question_sets WHERE user_id = ? ORDER BY id DESC LIMIT 1")
                     .bind(userId)
                     .first();
 
@@ -419,7 +419,7 @@ export default {
                 const logDelta = delta ? { ...delta, ip, ua } : { ip, ua };
 
                 // Get existing set
-                const existing = await env.DB.prepare("SELECT id, version, state FROM question_sets WHERE user_id = ? LIMIT 1")
+                const existing = await env.DB.prepare("SELECT id, version, state FROM question_sets WHERE user_id = ? ORDER BY id DESC LIMIT 1")
                     .bind(userId)
                     .first();
 
@@ -823,7 +823,7 @@ export default {
                         return jsonResponse({ error: "Missing userId parameter" }, 400, headers);
                     }
 
-                    const set = await env.DB.prepare("SELECT id, name, version FROM question_sets WHERE user_id = ? LIMIT 1")
+                    const set = await env.DB.prepare("SELECT id, name, version FROM question_sets WHERE user_id = ? ORDER BY id DESC LIMIT 1")
                         .bind(targetUid)
                         .first();
 

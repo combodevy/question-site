@@ -11,7 +11,6 @@
                     _selectedIds: new Set(),
 
                     handleTypeChange() { this.render(); },
-                    handleFilterChange() { this.render(); },
 
                     handleSearch(val) {
                         clearTimeout(this._debounceTimer);

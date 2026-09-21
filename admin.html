@@ -611,6 +611,15 @@
             const normalized = raw.toLowerCase();
             return `${normalized}@user.local`;
         }
+        // D1 存的 CURRENT_TIMESTAMP 是 UTC，补 T/Z 按 UTC 解析再转本地时区显示
+        function parseUtcDate(str) {
+            if (!str || typeof str !== 'string') return null;
+            try {
+                const d = new Date(str.trim().replace(' ', 'T') + (/[Zz]|[+-]d{2}:?d{2}$/.test(str) ? '' : 'Z'));
+                return isNaN(d.getTime()) ? null : d;
+            } catch (e) { return null; }
+        }
+        window.parseUtcDate = parseUtcDate;
         function parseJwt(token) {
             if (!token) return null;
             try {
@@ -747,10 +756,9 @@
 
                 // Replace frontend signUp with backend Admin API call to prevent logging out
                 try {
-                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/create-user`, {
+                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/create-user`, {
                         method: 'POST',
                         headers: {
-                            'Authorization': `Bearer ${this.token}`,
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
@@ -794,10 +802,9 @@
                 if (!confirm(`Are you sure you want to delete ${this.selectedUsers.size} users ? This will remove all their question banks and logs.`)) return;
 
                 try {
-                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/delete-users`, {
+                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/delete-users`, {
                         method: 'POST',
                         headers: {
-                            'Authorization': `Bearer ${this.token}`,
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({ userIds: Array.from(this.selectedUsers) })
@@ -962,7 +969,7 @@
                 btn.innerText = 'Pushing...';
 
                 try {
-                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/push-broadcast`, {
+                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/push-broadcast`, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${this.token} `,
@@ -1070,13 +1077,26 @@
                 window.location.reload();
             },
 
+            // 统一请求入口：token 失效（401）时清掉本地会话并刷新回登录页
+            async authedFetch(url, options = {}) {
+                const headers = Object.assign({}, options.headers || {});
+                if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
+                const res = await fetch(url, Object.assign({}, options, { headers }));
+                if (res.status === 401) {
+                    localStorage.removeItem('qs-admin-auth-token');
+                    alert('登录已过期，请重新登录。');
+                    window.location.reload();
+                    throw new Error('Unauthorized - session expired');
+                }
+                return res;
+            },
             async fetchUsers() {
                 const tbody = document.getElementById('user-table-body');
                 const countEl = document.getElementById('user-count');
                 tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Loading users...</td></tr>';
 
                 try {
-                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/users-list`, {
+                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/users-list`, {
                         headers: { 'Authorization': `Bearer ${this.token}` }
                     });
 
@@ -1108,7 +1128,7 @@
                                 <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">${u.bank_count} sets</span>
                             </td>
                             <td class="px-6 py-4 text-gray-600 text-xs">
-                                ${u.last_active_at ? new Date(u.last_active_at).toLocaleString() : '-'}
+                                ${u.last_active_at ? (parseUtcDate(u.last_active_at) ? parseUtcDate(u.last_active_at).toLocaleString() : null) : '-'}
                             </td>
                             <td class="px-6 py-4 text-xs text-gray-500">
                                 <div class="truncate max-w-[150px]" title="${Admin.escapeHTML(u.last_ip || 'N/A')}">${Admin.escapeHTML(u.last_ip || '-')}</div>
@@ -1205,10 +1225,9 @@
                 resultEl.classList.add('hidden');
 
                 try {
-                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/push-broadcast`, {
+                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/push-broadcast`, {
                         method: 'POST',
                         headers: {
-                            'Authorization': `Bearer ${this.token}`,
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
@@ -1245,7 +1264,7 @@
                 tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">Loading logs...</td></tr>';
 
                 try {
-                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/system-logs?limit=50`, {
+                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/system-logs?limit=50`, {
                         headers: { 'Authorization': `Bearer ${this.token}` }
                     });
 
@@ -1267,7 +1286,7 @@
                         const safeError = Admin.escapeHTML(log.error || '-');
                         return `
                             <tr class="hover:bg-gray-700 transition-colors">
-                                <td class="px-4 py-2 text-gray-500">${new Date(log.created_at).toLocaleString()}</td>
+                                <td class="px-4 py-2 text-gray-500">${(parseUtcDate(log.created_at) ? parseUtcDate(log.created_at).toLocaleString() : '')}</td>
                                 <td class="px-4 py-2 text-gray-400 text-[10px]">${safeUserId}</td>
                                 <td class="px-4 py-2 font-bold ${statusColor}">${safeStatus}</td>
                                 <td class="px-4 py-2 text-gray-400">${safeIp}</td>
@@ -1292,10 +1311,9 @@
                 tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Loading sets...</td></tr>';
 
                 try {
-                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/users-sets?userId=${userId}`, {
+                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/users-sets?userId=${userId}`, {
                         headers: {
-                            'Authorization': `Bearer ${this.token}`
-                        }
+                                                    }
                     });
 
                     if (!res.ok) throw new Error('Failed to fetch sets');
@@ -1317,7 +1335,7 @@
                                 <td class="px-6 py-4 font-bold text-gray-800">${safeName}</td>
                                 <td class="px-6 py-4"><span class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold">v${safeVersion}</span></td>
                                 <td class="px-6 py-4 text-gray-600">${safeCount}</td>
-                                <td class="px-6 py-4 text-xs text-gray-500">${new Date(s.created_at).toLocaleString()}</td>
+                                <td class="px-6 py-4 text-xs text-gray-500">${(parseUtcDate(s.created_at) ? parseUtcDate(s.created_at).toLocaleString() : '')}</td>
                                 <td class="px-6 py-4 text-right">
                                     <button onclick="Admin.viewBank(${safeId})" class="text-blue-600 hover:underline text-xs font-bold">Edit Details</button>
                                 </td>
@@ -1352,7 +1370,7 @@
                 this.currentEditingSetId = setId;
 
                 try {
-                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/set-details?setId=${setId}`, {
+                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/set-details?setId=${setId}`, {
                         headers: { 'Authorization': `Bearer ${this.token}` }
                     });
 
@@ -1370,7 +1388,7 @@
                     title.innerText = this.currentBankInfo.name || 'Untitled Bank';
                     totalQ.innerText = this.currentQuestions.length;
                     version.innerText = `v${this.currentBankInfo.version || 0}`;
-                    created.innerText = this.currentBankInfo.created_at ? new Date(this.currentBankInfo.created_at).toLocaleString() : '-';
+                    created.innerText = (parseUtcDate(this.currentBankInfo.created_at) ? parseUtcDate(this.currentBankInfo.created_at).toLocaleString() : '-');
 
                     this.updateJsonView();
                     this.renderVisualQuestions();
@@ -1712,10 +1730,9 @@
                     btn.disabled = true;
                     btn.classList.add('opacity-50', 'cursor-not-allowed');
 
-                    const res = await fetch(`${ADMIN_API_BASE}/api/admin/users-update-bank`, {
+                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/users-update-bank`, {
                         method: 'POST',
                         headers: {
-                            'Authorization': `Bearer ${this.token}`,
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({

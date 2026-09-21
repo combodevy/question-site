@@ -181,6 +181,18 @@ export const utils = {
         const dist = this.editDistance(a, b);
         return 1 - dist / maxLen;
     },
+    // 解析后端返回的 "YYYY-MM-DD HH:MM:SS" 时间字符串。
+    // D1 的 CURRENT_TIMESTAMP 存的是 UTC，直接 new Date() 会被当本地时间解析（差一个时区），
+    // 这里显式补上 T 和 Z 让它按 UTC 解析，再交给 toLocaleString 转本地时区显示。
+    parseUtcDate(s) {
+        if (!s || typeof s !== 'string') return null;
+        try {
+            const d = new Date(s.trim().replace(' ', 'T') + (/[Zz]|[+-]\d{2}:?\d{2}$/.test(s) ? '' : 'Z'));
+            return isNaN(d.getTime()) ? null : d;
+        } catch (e) {
+            return null;
+        }
+    },
     // 导入清洗：只保留单选/多选/判断题，去掉选项前多余的字母前缀，
     // 并规范化题目 ID——缺失/非字符串的 id 自动生成确定性 id，
     // 重复的 id 追加确定性后缀（-d2、-d3…），保证预览数量与实际导入数量一致、不丢题。
