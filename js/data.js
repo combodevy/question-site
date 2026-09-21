@@ -600,7 +600,15 @@ export const data = {
                         if (!this._syncReady) {
                             await this.loadFromCloud();
                             // If load failed or is still pending (should be awaited), check ready again
-                            if (!this._syncReady) return;
+                            if (!this._syncReady) {
+                                // 加载失败（断网等）：不能让挂起的保存被静默吞掉。
+                                // 标记脏数据由轮询/网络恢复后的下一次保存接力，并给出可见的失败状态。
+                                this._bankDirty = true;
+                                if (window.App && App.sync && typeof App.sync.showSyncStatus === 'function') {
+                                    App.sync.showSyncStatus('error', null, '网络异常，数据已保存在本地，恢复后自动重试上传');
+                                }
+                                return;
+                            }
                         }
                         const bank = this.bank || {};
                         const history = Array.isArray(this.history) ? this.history : [];
@@ -927,10 +935,10 @@ export const data = {
                                 });
                             } catch (e) {
                                 console.error("从云端加载题库失败", e);
-                                this._syncReady = true;
-                                if (this._deferredSave) {
-                                    this._deferredSave = false;
-                                    this.saveToCloudDebounced();
+                                // 网络断开：保持 _syncReady=false，本地脏数据保留，给用户可见提示。
+                                // 不触发 _deferredSave 立即重试（只会再次失败），由下一轮轮询/操作自然恢复。
+                                if (this._bankDirty && window.App && App.sync && typeof App.sync.showSyncStatus === 'function') {
+                                    App.sync.showSyncStatus('error', null, '网络异常，数据已保存在本地，恢复后自动重试上传');
                                 }
                                 return;
                             }
@@ -958,6 +966,7 @@ export const data = {
                                     App.sync.showSyncStatus('error', null, '从云端加载题库失败 (HTTP ' + res.status + ')');
                                 }
                                 this._syncReady = true;
+                                this._bankDirty = true; // 云端状态未知，保守视为有未上传修改，防止本地数据被云覆盖
                                 if (this._deferredSave) {
                                     this._deferredSave = false;
                                     this.saveToCloudDebounced();
@@ -975,6 +984,7 @@ export const data = {
                             } catch (e) {
                                 console.error("解析云端题库响应失败", e);
                                 this._syncReady = true;
+                                this._bankDirty = true; // 云端状态未知，保守视为有未上传修改
                                 if (this._deferredSave) {
                                     this._deferredSave = false;
                                     this.saveToCloudDebounced();
@@ -1029,6 +1039,11 @@ export const data = {
                                     this.remoteVersion = 0;
                                 }
                                 this._syncReady = true;
+                                // 登录后云端为空也要刷新一次视图：清掉登录前渲染的旧内容，
+                                // 让用户看到"空题库"的真实状态而不是等待假象
+                                if (window.App && App.router && typeof App.router.refresh === 'function') {
+                                    App.router.refresh();
+                                }
                                 if (this._deferredSave) {
                                     this._deferredSave = false;
                                     this.saveToCloudDebounced();
@@ -1062,6 +1077,10 @@ export const data = {
                                 this._errFreqCache = null;
                                 this._isHistoryDirty = true;
                                 this._syncReady = true;
+                                // 该路径会并入新的作答记录，同样要刷新视图保持统计同步
+                                if (window.App && App.router && typeof App.router.refresh === 'function') {
+                                    App.router.refresh();
+                                }
                                 if (this._deferredSave) {
                                     this._deferredSave = false;
                                     this.saveToCloudDebounced();

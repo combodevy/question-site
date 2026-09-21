@@ -294,10 +294,11 @@
                     reader.readAsText(file, 'UTF-8');
                 },
 
-                applyJsonPreviewImport() {
+                async applyJsonPreviewImport() {
                     const data = App.ui._jsonImportPreview;
                     const count = App.ui._jsonImportPreviewCount || 0;
                     const statusEl = App.dom.get('import-json-status');
+                    const applyBtn = App.dom.get('import-json-apply-btn');
                     if (!data || !count) {
                         alert("请先选择 JSON 文件并完成预览解析。");
                         return;
@@ -307,15 +308,50 @@
                         if (statusEl) statusEl.textContent = "已取消导入操作。";
                         return;
                     }
+                    // 导入是同步计算，大题库会阻塞界面；先让状态文字渲染出来再执行
+                    if (statusEl) statusEl.textContent = "正在导入题库…";
+                    if (applyBtn) { applyBtn.disabled = true; }
+                    await new Promise(r => setTimeout(r, 30));
                     const report = App.data.importBank(JSON.stringify(data));
                     if (!report) {
-                        if (statusEl) statusEl.textContent = "导入失败，请检查 JSON 格式或控制台错误信息。";
+                        // importBank 内部已 alert 具体原因；这里补一条状态栏反馈
+                        if (statusEl) statusEl.textContent = "导入失败：请查看弹窗中的具体原因，修正后重新导入。";
+                        if (applyBtn) applyBtn.disabled = false;
                         return;
                     }
                     if (statusEl) {
                         statusEl.textContent = `导入完成：新增 ${report.added} 道、更新 ${report.updated} 道、内容相同跳过 ${report.skippedSame} 道。`
                             + (report.fixedIds ? `（自动改写 ${report.fixedIds} 个重复/缺失 ID）` : '');
                     }
+                    // 导入必然触发云端保存（防抖 400ms）；监视保存结果并反馈
+                    this._watchImportSave(statusEl);
+                },
+
+                // 导入后监视云端保存：成功补一句提示，失败给重试按钮
+                _watchImportSave(statusEl) {
+                    if (this._importSaveWatch) clearTimeout(this._importSaveWatch);
+                    let elapsed = 0;
+                    const tick = () => {
+                        const sync = window.App && App.sync ? App.sync : null;
+                        const status = sync ? sync._lastStatus : 'success';
+                        elapsed += 500;
+                        if (status === 'error') {
+                            if (statusEl) statusEl.textContent += '（注意：同步到云端失败，请检查网络后点击右上角同步按钮重试）';
+                            this._importSaveWatch = null;
+                            return;
+                        }
+                        if (status === 'pending' && elapsed < 20000) {
+                            this._importSaveWatch = setTimeout(tick, 500);
+                            return;
+                        }
+                        if (status === 'success' && !App.data._bankDirty) {
+                            if (statusEl && !/同步/.test(statusEl.textContent)) {
+                                statusEl.textContent += '（已同步到云端）';
+                            }
+                        }
+                        this._importSaveWatch = null;
+                    };
+                    this._importSaveWatch = setTimeout(tick, 1500);
                 },
 
                 applyJsonMetaChange(idx) {
