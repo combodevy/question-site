@@ -479,12 +479,19 @@
                 closeAccountMenu() {
                     const menu = App.dom.get('account-menu');
                     const backdrop = App.dom.get('account-menu-backdrop');
+                    if (backdrop) {
+                        // 无条件清理遮罩：即使菜单状态异常，也绝不能让遮罩残留挡住页面点击
+                        backdrop.classList.add('opacity-0');
+                        backdrop._closeTimer = setTimeout(() => {
+                            backdrop.classList.add('hidden');
+                            backdrop._closeTimer = null;
+                        }, 200);
+                    }
                     if (!menu || menu.classList.contains('hidden')) return;
                     menu.classList.add('opacity-0', 'pointer-events-none');
-                    backdrop.classList.add('opacity-0');
-                    setTimeout(() => {
+                    menu._closeTimer = setTimeout(() => {
                         menu.classList.add('hidden');
-                        backdrop.classList.add('hidden');
+                        menu._closeTimer = null;
                     }, 200);
                 },
 
@@ -1038,6 +1045,9 @@
                     const list = App.dom.get('trash-list');
                     if (!modal || !list) return;
 
+                    // 先确保弹窗可见，再做内容渲染：渲染无论发生什么都不应阻止弹窗打开
+                    this._showModalEl(modal);
+
                     if (!list.dataset.bound) {
                         list.addEventListener('click', (e) => {
                             const btn = e.target.closest('button[data-action]');
@@ -1062,66 +1072,71 @@
                     }
 
                     list.innerHTML = '';
-                    const trash = App.data.trash || {};
-                    const subs = Object.keys(trash);
+                    try {
+                        const trash = App.data.trash || {};
+                        const subs = Object.keys(trash);
 
-                    if (!subs.length) {
-                        list.innerHTML = '<div class="text-center text-[var(--sub)] py-8">回收站为空。</div>';
-                    } else {
-                        subs.forEach(sub => {
-                            const chapDict = trash[sub] || {};
-                            const chaps = Object.keys(chapDict);
-                            chaps.forEach(chap => {
-                                const arr = chapDict[chap] || [];
-                                if (!arr.length) return;
-                                const block = document.createElement('div');
-                                block.className = 'mb-4 border border-[var(--border)] rounded-xl p-3 bg-[var(--card)]';
-                                block.innerHTML = `
-                                    <div class="flex items-center justify-between mb-2">
-                                        <div class="flex items-center gap-2">
-                                            <span class="text-[10px] font-bold text-primary-600 bg-primary-50 px-1 rounded border border-primary-100">${sub}</span>
-                                            <span class="text-[10px] text-[var(--sub)] border border-[var(--border)] px-1 rounded">${chap}</span>
-                                        </div>
-                                        <span class="text-[10px] text-[var(--sub)]">${arr.length} 题</span>
-                                    </div>
-                                `;
-                                arr.forEach(q => {
-                                    const item = document.createElement('div');
-                                    item.className = 'mt-2 p-2 rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg)]';
-                                    const timeStr = q.deletedAt ? new Date(q.deletedAt).toLocaleString() : '';
-                                    const subKey = encodeURIComponent(sub);
-                                    const chapKey = encodeURIComponent(chap);
-                                    const idKey = encodeURIComponent(q.id || '');
-                                    const safeQuestion = App.utils.escapeHTML(q.q || '');
-                                    const safeReason = App.utils.escapeHTML(q.reason || '未知');
-                                    const safePathSub = App.utils.escapeHTML(q.originalPath?.sub || sub);
-                                    const safePathChap = App.utils.escapeHTML(q.originalPath?.chap || chap);
-                                    item.innerHTML = `
-                                        <div class="flex justify-between items-center mb-1">
-                                            <div class="text-[10px] text-[var(--sub)]">ID: ${App.utils.escapeHTML(String(q.id || ''))}</div>
+                        if (!subs.length) {
+                            list.innerHTML = '<div class="text-center text-[var(--sub)] py-8">回收站为空。</div>';
+                        } else {
+                            subs.forEach(sub => {
+                                const chapDict = trash[sub] || {};
+                                const chaps = Object.keys(chapDict);
+                                chaps.forEach(chap => {
+                                    const arr = chapDict[chap] || [];
+                                    if (!arr.length) return;
+                                    const block = document.createElement('div');
+                                    block.className = 'mb-4 border border-[var(--border)] rounded-xl p-3 bg-[var(--card)]';
+                                    block.innerHTML = `
+                                        <div class="flex items-center justify-between mb-2">
                                             <div class="flex items-center gap-2">
-                                                <span class="text-[10px] text-[var(--sub)]">${timeStr}</span>
-                                                <button class="px-2 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-600 text-[10px] font-bold"
-                                                    data-action="restore" data-sub="${subKey}" data-chap="${chapKey}" data-id="${idKey}">
-                                                    恢复
-                                                </button>
-                                                <button class="px-2 py-0.5 rounded border border-red-200 bg-red-50 text-red-600 text-[10px] font-bold"
-                                                    data-action="destroy" data-sub="${subKey}" data-chap="${chapKey}" data-id="${idKey}">
-                                                    彻底删除
-                                                </button>
+                                                <span class="text-[10px] font-bold text-primary-600 bg-primary-50 px-1 rounded border border-primary-100">${App.utils.escapeHTML(sub)}</span>
+                                                <span class="text-[10px] text-[var(--sub)] border border-[var(--border)] px-1 rounded">${App.utils.escapeHTML(chap)}</span>
                                             </div>
+                                            <span class="text-[10px] text-[var(--sub)]">${arr.length} 题</span>
                                         </div>
-                                        <div class="text-[11px] font-medium text-[var(--text)] mb-1">${safeQuestion}</div>
-                                        <div class="text-[10px] text-[var(--sub)]">删除原因：${safeReason} / 路径：${safePathSub} - ${safePathChap}</div>
                                     `;
-                                    block.appendChild(item);
+                                    arr.forEach(q => {
+                                        if (!q || typeof q !== 'object') return;
+                                        const item = document.createElement('div');
+                                        item.className = 'mt-2 p-2 rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg)]';
+                                        const timeStr = q.deletedAt ? new Date(q.deletedAt).toLocaleString() : '';
+                                        const subKey = encodeURIComponent(sub);
+                                        const chapKey = encodeURIComponent(chap);
+                                        const idKey = encodeURIComponent(q.id || '');
+                                        const safeQuestion = App.utils.escapeHTML(q.q || '');
+                                        const safeReason = App.utils.escapeHTML(q.reason || '未知');
+                                        const safePathSub = App.utils.escapeHTML(q.originalPath?.sub || sub);
+                                        const safePathChap = App.utils.escapeHTML(q.originalPath?.chap || chap);
+                                        item.innerHTML = `
+                                            <div class="flex justify-between items-center mb-1">
+                                                <div class="text-[10px] text-[var(--sub)]">ID: ${App.utils.escapeHTML(String(q.id || ''))}</div>
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-[10px] text-[var(--sub)]">${timeStr}</span>
+                                                    <button class="px-2 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-600 text-[10px] font-bold"
+                                                        data-action="restore" data-sub="${subKey}" data-chap="${chapKey}" data-id="${idKey}">
+                                                        恢复
+                                                    </button>
+                                                    <button class="px-2 py-0.5 rounded border border-red-200 bg-red-50 text-red-600 text-[10px] font-bold"
+                                                        data-action="destroy" data-sub="${subKey}" data-chap="${chapKey}" data-id="${idKey}">
+                                                        彻底删除
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="text-[11px] font-medium text-[var(--text)] mb-1">${safeQuestion}</div>
+                                            <div class="text-[10px] text-[var(--sub)]">删除原因：${safeReason} / 路径：${safePathSub} - ${safePathChap}</div>
+                                        `;
+                                        block.appendChild(item);
+                                    });
+                                    list.appendChild(block);
                                 });
-                                list.appendChild(block);
                             });
-                        });
+                        }
+                    } catch (e) {
+                        // 渲染异常也不能无声无息：弹窗保持打开并显示错误
+                        console.error('回收站渲染失败', e);
+                        list.innerHTML = '<div class="text-center text-red-500 py-8">回收站内容渲染失败：' + App.utils.escapeHTML(e.message || String(e)) + '</div>';
                     }
-
-                    this._showModalEl(modal);
                 },
 
                 openBankManager() {

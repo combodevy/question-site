@@ -42,6 +42,69 @@ window.addEventListener('DOMContentLoaded', async () => {
     window.App = App;
     await App.init();
 
+    // ===== 全局错误提示：任何未捕获异常都可见，避免"点了没反应"式的静默失败 =====
+    const showGlobalError = (msg) => {
+        let toast = document.getElementById('global-error-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'global-error-toast';
+            toast.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 z-[70] px-4 py-2 rounded-lg bg-red-600 text-white text-xs shadow-lg max-w-[90vw]';
+            document.body.appendChild(toast);
+        }
+        toast.textContent = '程序异常：' + msg;
+        toast.style.display = 'block';
+        clearTimeout(showGlobalError._t);
+        showGlobalError._t = setTimeout(() => { toast.style.display = 'none'; }, 5000);
+    };
+    window.addEventListener('error', (e) => {
+        if (e && e.message) showGlobalError(e.message.slice(0, 120));
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+        const reason = e && e.reason;
+        if (reason && reason.message && !/fetch|network|Failed to fetch/i.test(reason.message)) {
+            showGlobalError(reason.message.slice(0, 120));
+        }
+    });
+
+    // ===== 版本检测：部署了新版本后提示用户刷新，避免一直跑旧代码 =====
+    App.checkAppVersion = async () => {
+        try {
+            const res = await fetch('/version.json', { cache: 'no-store' });
+            if (!res.ok) return;
+            const data = await res.json();
+            const key = 'qs_app_version';
+            const known = localStorage.getItem(key);
+            if (!known) {
+                localStorage.setItem(key, String(data.v));
+                return;
+            }
+            if (known !== String(data.v)) {
+                let bar = document.getElementById('app-version-bar');
+                if (!bar) {
+                    bar = document.createElement('div');
+                    bar.id = 'app-version-bar';
+                    bar.className = 'fixed bottom-14 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-3 px-4 py-2 rounded-full bg-slate-900 text-white text-xs shadow-lg';
+                    bar.innerHTML = '<span>应用已更新</span><button id="app-version-reload" class="px-3 py-1 rounded-full bg-primary-600 font-bold active:scale-95 transition-transform">立即刷新</button>';
+                    document.body.appendChild(bar);
+                    document.getElementById('app-version-reload').onclick = () => location.reload();
+                }
+                bar.style.display = 'flex';
+            }
+        } catch (e) { /* 离线或网络抖动时静默跳过 */ }
+    };
+    const versionThrottle = { last: 0 };
+    App.maybeCheckAppVersion = () => {
+        const now = Date.now();
+        if (now - versionThrottle.last < 300000) return; // 5 分钟节流
+        versionThrottle.last = now;
+        App.checkAppVersion();
+    };
+    App.checkAppVersion();
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') App.maybeCheckAppVersion();
+    });
+    window.addEventListener('online', App.maybeCheckAppVersion);
+
     // ===== 自动同步时机补全 =====
     // 1. 切回标签页时拉一次云端（ETag 命中 304 几乎零成本；管理员推送的题库能即时出现）。
     //    节流 15 秒，避免快速切换标签页时频繁请求。

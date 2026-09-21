@@ -4,7 +4,7 @@
  * 目的：避免把 worker 源码、node_modules、README 等无关文件一起上传成 Cloudflare Pages 静态资源。
  * 用法：node scripts/stage-pages.mjs
  */
-import { cpSync, rmSync, mkdirSync, existsSync } from 'node:fs';
+import { cpSync, rmSync, mkdirSync, existsSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -28,5 +28,7 @@ for (const file of FRONTEND_FILES) {
 for (const dir of FRONTEND_DIRS) {
     cpSync(path.join(root, dir), path.join(dest, dir), { recursive: true });
 }
+
+writeFileSync(path.join(dest, 'version.json'), JSON.stringify({ v: Date.now() }));
 
 console.log(`Staged frontend files to ${path.relative(root, dest)} (index.html, admin.html, config.js, js/)`);
