@@ -1513,9 +1513,9 @@ export const sync = {
                     const textEl = document.getElementById('sync-text');
                     if (!btn || !icon) return;
 
-                    // Reset classes on dot and button
-                    btn.className = "flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-200 active:scale-95 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50";
-                    icon.className = "w-2 h-2 rounded-full transition-all duration-300";
+                    // Reset classes on dot and button（与 HTML 头部保持一致的响应式：手机端只显示状态点）
+                    btn.className = "h-8 flex items-center gap-1.5 px-2 sm:gap-2 sm:px-3 rounded-lg border text-[11px] sm:text-xs font-medium transition-all duration-200 active:scale-95 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50";
+                    icon.className = "w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full transition-all duration-300";
                     
                     let titleText = '';
                     let statusText = '已同步';

@@ -126,7 +126,7 @@
                     );
                     btn.classList.add("border", "border-[var(--border)]", "bg-[var(--card)]", "text-[var(--sub)]");
                     if (this.session) {
-                        btn.title = "退出登录";
+                        btn.title = "账户";
                         btn.classList.remove("border-[var(--border)]", "bg-[var(--card)]", "text-[var(--sub)]");
                         btn.classList.add(
                             "border-emerald-400",

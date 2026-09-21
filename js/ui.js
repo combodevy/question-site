@@ -433,6 +433,76 @@
                 initTheme() {
                     if (localStorage.getItem('dark') === '1') document.documentElement.classList.add('dark');
                 },
+
+                // ===== 账户菜单（右上角头像弹层） =====
+                toggleAccountMenu() {
+                    const menu = App.dom.get('account-menu');
+                    const backdrop = App.dom.get('account-menu-backdrop');
+                    if (!menu || !backdrop) return;
+                    if (menu.classList.contains('hidden')) {
+                        this._renderAccountMenu();
+                        menu.classList.remove('hidden');
+                        backdrop.classList.remove('hidden');
+                        setTimeout(() => {
+                            menu.classList.remove('opacity-0', 'pointer-events-none');
+                            backdrop.classList.remove('opacity-0');
+                        }, 10);
+                    } else {
+                        this.closeAccountMenu();
+                    }
+                },
+
+                closeAccountMenu() {
+                    const menu = App.dom.get('account-menu');
+                    const backdrop = App.dom.get('account-menu-backdrop');
+                    if (!menu || menu.classList.contains('hidden')) return;
+                    menu.classList.add('opacity-0', 'pointer-events-none');
+                    backdrop.classList.add('opacity-0');
+                    setTimeout(() => {
+                        menu.classList.add('hidden');
+                        backdrop.classList.add('hidden');
+                    }, 200);
+                },
+
+                _renderAccountMenu() {
+                    const session = window.App && App.auth && App.auth.session;
+                    if (!session) return;
+                    const username = (session.user && session.user.username) || '用户';
+                    App.dom.setText('am-username', username);
+                    App.dom.setText('am-avatar', (username[0] || '?').toUpperCase());
+                    const uid = App.auth.getUserId() || '';
+                    App.dom.setText('am-uid', uid ? 'ID: ' + uid.slice(0, 8) : '');
+                    // 学习数据速览
+                    const s = App.data.getStats();
+                    const statsEl = App.dom.get('am-stats');
+                    if (statsEl) {
+                        const cell = (label, value, color) => `
+                            <div class="rounded-lg bg-[var(--bg)] py-1.5 text-center">
+                                <div class="text-sm font-bold ${color}">${value}</div>
+                                <div class="text-[9px] text-[var(--sub)] mt-0.5">${label}</div>
+                            </div>`;
+                        statsEl.innerHTML =
+                            cell('题库总量', s.total, 'text-[var(--text)]') +
+                            cell('正确率', s.acc + '%', 'text-primary-600') +
+                            cell('连续天数', s.streak + '天', 'text-orange-500');
+                    }
+                },
+
+                handleAccountMenuAction(act) {
+                    this.closeAccountMenu();
+                    if (act === 'analytics') {
+                        App.router.go('analytics');
+                    } else if (act === 'import') {
+                        App.ui.openImportCenter();
+                    } else if (act === 'sync') {
+                        App.sync.openLogPanel();
+                    } else if (act === 'logout') {
+                        if (confirm('确定要退出登录吗？\n本地缓存会清空，题库和学习记录都保留在云端，下次登录自动恢复。')) {
+                            App.auth.logout();
+                        }
+                    }
+                },
+
                 toggleTheme() {
                     const isDark = !document.documentElement.classList.contains('dark');
                     document.documentElement.classList.toggle('dark');

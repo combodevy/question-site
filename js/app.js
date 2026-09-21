@@ -124,9 +124,24 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (authBtn) {
         authBtn.addEventListener("click", function () {
             if (window.App && App.auth && App.auth.session) {
-                App.auth.logout();
+                // 已登录：展开账户菜单（个人信息 + 常用入口 + 退出登录）
+                if (window.App && App.ui && typeof App.ui.toggleAccountMenu === "function") {
+                    App.ui.toggleAccountMenu();
+                }
             } else {
                 openAuthModal();
+            }
+        });
+    }
+
+    // 账户菜单项点击委托（data-act 分发）
+    const accountMenu = document.getElementById("account-menu");
+    if (accountMenu) {
+        accountMenu.addEventListener("click", function (e) {
+            const item = e.target.closest("[data-act]");
+            if (!item) return;
+            if (window.App && App.ui && typeof App.ui.handleAccountMenuAction === "function") {
+                App.ui.handleAccountMenuAction(item.dataset.act);
             }
         });
     }
