@@ -1517,6 +1517,9 @@
                             class="flex-1 text-[11px] text-right text-[var(--sub)] truncate min-w-[100px]">尚未选择文件</span>
                     </div>
 
+                    <!-- 导入结果横幅：全宽、按状态着色（成功/失败/进行中），替代原先藏在角落的截断小字 -->
+                    <div id="import-json-result" class="hidden items-start gap-2.5 px-3.5 py-3 rounded-xl border text-[11px] leading-relaxed"></div>
+
                     <!-- 用 AI 生成题库：可复制的提示词 -->
                     <div class="border border-[var(--border)] rounded-xl bg-[var(--bg)] overflow-hidden">
                         <button type="button" onclick="App.ui.toggleAiPrompt()"

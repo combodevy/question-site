@@ -210,6 +210,11 @@
                     this._jsonImportIdStats = null;
                     const applyBtn = App.dom.get('import-json-apply-btn');
                     if (applyBtn) applyBtn.disabled = true;
+                    // 重置按钮文案与结果横幅：上次可能停在「已导入 ✓」或失败横幅
+                    this._setApplyBtn('ready');
+                    if (applyBtn) applyBtn.disabled = true;   // 重置后仍需等新预览
+                    this._hideImportBanner();
+                    this._importSummary = null;
                     ['import-json-total', 'import-json-subjects', 'import-json-chapters',
                         'import-json-mcq', 'import-json-multi', 'import-json-tf'].forEach(id => {
                             const el = App.dom.get(id);
@@ -253,6 +258,9 @@
                         alert("文件过大，请上传 5MB 以内的题库文件。");
                         e.target.value = null;
                         if (statusEl) statusEl.textContent = "文件过大，已取消解析。";
+                        this._setImportBanner('error', '<b>文件过大</b>（' + Math.round(file.size / 1024 / 1024 * 10) / 10 + 'MB）。请上传 5MB 以内的题库文件。');
+                        this._setApplyBtn('ready');
+                        { const ab = App.dom.get('import-json-apply-btn'); if (ab) ab.disabled = true; }
                         return;
                     }
 
@@ -266,6 +274,13 @@
                                 if (statusEl) statusEl.textContent = "JSON 解析失败：未找到有效的 JSON 内容。";
                                 if (structEl) structEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">JSON 解析失败，无法预览。</div>';
                                 if (listEl) listEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">JSON 解析失败，无法预览。</div>';
+                                // 清掉旧文件的预览，防止用户误导入上一个文件的内容
+                                this._jsonImportPreview = null;
+                                this._jsonImportPreviewCount = 0;
+                                this._setImportBanner('error', '<b>JSON 解析失败：</b>文件里没有找到有效的 JSON 内容。'
+                                    + '<br>如果是 AI 生成的结果，请确认复制的是完整 JSON（本系统也兼容带 markdown 代码块或前后说明文字的内容）。');
+                                this._setApplyBtn('ready');
+                                { const ab = App.dom.get('import-json-apply-btn'); if (ab) ab.disabled = true; }
                                 return;
                             }
 
@@ -281,6 +296,12 @@
                                 if (statusEl) statusEl.textContent = "结构校验失败：" + check;
                                 if (structEl) structEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">结构校验失败，请根据模板调整 JSON。</div>';
                                 if (listEl) listEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">结构校验失败，无法生成预览。</div>';
+                                this._jsonImportPreview = null;
+                                this._jsonImportPreviewCount = 0;
+                                this._setImportBanner('error', '<b>结构校验失败：</b>' + App.utils.escapeHTML(String(check))
+                                    + '<br>请对照「下载格式模板」调整 JSON 后重新选择文件。');
+                                this._setApplyBtn('ready');
+                                { const ab = App.dom.get('import-json-apply-btn'); if (ab) ab.disabled = true; }
                                 return;
                             }
                             App.ui._jsonImportIdStats = idStats;
@@ -295,6 +316,17 @@
                                 statusEl.textContent = r.total
                                     ? `解析成功：检测到 ${r.total} 道题（科目 ${r.subjCount} 个，章节 ${r.chapCount} 个${fixNote}）。`
                                     : "解析完成，但未检测到任何符合条件的题目。";
+                            }
+                            // 解析结果反馈到横幅，并明确下一步动作
+                            if (r.total) {
+                                this._setImportBanner('info', `解析成功：检测到 <b>${r.total}</b> 道题（科目 ${r.subjCount} 个、章节 ${r.chapCount} 个）。`
+                                    + '<br>请在下方预览确认科目/章节归属，然后点击右下角「导入预览中的题目」。');
+                                this._setApplyBtn('ready');
+                            } else {
+                                this._setImportBanner('error', '解析完成，但<b>未检测到任何符合条件的题目</b>（单选/多选/判断/填空）。'
+                                    + '<br>请检查 JSON 内容——问答题等主观题会被自动忽略。');
+                                this._setApplyBtn('ready');
+                                { const ab = App.dom.get('import-json-apply-btn'); if (ab) ab.disabled = true; }
                             }
                         } finally {
                             e.target.value = null;
@@ -436,6 +468,53 @@
                     return { total, subjCount: subjSet.size, chapCount: chapSet.size };
                 },
 
+                // ===== 导入结果横幅 =====
+                // 旧版把全部提示塞进右上角一个 truncate 的 11px 小气泡里——
+                // 长文案被 CSS 截断，用户根本看不到（「导入了没？成功了还是失败了？」的根因）。
+                _IMPORT_BANNER_STYLE: {
+                    busy:    'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300',
+                    success: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300',
+                    error:   'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300',
+                    info:    'border-[var(--border)] bg-[var(--bg)] text-[var(--sub)]'
+                },
+                _IMPORT_BANNER_ICON: {
+                    busy: '<svg class="animate-spin w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>',
+                    success: '<svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+                    error: '<svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M12 3l9.5 16.5H2.5L12 3z"></path></svg>',
+                    info: '<svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
+                },
+                _setImportBanner(kind, html) {
+                    const el = App.dom.get('import-json-result');
+                    if (!el) return;
+                    el.className = 'flex items-start gap-2.5 px-3.5 py-3 rounded-xl border text-[11px] leading-relaxed '
+                        + (this._IMPORT_BANNER_STYLE[kind] || this._IMPORT_BANNER_STYLE.info);
+                    el.innerHTML = (this._IMPORT_BANNER_ICON[kind] || this._IMPORT_BANNER_ICON.info)
+                        + '<span class="flex-1 min-w-0">' + html + '</span>';
+                },
+                _hideImportBanner() {
+                    const el = App.dom.get('import-json-result');
+                    if (el) { el.className = 'hidden'; el.innerHTML = ''; }
+                },
+                // 导入按钮状态机：busy（转圈+禁用）/ done（已导入✓+禁用）/ ready（可点）
+                _setApplyBtn(state) {
+                    const btn = App.dom.get('import-json-apply-btn');
+                    if (!btn) return;
+                    if (state === 'busy') {
+                        if (!btn.dataset.originalHtml) btn.dataset.originalHtml = btn.innerHTML;
+                        btn.disabled = true;
+                        btn.innerHTML = '<svg class="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg><span>导入中…</span>';
+                        btn.classList.add('opacity-80', 'cursor-wait');
+                    } else if (state === 'done') {
+                        btn.disabled = true;
+                        btn.innerHTML = '<span>已导入 ✓</span>';
+                        btn.classList.remove('opacity-80', 'cursor-wait');
+                    } else {
+                        btn.disabled = false;
+                        if (btn.dataset.originalHtml) { btn.innerHTML = btn.dataset.originalHtml; delete btn.dataset.originalHtml; }
+                        btn.classList.remove('opacity-80', 'cursor-wait');
+                    }
+                },
+
                 async applyJsonPreviewImport() {
                     const data = App.ui._jsonImportPreview;
                     const count = App.ui._jsonImportPreviewCount || 0;
@@ -448,35 +527,53 @@
                     const ok = confirm(`即将根据预览结果导入约 ${count} 道题到当前题库，是否继续？`);
                     if (!ok) {
                         if (statusEl) statusEl.textContent = "已取消导入操作。";
+                        this._setImportBanner('info', '已取消导入操作。文件预览仍保留，可随时重新点击导入。');
                         return;
                     }
-                    // 导入是同步计算，大题库会阻塞界面；先让状态文字渲染出来再执行
-                    if (statusEl) statusEl.textContent = "正在导入题库…";
-                    if (applyBtn) { applyBtn.disabled = true; }
-                    await new Promise(r => setTimeout(r, 30));
-                    const report = App.data.importBank(JSON.stringify(data));
-                    if (!report) {
-                        // importBank 内部已 alert 具体原因；这里补一条状态栏反馈
-                        if (statusEl) statusEl.textContent = "导入失败：请查看弹窗中的具体原因，修正后重新导入。";
-                        if (applyBtn) applyBtn.disabled = false;
-                        return;
-                    }
-                    if (statusEl) {
-                        statusEl.textContent = `导入完成：新增 ${report.added} 道、更新 ${report.updated} 道`
-                            + (report.moved ? `、移动到新章节 ${report.moved} 道` : '')
-                            + `、内容相同跳过 ${report.skippedSame} 道。`
-                            + (report.fixedIds ? `（自动改写 ${report.fixedIds} 个重复/缺失 ID）` : '');
-                    }
-                    // 导入必然触发云端保存（防抖 400ms）；监视保存结果并反馈
-                    this._watchImportSave(statusEl);
-                    // 立即刷新底层视图：弹窗后面如果是首页/题库页，统计数字和列表马上反映新题
-                    if (window.App && App.router && typeof App.router.refresh === 'function') {
-                        App.router.refresh();
+                    // 整个导入流程包在 try/catch 里：任何意外异常都必须落到
+                    // 「红色横幅 + 按钮恢复」的出口，绝不能让按钮灰死且无提示。
+                    try {
+                        // 导入是同步计算，大题库会阻塞界面；先让状态文字和 spinner 渲染出来再执行
+                        if (statusEl) statusEl.textContent = "正在导入题库…";
+                        this._setImportBanner('busy', `正在导入约 <b>${count}</b> 道题到本地题库…<br><span class="opacity-75">题库很大时这一步可能需要几秒，请不要关闭窗口。</span>`);
+                        this._setApplyBtn('busy');
+                        await new Promise(r => setTimeout(r, 30));
+                        const report = App.data.importBank(JSON.stringify(data));
+                        if (!report) {
+                            // importBank 内部已 alert 具体原因；横幅给出失败状态
+                            this._setImportBanner('error', '<b>导入失败。</b>具体原因见弹窗提示，修正 JSON 后可直接点击「重试导入」。本地题库未受影响。');
+                            this._setApplyBtn('ready');
+                            if (statusEl) statusEl.textContent = "导入失败";
+                            return;
+                        }
+                        this._importSummary = `导入完成：新增 <b>${report.added}</b> 道、更新 <b>${report.updated}</b> 道`
+                            + (report.moved ? `、移动到新章节 <b>${report.moved}</b> 道` : '')
+                            + `、内容相同跳过 <b>${report.skippedSame}</b> 道。`
+                            + (report.fixedIds ? `<br>已自动改写 <b>${report.fixedIds}</b> 个重复/缺失的题目 ID。` : '');
+                        this._setImportBanner('busy', this._importSummary
+                            + '<br><span class="opacity-75">正在同步到云端…</span>');
+                        this._setApplyBtn('done');
+                        if (statusEl) {
+                            statusEl.textContent = `导入完成：新增 ${report.added} 道、更新 ${report.updated} 道`;
+                        }
+                        // 导入必然触发云端保存（防抖 400ms）；监视保存结果并反馈
+                        this._watchImportSave();
+                        // 立即刷新底层视图：弹窗后面如果是首页/题库页，统计数字和列表马上反映新题
+                        if (window.App && App.router && typeof App.router.refresh === 'function') {
+                            App.router.refresh();
+                        }
+                    } catch (e) {
+                        console.error('导入流程异常', e);
+                        this._setImportBanner('error', '<b>导入过程出现异常：</b>' + App.utils.escapeHTML(String(e && e.message || e))
+                            + '<br>本地题库已回滚到导入前状态。请检查 JSON 后重试，或先「导出全部题库」备份。');
+                        this._setApplyBtn('ready');
+                        if (statusEl) statusEl.textContent = "导入异常";
                     }
                 },
 
-                // 导入后监视云端保存：成功补一句提示，失败给重试按钮
-                _watchImportSave(statusEl) {
+                // 导入后监视云端保存：横幅实时反映「同步中 → 已同步 / 同步失败」，
+                // 数据本身始终已安全落在本机（IndexedDB），失败只影响云端副本
+                _watchImportSave() {
                     if (this._importSaveWatch) clearTimeout(this._importSaveWatch);
                     let elapsed = 0;
                     const tick = () => {
@@ -484,18 +581,26 @@
                         const status = sync ? sync._lastStatus : 'success';
                         elapsed += 500;
                         if (status === 'error') {
-                            if (statusEl) statusEl.textContent += '（注意：同步到云端失败，请检查网络后点击右上角同步按钮重试）';
+                            this._setImportBanner('error', (this._importSummary || '导入完成。')
+                                + '<br><b>云端同步失败</b>——数据已安全保存在本机，不会丢失。'
+                                + '点击右上角同步状态按钮可查看详情并重试。');
                             this._importSaveWatch = null;
                             return;
                         }
                         if (status === 'pending' && elapsed < 20000) {
+                            if (elapsed % 2000 === 0) {
+                                this._setImportBanner('busy', (this._importSummary || '导入完成。')
+                                    + `<br><span class="opacity-75">正在同步到云端… ${Math.round(elapsed / 1000)}s</span>`);
+                            }
                             this._importSaveWatch = setTimeout(tick, 500);
                             return;
                         }
                         if (status === 'success' && !App.data._bankDirty) {
-                            if (statusEl && !/同步/.test(statusEl.textContent)) {
-                                statusEl.textContent += '（已同步到云端）';
-                            }
+                            this._setImportBanner('success', (this._importSummary || '导入完成。')
+                                + '<br><b>已同步到云端 ✓</b> 本地与云端的题库现在完全一致，可以关闭此窗口开始刷题了。');
+                        } else {
+                            this._setImportBanner('success', (this._importSummary || '导入完成。')
+                                + '<br>数据已保存在本机；云端将在下次联网时自动同步。');
                         }
                         this._importSaveWatch = null;
                     };
