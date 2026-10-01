@@ -2,10 +2,18 @@
 
                     render() {
                         const s = App.data.getStats();
-                        App.dom.setText('dash-acc', s.acc + '%');
+                        this._animateNumber('dash-acc', s.acc, '%');
                         App.dom.setText('dash-total', s.total);
                         App.dom.setText('dash-err', s.mistakes);
                         App.dom.setText('last-practice-time', s.timeText);
+
+                        // 间隔复习横幅：SM-2 计划中有今日到期的题时才显示
+                        const reviewBanner = App.dom.get('review-banner');
+                        if (reviewBanner && typeof App.data.getDueCount === 'function') {
+                            const due = App.data.getDueCount();
+                            App.dom.setText('review-due-count', String(due));
+                            reviewBanner.classList.toggle('hidden', due === 0);
+                        }
 
                         const ml = App.dom.get('mistake-list');
                         if (ml) {
@@ -38,13 +46,15 @@
                                             }).join(' , ');
                                         }
                                         fullAnswer = `<div class="font-bold text-emerald-600 mb-1">答案：${inlineAns}</div>` + App.utils.getDetailedOptionHTML(q, q.a);
+                                    } else if (q.type === 'fill') {
+                                        fullAnswer = '<div class="font-bold text-emerald-600 mb-1">答案：' + App.utils.escapeHTML(q.a || '') + '</div>';
                                     } else {
                                         fullAnswer = q.a === 'T' ? '<span class="font-bold text-emerald-600">正确 (True)</span>' : '<span class="font-bold text-red-500">错误 (False)</span>';
                                     }
 
                                     d.innerHTML = `
                                         <div class="flex items-start gap-3 flex-grow min-w-0">
-                                            <span class="w-5 h-5 flex-shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold mt-0.5 ${badgeClass}">${i + 1}</span>
+                                            <span class="w-5 h-5 flex-shrink-0 rounded-full flex items-center justify-center text-[11px] font-bold mt-0.5 ${badgeClass}">${i + 1}</span>
                                             <div class="flex flex-col min-w-0">
                                                 <div class="text-xs font-medium text-[var(--text)] line-clamp-2 mb-2">${safeQuestion}</div>
                                                 <div class="text-[11px] bg-slate-50 dark:bg-slate-800 p-2 rounded-lg border border-[var(--border)] text-[var(--sub)] shadow-sm">
@@ -57,21 +67,44 @@
                                 });
                             }
                         }
-                        const h = App.data.history;
+                        // 七日趋势直接取 getStats 已单遍聚合好的 daily30 后 7 天，
+                        // 不再对整份 history 逐日 filter 7 遍
+                        const h = App.data.getSafeHistory();   // 仅用于「有没有作答」的空态判断
                         if (h.length === 0) {
                             App.dom.show('chart-empty');
                         } else {
-                            App.dom.hide('chart-empty');
-                            const pts = [];
-                            for (let i = 6; i >= 0; i--) {
-                                const d = new Date(); d.setDate(d.getDate() - i);
-                                const ds = d.toISOString().slice(0, 10);
-                                const recs = h.filter(x => new Date(x.t).toISOString().slice(0, 10) === ds);
-                                // 当天无练习传 null（图表断线），不画成误导性的 0%
-                                pts.push(recs.length ? Math.round((recs.filter(x => x.r).length / recs.length) * 100) : null);
+                            const pts = s.daily30.slice(-7).map(d => d.acc);
+                            if (pts.every(p => p === null)) {
+                                // 有历史但最近 7 天都没练：画布会是全空，显示「暂无数据」而不是空白
+                                App.dom.show('chart-empty');
+                            } else {
+                                App.dom.hide('chart-empty');
+                                requestAnimationFrame(() => App.chart.draw('dashboardChart', pts));
                             }
-                            requestAnimationFrame(() => App.chart.draw('dashboardChart', pts));
                         }
+                    },
+
+                // 数字滚动：只有数值真的变了才动画（轮询刷新数值不变时直接写），
+                // 400ms ease-out 计数，让「正确率变化」被看见而不喧宾夺主
+                _animateNumber(id, target, suffix) {
+                    const el = App.dom.get(id);
+                    if (!el) return;
+                    this._numCache = this._numCache || {};
+                    const prevv = this._numCache ? this._numCache[id] : undefined;
+                    this._numCache = this._numCache || {};
+                    this._numCache[id] = target;
+                    if (typeof prevv !== 'number' || prevv === target) {
+                        App.dom.setText(id, target + suffix);
+                        return;
                     }
-                
+                    const t0 = performance.now();
+                    const dur = 400;
+                    const step = (t) => {
+                        const p = Math.min((t - t0) / dur, 1);
+                        const eased = 1 - Math.pow(1 - p, 3);
+                        App.dom.setText(id, Math.round(prevv + (target - prevv) * eased) + suffix);
+                        if (p < 1) requestAnimationFrame(step);
+                    };
+                    requestAnimationFrame(step);
+                }
 };

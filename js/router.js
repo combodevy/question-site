@@ -20,6 +20,18 @@ export const router = {
         if (id === 'mistake_book') libMode = 'mistakes';
 
         targetEl.classList.remove('hidden');
+        // 视图真的切换了（而不是同视图数据刷新）才播进场动画：
+        // 轮询同步每 15 秒就可能 refresh 一次，次次重播会晃眼
+        if (this.currentView !== targetId) {
+            targetEl.classList.remove('anim-view-in');
+            void targetEl.offsetWidth;
+            targetEl.classList.add('anim-view-in');
+        }
+        // 切换视图时把滚动位置归零。
+        // 各视图共用外层 <main> 这个滚动容器，不重置的话从长页面切过来
+        // 会停在上次的滚动位置（表现为「一打开不是在最上面」）。
+        const scroller = App.utils.getScrollParent(targetEl);
+        if (scroller) scroller.scrollTop = 0;
         this.currentView = targetId;
 
         if (id === 'dashboard') App.views.dashboard.render();

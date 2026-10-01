@@ -3,6 +3,19 @@ export const utils = {
         if (!text || typeof pinyinPro === 'undefined') return text ? String(text).toLowerCase() : '';
         return pinyinPro.pinyin(text, { toneType: 'none', separator: '' }).toLowerCase();
     },
+    // 找到元素真正的滚动容器。
+    // 不能想当然：#lib-list 自己也写了 overflow-y-auto，但它没有固定高度
+    //（scrollHeight == clientHeight），实际并不滚动；真正滚动的是外层 <main>。
+    // 以前各处直接对 #lib-list 调 scrollTo，结果「回到顶部」按钮点了没反应。
+    getScrollParent(el) {
+        let p = el ? el.parentElement : null;
+        while (p && p !== document.documentElement) {
+            const ov = getComputedStyle(p).overflowY;
+            if (/auto|scroll/.test(ov) && p.scrollHeight > p.clientHeight) return p;
+            p = p.parentElement;
+        }
+        return document.scrollingElement || document.documentElement;
+    },
     shuffle(array) {
         const arr = [...array];
         let currentIndex = arr.length, randomIndex;
@@ -142,27 +155,66 @@ export const utils = {
         });
         return `<div class="mt-1.5 flex flex-col">${texts.join('')}</div>`;
     },
-    editDistance(a, b) {
+    editDistance(a, b, cutoff = Infinity) {
         const m = a.length, n = b.length;
-        const dp = Array.from({ length: m + 1 }, (_, i) =>
-            Array.from({ length: n + 1 }, (_, j) => i === 0 ? j : j === 0 ? i : 0)
-        );
+        if (m === 0) return n;
+        if (n === 0) return m;
+        // 滚动单行 DP（结果与全矩阵一致，内存 O(n)）。rowMin 超过 cutoff 时
+        // 提前放弃——编辑距离单调不减到终点，后面不可能再降回 cutoff 以内。
+        // 超界时返回 cutoff+1（调用方只做「是否 ≤ cutoff」判断）。
+        let prev = new Array(n + 1);
+        for (let j = 0; j <= n; j++) prev[j] = j;
         for (let i = 1; i <= m; i++) {
+            const cur = new Array(n + 1);
+            cur[0] = i;
+            let rowMin = i;
+            const ai = a.charCodeAt(i - 1);
             for (let j = 1; j <= n; j++) {
-                dp[i][j] = a[i - 1] === b[j - 1]
-                    ? dp[i - 1][j - 1]
-                    : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+                cur[j] = ai === b.charCodeAt(j - 1)
+                    ? prev[j - 1]
+                    : 1 + Math.min(prev[j], cur[j - 1], prev[j - 1]);
+                if (cur[j] < rowMin) rowMin = cur[j];
             }
+            if (rowMin > cutoff) return cutoff + 1;
+            prev = cur;
         }
-        return dp[m][n];
+        return prev[n];
+    },
+    // 字符袋距离：两串字符多重集的差异度。取「A 相对 B 的盈余」与「B 相对 A 的盈余」的
+    // 较大者——每次编辑操作最多同时消掉一个盈余和一个亏空，所以
+    // editDistance ≥ max(盈余A, 盈余B)，可作为 O(m·n) 动态规划的预筛下界。
+    charCounts(s) {
+        const m = new Map();
+        for (let i = 0; i < s.length; i++) {
+            const c = s[i];
+            m.set(c, (m.get(c) || 0) + 1);
+        }
+        return m;
+    },
+    bagDistance(ca, cb) {
+        let surplusA = 0, surplusB = 0;
+        for (const [c, k] of ca) {
+            const d = k - (cb.get(c) || 0);
+            if (d > 0) surplusA += d;
+        }
+        for (const [c, k] of cb) {
+            const d = k - (ca.get(c) || 0);
+            if (d > 0) surplusB += d;
+        }
+        return Math.max(surplusA, surplusB);
     },
     fuzzyMatch(text, query) {
-        if (!query || query.length < 2) return false;
-        const tolerance = Math.floor(query.length / 4) + 1;
+        // 短查询（1-2 字）只走精确子串匹配（调用方先做 includes），
+        // 模糊容错对短查询几乎必然误命中
+        if (!query || query.length < 3) return false;
+        // 容错数收紧（原来 len/4+1 太宽松：「optimization」容错 4，几乎什么都能命中）。
+        // len/6 至少 1：短词容忍 1 个错字，长词按比例但不失控。
+        const tolerance = Math.max(1, Math.floor(query.length / 6));
 
         for (let i = 0; i <= text.length - query.length + tolerance; i++) {
             const sub = text.substring(i, i + query.length);
-            if (this.editDistance(sub, query) <= tolerance) return true;
+            // 传入 cutoff：行最小值超界立即放弃，不再为注定失败的窗口跑完整 DP
+            if (this.editDistance(sub, query, tolerance) <= tolerance) return true;
         }
         return false;
     },
@@ -181,6 +233,13 @@ export const utils = {
         const dist = this.editDistance(a, b);
         return 1 - dist / maxLen;
     },
+    // 按本地时区生成日历日键（YYYY-MM-DD）。
+    // toISOString().slice(0,10) 是 UTC 日切——东八区早上 8 点前的作答会被算进「昨天」，
+    // 日报曲线、连续天数全部错位一天。所有按天分桶的统计一律用这个函数。
+    localDayKey(ts) {
+        const d = ts instanceof Date ? ts : new Date(ts);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    },
     // 解析后端返回的 "YYYY-MM-DD HH:MM:SS" 时间字符串。
     // D1 的 CURRENT_TIMESTAMP 存的是 UTC，直接 new Date() 会被当本地时间解析（差一个时区），
     // 这里显式补上 T 和 Z 让它按 UTC 解析，再交给 toLocaleString 转本地时区显示。
@@ -193,12 +252,12 @@ export const utils = {
             return null;
         }
     },
-    // 导入清洗：只保留单选/多选/判断题，去掉选项前多余的字母前缀，
+    // 导入清洗：只保留单选/多选/判断/填空题，去掉选项前多余的字母前缀，
     // 并规范化题目 ID——缺失/非字符串的 id 自动生成确定性 id，
     // 重复的 id 追加确定性后缀（-d2、-d3…），保证预览数量与实际导入数量一致、不丢题。
     // 可选的 stats 对象用于回填改写统计（fixedIds：被改写的 id 数，ignored：被忽略的非客观题数）。
     sanitizeImportedBank(obj, stats) {
-        const allowed = new Set(['mcq', 'multi', 'tf']);
+        const allowed = new Set(['mcq', 'multi', 'tf', 'fill']);
         const result = {};
         const seenIds = new Set();
         let fixedIds = 0;
@@ -228,8 +287,11 @@ export const utils = {
                         const copy = { ...q };
                         if ((copy.type === 'mcq' || copy.type === 'multi') && Array.isArray(copy.o)) {
                             copy.o = copy.o.map(opt => {
-                                if (typeof opt !== 'string') return opt;
-                                return opt.replace(/^\s*[A-ZＡ-Ｚ][\.\．、，\)\）]\s*/, '');
+                                // 选项统一归一化为字符串：非字符串（数字 / 布尔 / null）会让
+                                // 题目编辑器里的 initialText.replace(...) 抛 TypeError
+                                if (opt == null) return '';
+                                const str = typeof opt === 'string' ? opt : String(opt);
+                                return str.replace(/^\s*[A-ZＡ-Ｚ][\.\．、，\)\）]\s*/, '');
                             });
                         }
                         // ID 规范化

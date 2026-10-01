@@ -4,6 +4,14 @@
 
                     setMode(mode) {
                         this.currentMode = mode === 'subject' ? 'subject' : 'global';
+                        // tab 切换：面板快速淡入，让「换了视角」有可感知的过渡。
+                        // 数据刷新（同 mode 的 render）不重播。
+                        const v = App.dom.get('view-analytics');
+                        if (v) {
+                            v.classList.remove('anim-fade-in');
+                            void v.offsetWidth;
+                            v.classList.add('anim-fade-in');
+                        }
                         this.render();
                     },
 
@@ -25,7 +33,7 @@
 
                         const subSelect = App.dom.get('an-subject-select');
                         const currentSub = subSelect ? subSelect.value : 'all';
-                        const allHistory = App.data.history || [];
+                        const allHistory = App.data.getSafeHistory();   // 净化后再遍历
                         const scopedHistory = currentSub === 'all'
                             ? allHistory
                             : allHistory.filter(hEntry => {
@@ -42,12 +50,20 @@
                         const avgSecReal = durRecords.length ? (totalMs / durRecords.length / 1000) : (avgSec || 0);
                         const totalSecReal = totalMs ? Math.round(totalMs / 1000) : (totalSec || 0);
 
-                        const typeLabel = q.type === 'mcq' ? '单选题' : (q.type === 'multi' ? '多选题' : '判断题');
+                        const typeLabel = q.type === 'mcq' ? '单选题' : (q.type === 'multi' ? '多选题' : (q.type === 'fill' ? '填空题' : '判断题'));
                         let bodyHtml = '';
                         if (q.type === 'tf') {
                             const isTrue = q.a === 'T';
                             const tfLabel = isTrue ? '√ (正确/True)' : '× (错误/False)';
                             bodyHtml = `<div class="text-[11px] text-[var(--sub)] mb-1">${tfLabel}</div>`;
+                        } else if (q.type === 'fill') {
+                            // 填空题没有选项数组，之前落进通用选项渲染器只会显示「选项数据缺失」
+                            const answers = String(q.a || '').split('|').filter(x => x.trim());
+                            const chips = answers.map(a =>
+                                `<span class="inline-block px-2 py-0.5 rounded bg-primary-50 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 font-bold mr-1 mb-0.5">${App.utils.escapeHTML(a)}</span>`
+                            ).join('');
+                            bodyHtml = `<div class="mt-1 text-[11px] text-[var(--text)]">标准答案：${chips || '（未设置）'}</div>` +
+                                `<div class="text-[11px] text-[var(--sub)] mt-0.5">判分时忽略大小写与空格${answers.length > 1 ? '；多个可接受答案任一命中即算对' : ''}</div>`;
                         } else {
                             const detailHtml = App.utils.getDetailedOptionHTML(q, q.a, '');
                             bodyHtml = `<div class="mt-1">${detailHtml}</div>`;
@@ -56,14 +72,15 @@
                         const avgText = attemptsReal ? `${Math.round(avgSecReal * 10) / 10} 秒/次` : '--';
                         const totalText = totalSecReal ? `${totalSecReal} 秒` : '--';
 
+                        // 规范头部：meta 信息与关闭按钮同一行；不再使用位置不固定的箭头装饰
                         pop.innerHTML = `
-                            <div id="an-q-arrow" class="absolute"></div>
-                            <div class="flex items-center justify-between gap-2 mb-1 pr-3">
-                                <div class="text-[10px] text-[var(--sub)] truncate max-w-[80%]">${App.utils.escapeHTML(q.sub || '')} • ${App.utils.escapeHTML(q.chap || '')} • ${typeLabel}</div>
+                            <div class="flex items-center justify-between gap-2 mb-1.5">
+                                <div class="text-[11px] text-[var(--sub)] truncate">${App.utils.escapeHTML(q.sub || '')} • ${App.utils.escapeHTML(q.chap || '')} • ${typeLabel}</div>
+                                <button type="button" class="an-pop-close flex-shrink-0 w-6 h-6 rounded-lg text-[var(--sub)] hover:text-[var(--text)] hover:bg-[var(--bg)] active:scale-90 transition-all flex items-center justify-center leading-none" aria-label="关闭详情">✕</button>
                             </div>
                             <div class="text-[12px] font-medium text-[var(--text)] mb-1 leading-snug whitespace-pre-line">${App.utils.escapeHTML(q.q || '')}</div>
                             ${bodyHtml}
-                            <div class="mt-2 pt-1 border-t border-[var(--border)] text-[10px] text-[var(--sub)] grid grid-cols-2 gap-y-0.5 gap-x-2">
+                            <div class="mt-2 pt-1.5 border-t border-[var(--border)] text-[11px] text-[var(--sub)] grid grid-cols-2 gap-y-0.5 gap-x-2">
                                 <div>作答次数：<span class="font-bold text-[var(--text)]">${attemptsReal}</span></div>
                                 <div>正确次数：<span class="font-bold text-[var(--text)]">${correct}</span></div>
                                 <div>错误次数：<span class="font-bold text-[var(--text)]">${wrong}</span></div>
@@ -72,6 +89,8 @@
                                 <div>总用时：<span class="font-bold text-[var(--text)]">${totalText}</span></div>
                             </div>
                         `;
+                        const closeBtn = pop.querySelector('.an-pop-close');
+                        if (closeBtn) closeBtn.addEventListener('click', () => this.hideQuestionPopover());
 
                         overlay.classList.remove('hidden');
                         pop.classList.remove('hidden');
@@ -87,13 +106,11 @@
                         const height = popRect.height;
 
                         let top = window.scrollY + anchorRect.bottom + 10;
-                        let arrowPos = 'top';
                         if (top + height + padding > window.scrollY + viewportHeight) {
                             top = window.scrollY + anchorRect.top - height - 10;
                             if (top < window.scrollY + padding) {
                                 top = window.scrollY + Math.max(padding, anchorRect.top + (anchorRect.height / 2) - height / 2);
                             }
-                            arrowPos = 'bottom';
                         }
 
                         let left = anchorRect.left + anchorRect.width / 2 - width / 2;
@@ -101,15 +118,6 @@
 
                         pop.style.left = left + 'px';
                         pop.style.top = top + 'px';
-
-                        const arrowContainer = document.getElementById('an-q-arrow');
-                        if (arrowContainer) {
-                            if (arrowPos === 'top') {
-                                arrowContainer.innerHTML = '<div class="w-3 h-3 bg-[var(--card)] border-l border-t border-[var(--border)] rotate-45 absolute -top-1 left-1/2 -translate-x-1/2"></div>';
-                            } else {
-                                arrowContainer.innerHTML = '<div class="w-3 h-3 bg-[var(--card)] border-r border-b border-[var(--border)] rotate-45 absolute -bottom-1 left-1/2 -translate-x-1/2"></div>';
-                            }
-                        }
                     },
 
                     render() {
@@ -154,8 +162,8 @@
                         }
 
                         const filteredHistory = (currentSub === 'all')
-                            ? App.data.history
-                            : App.data.history.filter(hEntry => {
+                            ? App.data.getSafeHistory()
+                            : App.data.getSafeHistory().filter(hEntry => {
                                 const q = App.data.getQuestionById(hEntry.id);
                                 return q && q.sub === currentSub;
                             });
@@ -178,14 +186,16 @@
                                 if (!q) return;
                                 let rec = qTimeMap.get(hEntry.id);
                                 if (!rec) {
-                                    rec = { q, attempts: 0, totalMs: 0 };
+                                    rec = { q, attempts: 0, totalMs: 0, durCount: 0 };
                                     qTimeMap.set(hEntry.id, rec);
                                 }
                                 rec.attempts++;
-                                if (hEntry.d > 0) rec.totalMs += hEntry.d;
+                                // 平均用时统一用「有效计时记录」作分母（与详情抽屉口径一致），
+                                // 旧记录缺 d 时不再被算进平均而拉低数值
+                                if (hEntry.d > 0) { rec.totalMs += hEntry.d; rec.durCount++; }
                             });
                             const qTimeList = Array.from(qTimeMap.values()).map(rec => {
-                                const avgMs = rec.attempts ? rec.totalMs / rec.attempts : 0;
+                                const avgMs = rec.durCount ? rec.totalMs / rec.durCount : 0;
                                 return { q: rec.q, attempts: rec.attempts, totalMs: rec.totalMs, avgMs };
                             }).filter(x => x.totalMs > 0).sort((a, b) => b.avgMs - a.avgMs).slice(0, 10);
 
@@ -223,27 +233,27 @@
                                     const avgTimeText = avgDurSub != null ? `${avgDurSub}秒/题` : '--';
                                     subDetail.innerHTML = `
                                         <div>
-                                            <div class="text-[10px] text-[var(--sub)]">当前科目作答次数</div>
+                                            <div class="text-[11px] text-[var(--sub)]">当前科目作答次数</div>
                                             <div class="text-sm font-bold text-[var(--text)]">${totalAttemptsSub}</div>
                                         </div>
                                         <div>
-                                            <div class="text-[10px] text-[var(--sub)]">当前科目正确率</div>
+                                            <div class="text-[11px] text-[var(--sub)]">当前科目正确率</div>
                                             <div class="text-sm font-bold text-emerald-600">${accSub}%</div>
                                         </div>
                                         <div>
-                                            <div class="text-[10px] text-[var(--sub)]">累计作答总时长</div>
+                                            <div class="text-[11px] text-[var(--sub)]">累计作答总时长</div>
                                             <div class="text-sm font-bold text-[var(--text)]">${totalTimeText}</div>
                                         </div>
                                         <div>
-                                            <div class="text-[10px] text-[var(--sub)]">平均单题用时</div>
+                                            <div class="text-[11px] text-[var(--sub)]">平均单题用时</div>
                                             <div class="text-sm font-bold text-blue-500">${avgTimeText}</div>
                                         </div>
                                         <div>
-                                            <div class="text-[10px] text-[var(--sub)]">涉及题目数量</div>
+                                            <div class="text-[11px] text-[var(--sub)]">涉及题目数量</div>
                                             <div class="text-sm font-bold text-[var(--text)]">${distinctQCount}</div>
                                         </div>
                                         <div>
-                                            <div class="text-[10px] text-[var(--sub)]">最近活跃天数</div>
+                                            <div class="text-[11px] text-[var(--sub)]">最近活跃天数</div>
                                             <div class="text-sm font-bold text-[var(--text)]">${buckets.filter(b => b.attempts > 0).length}</div>
                                         </div>
                                     `;
@@ -263,11 +273,11 @@
                                         return `
                                             <div class="flex flex-col gap-0.5 border-b border-[var(--border)] pb-1 last:border-b-0 cursor-pointer" data-qtime-idx="${idx}">
                                                 <div class="flex items-center justify-between">
-                                                    <span class="text-[10px] text-[var(--sub)]">#${idx + 1}</span>
-                                                    <span class="text-[10px] text-[var(--sub)]">${item.attempts} 次</span>
+                                                    <span class="text-[11px] text-[var(--sub)]">#${idx + 1}</span>
+                                                    <span class="text-[11px] text-[var(--sub)]">${item.attempts} 次</span>
                                                 </div>
                                                 <div class="text-[11px] text-[var(--text)]">${qText}${item.q.q.length > 40 ? '…' : ''}</div>
-                                                <div class="flex items-center justify-between text-[10px] text-[var(--sub)]">
+                                                <div class="flex items-center justify-between text-[11px] text-[var(--sub)]">
                                                     <span>平均用时约 ${avgSecRounded} 秒，总用时 ${totalSec} 秒</span>
                                                 </div>
                                             </div>
@@ -294,28 +304,32 @@
                                         const acc = b.attempts ? Math.round(b.correct / b.attempts * 100) : 0;
                                         return `
                                             <div class="flex items-center gap-2">
-                                                <div class="w-20 text-[10px] text-[var(--sub)]">${b.label}</div>
+                                                <div class="w-20 text-[11px] text-[var(--sub)]">${b.label}</div>
                                                 <div class="flex-1 h-2 rounded-full bg-[var(--border)] overflow-hidden">
                                                     <div class="h-2 bg-emerald-500" style="width:${acc}%;"></div>
                                                 </div>
-                                                <div class="w-16 text-right text-[10px] text-[var(--sub)]">${b.attempts} 次 / ${acc}%</div>
+                                                <div class="w-16 text-right text-[11px] text-[var(--sub)]">${b.attempts} 次 / ${acc}%</div>
                                             </div>
                                         `;
                                     }).join('');
                                 }
                             }
 
+                            // 单遍聚合：先按本地日桶一次算好每日答题数/正确数，
+                            // 再读 30 天——旧写法对 filteredHistory 逐日 filter 30 遍
+                            const byDay = new Map();
+                            filteredHistory.forEach(x => {
+                                const k = App.utils.localDayKey(x.t);
+                                const day = byDay.get(k) || { a: 0, c: 0 };
+                                day.a++;
+                                if (x.r) day.c++;
+                                byDay.set(k, day);
+                            });
                             const dailyAccSub = [];
                             for (let i = 29; i >= 0; i--) {
                                 const d = new Date(); d.setDate(d.getDate() - i);
-                                const ds = d.toISOString().slice(0, 10);
-                                const recs = filteredHistory.filter(x => new Date(x.t).toISOString().slice(0, 10) === ds);
-                                if (!recs.length) {
-                                    dailyAccSub.push(null); // 无练习日断线，不画 0%
-                                } else {
-                                    const c = recs.filter(x => x.r).length;
-                                    dailyAccSub.push(Math.round(c / recs.length * 100));
-                                }
+                                const recs = byDay.get(App.utils.localDayKey(d));
+                                dailyAccSub.push(recs && recs.a ? Math.round(recs.c / recs.a * 100) : null); // 无练习日断线
                             }
                             requestAnimationFrame(() => App.chart.draw('anSubForgetChart', dailyAccSub));
 
@@ -326,34 +340,47 @@
                             }
                         }
 
-                        requestAnimationFrame(() => App.chart.drawHeatmap('heatmapChart', s.daily30));
+                        // ★ 以下四张图都在 .an-global-block 里，科目模式下该区块是 display:none，
+                        //   此时父容器 clientWidth 为 0，画布几何会算出负数半径
+                        //   （drawDonut 里 r = 0/2 - 12 = -12）并让 ctx.arc 抛 IndexSizeError。
+                        //   所以只在总览模式下绘制；切回总览时 render() 会重新调用，不会漏画。
+                        if (this.currentMode === 'global') {
+                            requestAnimationFrame(() => App.chart.drawHeatmap('heatmapChart', s.daily30));
 
-                        const subEntries = Object.entries(s.subjectStats).filter(([, v]) => v.attempts > 0);
-                        if (subEntries.length > 0) {
-                            const labels = subEntries.map(([k]) => k);
-                            const values = subEntries.map(([, v]) => v.acc);
-                            const colors = ['#0d9488', '#0891b2', '#7c3aed', '#db2777', '#ea580c', '#65a30d'].slice(0, labels.length);
-                            requestAnimationFrame(() => App.chart.drawBar('subjectChart', labels, values, colors));
-                        }
+                            const subEntries = Object.entries(s.subjectStats).filter(([, v]) => v.attempts > 0);
+                            if (subEntries.length > 0) {
+                                const labels = subEntries.map(([k]) => k);
+                                const values = subEntries.map(([, v]) => v.acc);
+                                const colors = ['#0d9488', '#0891b2', '#7c3aed', '#db2777', '#ea580c', '#65a30d'].slice(0, labels.length);
+                                requestAnimationFrame(() => App.chart.drawBar('subjectChart', labels, values, colors));
+                            } else {
+                                // 没有任何科目有作答时给占位提示，不留空白卡片
+                                requestAnimationFrame(() => App.chart.drawEmpty('subjectChart', '暂无科目作答数据'));
+                            }
 
-                        const typeLabels = ['单选题', '多选题', '判断题'];
-                        const typeKeys = ['mcq', 'multi', 'tf'];
-                        const typeValues = typeKeys.map(k => s.typeStats[k] ? s.typeStats[k].acc : 0);
-                        const typeColors = ['#0d9488', '#7c3aed', '#f59e0b'];
-                        requestAnimationFrame(() => App.chart.drawBar('typeChart', typeLabels, typeValues, typeColors));
+                            const typeLabels = ['单选题', '多选题', '判断题', '填空题'];
+                            const typeKeys = ['mcq', 'multi', 'tf', 'fill'];
+                            const typeValues = typeKeys.map(k => s.typeStats[k] ? s.typeStats[k].acc : 0);
+                            const typeColors = ['#0d9488', '#7c3aed', '#f59e0b', '#0ea5e9'];
+                            requestAnimationFrame(() => App.chart.drawBar('typeChart', typeLabels, typeValues, typeColors));
 
-                        const durLabels = ['<5秒', '5-15秒', '15-30秒', '30-60秒', '>60秒'];
-                        const durColors = ['#10b981', '#0d9488', '#0891b2', '#7c3aed', '#ef4444'];
-                        requestAnimationFrame(() => App.chart.drawDonut('durChart', s.durBuckets, durLabels, durColors));
+                            const durLabels = ['<5秒', '5-15秒', '15-30秒', '30-60秒', '>60秒'];
+                            const durColors = ['#10b981', '#0d9488', '#0891b2', '#7c3aed', '#ef4444'];
+                            if (s.durBuckets.some(v => v > 0)) {
+                                requestAnimationFrame(() => App.chart.drawDonut('durChart', s.durBuckets, durLabels, durColors));
+                            } else {
+                                requestAnimationFrame(() => App.chart.drawEmpty('durChart', '暂无作答时长数据'));
+                            }
 
-                        const legend = App.dom.get('dur-legend');
-                        if (legend) {
-                            legend.innerHTML = durLabels.map((l, i) => `
-                                <div class="flex items-center gap-1.5">
-                                    <div class="w-2.5 h-2.5 rounded-sm flex-shrink-0" style="background:${durColors[i]}"></div>
-                                    <span class="text-[var(--sub)]">${l}</span>
-                                    <span class="font-bold ml-auto">${s.durBuckets[i]}</span>
-                                </div>`).join('');
+                            const legend = App.dom.get('dur-legend');
+                            if (legend) {
+                                legend.innerHTML = durLabels.map((l, i) => `
+                                    <div class="flex items-center gap-1.5">
+                                        <div class="w-2.5 h-2.5 rounded-sm flex-shrink-0" style="background:${durColors[i]}"></div>
+                                        <span class="text-[var(--sub)]">${l}</span>
+                                        <span class="font-bold ml-auto">${s.durBuckets[i]}</span>
+                                    </div>`).join('');
+                            }
                         }
 
                         const summary = App.dom.get('an-sub-summary');
@@ -364,7 +391,7 @@
                                     <div class="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-900/30 rounded-xl">
                                         <div class="flex items-center gap-3">
                                             <span class="text-xl">🏆</span>
-                                            <div><div class="text-[10px] font-bold text-green-700 dark:text-green-500 uppercase tracking-wide">最强科目</div><div class="text-xs text-[var(--text)] font-medium">${s.bestSub}</div></div>
+                                            <div><div class="text-[11px] font-bold text-green-700 dark:text-green-500 uppercase tracking-wide">最强科目</div><div class="text-xs text-[var(--text)] font-medium">${s.bestSub}</div></div>
                                         </div>
                                         <span class="font-bold text-lg text-green-600 dark:text-green-400">${s.subjectStats[s.bestSub].acc}%</span>
                                     </div>`;
@@ -374,7 +401,7 @@
                                     <div class="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 rounded-xl mt-3">
                                         <div class="flex items-center gap-3">
                                             <span class="text-xl">📌</span>
-                                            <div><div class="text-[10px] font-bold text-red-600 dark:text-red-500 uppercase tracking-wide">需加强</div><div class="text-xs text-[var(--text)] font-medium">${s.worstSub}</div></div>
+                                            <div><div class="text-[11px] font-bold text-red-600 dark:text-red-500 uppercase tracking-wide">需加强</div><div class="text-xs text-[var(--text)] font-medium">${s.worstSub}</div></div>
                                         </div>
                                         <span class="font-bold text-lg text-red-500 dark:text-red-400">${s.subjectStats[s.worstSub].acc}%</span>
                                     </div>`;

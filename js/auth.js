@@ -6,7 +6,11 @@
                     this.token = localStorage.getItem('qs-auth-token') || null;
                     if (this.token) {
                         const payload = this.parseJwt(this.token);
-                        if (payload) {
+                        // 过期的 token 不再建立会话：否则界面显示「已登录」，
+                        // 但每个请求都会 401，用户会以为数据在同步其实没有
+                        const expired = payload && typeof payload.exp === 'number'
+                            && payload.exp < Math.floor(Date.now() / 1000);
+                        if (payload && !expired) {
                             this.session = {
                                 access_token: this.token,
                                 user: {
@@ -55,9 +59,19 @@
                         if (!res.ok) {
                             return { error: { message: data.error || '登录失败' } };
                         }
+                        // 服务端没给凭证时不能继续：否则会把字符串 "undefined" 写进 localStorage，
+                        // 并把内部的 TypeError 文案直接显示给用户
+                        if (!data || typeof data.token !== 'string' || !data.token) {
+                            return { error: { message: '服务器未返回登录凭证，请稍后重试' } };
+                        }
                         this.token = data.token;
                         localStorage.setItem('qs-auth-token', this.token);
                         const payload = this.parseJwt(this.token);
+                        if (!payload) {
+                            this.token = null;
+                            localStorage.removeItem('qs-auth-token');
+                            return { error: { message: '登录凭证无法解析，请稍后重试' } };
+                        }
                         this.session = {
                             access_token: this.token,
                             user: {
@@ -87,9 +101,18 @@
                         if (!res.ok) {
                             return { error: { message: data.error || '注册失败' } };
                         }
+                        // 同 login：没凭证就停下，不要写入 "undefined" 或泄露内部错误
+                        if (!data || typeof data.token !== 'string' || !data.token) {
+                            return { error: { message: '服务器未返回注册凭证，请稍后重试' } };
+                        }
                         this.token = data.token;
                         localStorage.setItem('qs-auth-token', this.token);
                         const payload = this.parseJwt(this.token);
+                        if (!payload) {
+                            this.token = null;
+                            localStorage.removeItem('qs-auth-token');
+                            return { error: { message: '注册凭证无法解析，请稍后重试' } };
+                        }
                         this.session = {
                             access_token: this.token,
                             user: {
@@ -104,7 +127,51 @@
                         return { error: { message: err.message || '网络连接失败' } };
                     }
                 },
-                async logout() {
+                async logout(force = false) {
+                    // 登出保护：本地有未上传的修改时，先上传完成再退出。
+                    // 旧行为是「确认后照样清空本机」，提示却说数据留在本机——承诺和行为相反。
+                    // 现在的行为：确定 = 等上传完成（最多约 6 秒）后退出；上传失败会再次
+                    // 明确询问「仍要退出将丢失未上传的修改」，用户知情确认才允许丢数据。
+                    if (!force && window.App && App.data) {
+                        const d = App.data;
+                        const hasPending = d._bankDirty || (Array.isArray(d._historyAppendBuffer) && d._historyAppendBuffer.length > 0) || d._isSaving;
+                        if (hasPending) {
+                            const choice = confirm(
+                                '本地还有未同步到云端的修改。\n\n' +
+                                '点击「确定」= 先把修改上传到云端，成功后自动退出；\n' +
+                                '点击「取消」= 留在本页等待同步完成。\n\n' +
+                                '（如需永久备份，请先在账户菜单中「导出全部题库」）'
+                            );
+                            if (!choice) return;
+                            if (d.saveToCloudDebounced) d.saveToCloudDebounced();
+                            let settled = false;
+                            for (let i = 0; i < 24; i++) {
+                                await new Promise(r => setTimeout(r, 250));
+                                const stillDirty = d._bankDirty || (Array.isArray(d._historyAppendBuffer) && d._historyAppendBuffer.length > 0);
+                                if (!stillDirty && !d._isSaving && !d._saveAgainPending && !d._cloudLoading) {
+                                    settled = true;
+                                    break;
+                                }
+                                // 空闲且有脏数据才补一脚：直接 await 完整保存。
+                                // 千万不要再调 saveToCloudDebounced——它会先取消已在排队的
+                                // 防抖计时器再置 _saveAgainPending，等待中的上传被取消，
+                                // 循环就永远等不到「已同步」（实测踩过的死锁）。
+                                if (stillDirty && !d._isSaving && !d._saveAgainPending && !d._cloudSaveTimer && typeof d.saveToCloud === 'function') {
+                                    await d.saveToCloud();
+                                }
+                            }
+                            if (!settled) {
+                                const force2 = confirm(
+                                    '上传没有在预期时间内完成（可能已离线）。\n\n' +
+                                    '现在退出会丢失未上传的修改。\n\n' +
+                                    '点击「确定」= 仍然退出（丢失未上传的修改）；\n' +
+                                    '点击「取消」= 留在本页。'
+                                );
+                                if (!force2) return;
+                                force = true;   // 用户在知情前提下选择丢弃
+                            }
+                        }
+                    }
                     this.token = null;
                     this.session = null;
                     localStorage.removeItem('qs-auth-token');
@@ -141,7 +208,18 @@
                         }
                         if (window.App && App.data && typeof App.data.loadFromCloud === "function") {
                             App.data._syncReady = false;
-                            App.data.loadFromCloud();
+                            const d = App.data;
+                            const hasLocalPending = d._bankDirty ||
+                                (Array.isArray(d._historyAppendBuffer) && d._historyAppendBuffer.length > 0);
+                            if (hasLocalPending) {
+                                // 先推后拉：本机存着上次会话没上传完的修改，直接 loadFromCloud
+                                // 会违反「云端不得覆盖本地新数据」的守卫。先上传本地状态
+                                //（冲突则走 409 合并），保存成功后再补一次拉取收敛双方。
+                                d._pullAfterSave = true;
+                                if (typeof d.saveToCloudDebounced === 'function') d.saveToCloudDebounced();
+                            } else {
+                                d.loadFromCloud();
+                            }
                         }
                         if (window.App && App.sync && typeof App.sync.startAutoPull === "function") {
                             App.sync.startAutoPull();

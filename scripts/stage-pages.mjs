@@ -5,6 +5,7 @@
  * 用法：node scripts/stage-pages.mjs
  */
 import { cpSync, rmSync, mkdirSync, existsSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,9 +13,10 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dest = path.join(root, '.pages-dist');
 
 const FRONTEND_FILES = ['index.html', 'admin.html', 'config.js'];
-const FRONTEND_DIRS = ['js'];
+const FRONTEND_DIRS = ['js', 'fonts'];
 
-if (!existsSync(path.join(root, 'index.html'))) {
+// 部署目标防呆：确认前端与后端配置指向同一环境execFileSync(process.execPath, [path.join(root, 'scripts', 'check-deploy-target.mjs')], { stdio: 'inherit' });
+if (!existsSync(path.join(root, 'index.html'))) {
     console.error('stage-pages: index.html not found, run from repo root');
     process.exit(1);
 }

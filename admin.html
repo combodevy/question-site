@@ -12,6 +12,20 @@
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
     <script src="config.js"></script>
+    <style>
+        /* 自托管 Inter 可变字体，与用户端字体栈一致 */
+        @font-face {
+            font-family: 'Inter';
+            src: url('fonts/inter-var.woff2') format('woff2-variations');
+            font-weight: 100 900;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        body {
+            font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        }
+    </style>
 </head>
 
 <body class="bg-gray-50 min-h-screen font-sans text-gray-900 overflow-hidden">
@@ -151,7 +165,7 @@
                     <div class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
                         <span class="text-xs font-bold text-gray-600 uppercase">Raw JSON Data (Editable)</span>
                         <div class="space-x-2">
-                            <button onclick="Admin.copyJson()"
+                            <button id="btn-copy-json" onclick="Admin.copyJson()"
                                 class="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-50">Copy</button>
                         </div>
                     </div>
@@ -218,6 +232,7 @@
                         <option value="mcq">Multiple Choice (MCQ)</option>
                         <option value="multi">Multi-Select</option>
                         <option value="tf">True/False</option>
+                        <option value="fill">Fill-in-the-blank</option>
                     </select>
                 </div>
 
@@ -226,6 +241,13 @@
                     <textarea id="qe-q" rows="3"
                         class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none resize-none"
                         placeholder="Enter question content..."></textarea>
+                </div>
+
+                <div id="qe-fill-block" class="space-y-1 hidden">
+                    <label class="text-[11px] text-gray-500 font-bold">Correct Answer (multiple accepted answers, separate with | )</label>
+                    <input id="qe-fill-answer" type="text"
+                        class="w-full bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none"
+                        placeholder="e.g. TCP|Transmission Control Protocol" />
                 </div>
 
                 <div id="qe-options-block" class="space-y-1">
@@ -323,7 +345,7 @@
                                 </path>
                             </svg>
                             <span class="text-xs text-gray-600 font-bold">Upload File</span>
-                            <span class="text-[10px] text-gray-400 mt-1">Word, PDF, TXT, JSON</span>
+                            <span class="text-[11px] text-gray-400 mt-1">Word, PDF, TXT, JSON</span>
                         </div>
                         <!-- 粘贴文本 -->
                         <textarea id="batch-json-input"
@@ -355,6 +377,29 @@
         </div>
     </div>
 
+    <!-- 重置用户密码弹窗 -->
+    <div id="modal-reset-pw"
+        class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[70] flex items-center justify-center hidden">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+            <h3 class="text-lg font-bold text-gray-800 mb-1">Reset User Password</h3>
+            <p class="text-xs text-gray-500 mb-4">为用户 <span id="reset-pw-username" class="font-bold text-gray-700">-</span> 设置一个临时密码，告知用户后其可在前端自行修改。</p>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1">Temporary Password</label>
+                    <input id="reset-pw-new" type="text" autocomplete="off"
+                        class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 outline-none text-sm font-mono">
+                </div>
+                <div id="reset-pw-msg" class="text-xs text-red-500 min-h-[1rem]"></div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button onclick="document.getElementById('modal-reset-pw').classList.add('hidden')"
+                        class="px-3 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-bold">Cancel</button>
+                    <button onclick="Admin.resetPassword()" id="btn-reset-pw"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700">Reset</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 主界面 -->
     <div id="admin-app" class="hidden flex h-screen w-full overflow-hidden relative">
         <!-- 侧边栏 -->
@@ -365,7 +410,7 @@
                     <h1
                         class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-300">
                         QS Admin</h1>
-                    <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-bold">Workspace</p>
+                    <p class="text-[11px] text-slate-400 mt-1 uppercase tracking-wider font-bold">Workspace</p>
                 </div>
                 <!-- 移动端关闭按钮 -->
                 <button onclick="Admin.toggleSidebar()" class="md:hidden text-slate-400 hover:text-white p-1">
@@ -432,6 +477,9 @@
                             <div class="flex items-center gap-4">
                                 <div class="text-sm font-bold text-gray-700">Total Users: <span id="user-count"
                                         class="text-blue-600">Loading...</span></div>
+                                <input id="user-search" type="text" placeholder="按用户名搜索…"
+                                    oninput="Admin.onUserSearchInput(this)"
+                                    class="hidden sm:block w-40 px-3 py-1.5 rounded-lg border border-gray-300 text-xs outline-none focus:border-blue-500">
                                 <div id="batch-actions"
                                     class="hidden flex items-center gap-2 pl-4 border-l border-gray-300">
                                     <span id="selected-count" class="text-xs font-bold text-blue-600 hidden sm:inline">0
@@ -480,6 +528,12 @@
                                     <!-- JS 渲染 -->
                             </table>
                         </div>
+                        <!-- 用户分页 -->
+                        <div id="user-pager" class="hidden items-center justify-between px-6 py-3 border-t border-gray-200 bg-gray-50 rounded-b-2xl">
+                            <button id="user-prev" onclick="Admin.changeUserPage(-1)" class="px-3 py-1.5 rounded-lg text-sm font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">上一页</button>
+                            <span id="user-page-info" class="text-sm text-gray-600 font-medium"></span>
+                            <button id="user-next" onclick="Admin.changeUserPage(1)" class="px-3 py-1.5 rounded-lg text-sm font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">下一页</button>
+                        </div>
                     </div>
                 </div>
 
@@ -524,9 +578,9 @@
                                         </button>
                                     </div>
                                     <div class="flex flex-col items-end gap-1">
-                                        <a href="data:application/json;charset=utf-8,%5B%0A%20%20%7B%0A%20%20%20%20%22q%22%3A%20%22Question%20text%3F%22%2C%0A%20%20%20%20%22o%22%3A%20%5B%22Option%20A%22%2C%20%22Option%20B%22%2C%20%22Option%20C%22%2C%20%22Option%20D%22%5D%2C%0A%20%20%20%20%22a%22%3A%20%22A%22%2C%0A%20%20%20%20%22type%22%3A%20%22mcq%22%2C%0A%20%20%20%20%22sub%22%3A%20%22Subject%20Name%22%2C%0A%20%20%20%20%22chap%22%3A%20%22Chapter%201%22%0A%20%20%7D%0A%5D"
+                                        <a href="data:application/json;charset=utf-8,%5B%0A%20%20%7B%0A%20%20%20%20%22q%22%3A%20%22Question%20text%3F%22%2C%0A%20%20%20%20%22o%22%3A%20%5B%0A%20%20%20%20%20%20%22Option%20A%22%2C%0A%20%20%20%20%20%20%22Option%20B%22%2C%0A%20%20%20%20%20%20%22Option%20C%22%2C%0A%20%20%20%20%20%20%22Option%20D%22%0A%20%20%20%20%5D%2C%0A%20%20%20%20%22a%22%3A%20%22A%22%2C%0A%20%20%20%20%22type%22%3A%20%22mcq%22%2C%0A%20%20%20%20%22sub%22%3A%20%22Subject%20Name%22%2C%0A%20%20%20%20%22chap%22%3A%20%22Chapter%201%22%0A%20%20%7D%2C%0A%20%20%7B%0A%20%20%20%20%22q%22%3A%20%22Fill-in-the-blank%20question%3F%22%2C%0A%20%20%20%20%22a%22%3A%20%22Answer%22%2C%0A%20%20%20%20%22type%22%3A%20%22fill%22%2C%0A%20%20%20%20%22sub%22%3A%20%22Subject%20Name%22%2C%0A%20%20%20%20%22chap%22%3A%20%22Chapter%201%22%0A%20%20%7D%0A%5D"
                                             download="template.json"
-                                            class="text-[10px] text-blue-500 hover:underline">Download JSON Template</a>
+                                            class="text-[11px] text-blue-500 hover:underline">Download JSON Template</a>
                                     </div>
                                 </div>
                                 <input type="file" id="ai-import-json" class="hidden" accept=".json"
@@ -538,13 +592,13 @@
                                     <label for="push-json"
                                         class="text-[11px] text-gray-500 font-bold flex items-center justify-between">
                                         <span>Final Questions JSON (Editable)</span>
-                                        <span class="text-[10px] opacity-70">Will be pushed to user(s)</span>
+                                        <span class="text-[11px] opacity-70">Will be pushed to user(s)</span>
                                     </label>
                                     <textarea id="push-json" rows="8"
                                         class="w-full text-[11px] font-mono bg-white border border-gray-300 rounded-xl px-3 py-2 outline-none focus:border-blue-500 custom-scroll leading-relaxed"
                                         placeholder='[{"q":"Question?","o":["A","B"],"a":"A","type":"mcq","sub":"Math","chap":"1"}]'></textarea>
                                 </div>
-                                <div id="ai-import-status" class="text-[10px] text-gray-500 font-medium"></div>
+                                <div id="ai-import-status" class="text-[11px] text-gray-500 font-medium"></div>
                             </div>
                             <div class="pt-6 flex justify-end pb-2">
                                 <button onclick="Admin.pushBroadcast()" id="btn-push"
@@ -598,9 +652,12 @@
     </div>
 
     <script>
-        if (!window.API_BASE) {
-            alert('Critical Error: API Configuration missing. Check console.');
-            console.error('API_BASE is not defined in config.js');
+        // config.js 若加载失败，这里会是空串。之前只 alert 一下就继续跑，
+        // 结果所有请求都打到当前站点（Pages 对未知路径返回 index.html），
+        // 用户只会看到「登录失败」这种毫无线索的提示。
+        const API_CONFIG_OK = !!window.API_BASE;
+        if (!API_CONFIG_OK) {
+            console.error('[admin] API_BASE is not defined in config.js');
         }
 
         const ADMIN_API_BASE = (window.API_BASE || '').replace(/\/+$/, '');
@@ -615,7 +672,7 @@
         function parseUtcDate(str) {
             if (!str || typeof str !== 'string') return null;
             try {
-                const d = new Date(str.trim().replace(' ', 'T') + (/[Zz]|[+-]d{2}:?d{2}$/.test(str) ? '' : 'Z'));
+                const d = new Date(str.trim().replace(' ', 'T') + (/[Zz]|[+-]\d{2}:?\d{2}$/.test(str) ? '' : 'Z'));
                 return isNaN(d.getTime()) ? null : d;
             } catch (e) { return null; }
         }
@@ -640,6 +697,25 @@
 
             selectedUsers: new Set(),
             isSidebarOpen: false,
+            userPage: 1,
+            userPages: 1,
+            userSearch: '',
+            _userSearchTimer: null,
+
+            onUserSearchInput(el) {
+                // 防抖 300ms：停手后才请求，避免每个字符一发请求
+                if (this._userSearchTimer) clearTimeout(this._userSearchTimer);
+                this._userSearchTimer = setTimeout(() => {
+                    this.userSearch = (el.value || '').trim();
+                    this.fetchUsers(1);
+                }, 300);
+            },
+
+            changeUserPage(delta) {
+                const next = this.userPage + delta;
+                if (next < 1 || next > this.userPages) return;
+                this.fetchUsers(next);
+            },
 
             toggleSidebar() {
                 const sidebar = document.getElementById('sidebar');
@@ -710,10 +786,15 @@
                     this.selectedUsers.add(userId);
                 }
 
-                // Update "Select All" state
+                // 全选状态按「当前页每个用户是否都已选」逐个判断（与 fetchUsers 同一口径）。
+                // 旧写法拿全局已选数和本页行数比较：其它页选满时会误点亮本页全选框。
                 const allCheckbox = document.getElementById('select-all-users');
-                const checkboxes = document.querySelectorAll('.user-checkbox');
-                allCheckbox.checked = checkboxes.length > 0 && this.selectedUsers.size === checkboxes.length;
+                if (allCheckbox) {
+                    const pageIds = (this.usersCache || []).map(u => u.user_id);
+                    allCheckbox.checked = pageIds.length > 0 && pageIds.every(pid => this.selectedUsers.has(pid));
+                    // 部分选中时给 indeterminate 半选态，范围一目了然
+                    allCheckbox.indeterminate = pageIds.some(pid => this.selectedUsers.has(pid)) && !allCheckbox.checked;
+                }
 
                 this.updateBatchActions();
             },
@@ -736,6 +817,41 @@
                 document.getElementById('new-user-email').value = '';
                 document.getElementById('new-user-pwd').value = '';
                 document.getElementById('add-user-msg').innerText = '';
+            },
+
+            // 重置用户密码：管理员设定临时密码，用户登录后可在前端自行修改
+            openResetPwModal(userId) {
+                const user = (this.usersCache || []).find(u => u.user_id === userId);
+                document.getElementById('reset-pw-username').innerText = user ? (user.username || user.user_id) : userId;
+                document.getElementById('reset-pw-new').value = '';
+                document.getElementById('reset-pw-msg').innerText = '';
+                document.getElementById('modal-reset-pw').dataset.userId = userId;
+                document.getElementById('modal-reset-pw').classList.remove('hidden');
+            },
+
+            async resetPassword() {
+                const modal = document.getElementById('modal-reset-pw');
+                const msg = document.getElementById('reset-pw-msg');
+                const userId = modal.dataset.userId;
+                const newPassword = document.getElementById('reset-pw-new').value;
+                if (!newPassword || newPassword.length < 6) {
+                    msg.innerText = 'Password must be at least 6 characters';
+                    return;
+                }
+                msg.innerText = 'Resetting...';
+                try {
+                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/reset-user-password`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId, newPassword })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'Failed to reset');
+                    alert('Password reset successfully. Tell the user to log in with the temporary password and change it.');
+                    modal.classList.add('hidden');
+                } catch (e) {
+                    msg.innerText = 'Error: ' + e.message;
+                }
             },
 
             async addNewUser() {
@@ -1005,6 +1121,10 @@
                 const loginId = document.getElementById('email').value;
                 const password = document.getElementById('password').value;
                 const msg = document.getElementById('login-msg');
+                if (!API_CONFIG_OK) {
+                    msg.innerText = '配置缺失：config.js 未成功加载，无法登录。请刷新页面重试。';
+                    return;
+                }
                 msg.innerText = 'Logging in...';
 
                 try {
@@ -1016,16 +1136,26 @@
                     const data = await res.json();
                     if (!res.ok) {
                         msg.innerText = data.error || '登录失败';
-                    } else {
-                        msg.innerText = 'Success!';
-                        this.token = data.token;
-                        localStorage.setItem('qs-admin-auth-token', this.token);
-                        const payload = parseJwt(this.token);
-                        document.getElementById('login-overlay').classList.add('hidden');
-                        document.getElementById('admin-app').classList.remove('hidden');
-                        document.getElementById('admin-user-id').innerText = payload.username || payload.sub;
-                        this.fetchUsers();
+                        return;
                     }
+                    // 服务端没给凭证时不能继续：否则 parseJwt 返回 null，
+                    // payload.sub 会抛 TypeError，用户看到的是一句内部错误
+                    if (!data || typeof data.token !== 'string' || !data.token) {
+                        msg.innerText = '服务端未返回登录凭证，请稍后重试。';
+                        return;
+                    }
+                    const payload = parseJwt(data.token);
+                    if (!payload) {
+                        msg.innerText = '登录凭证无法解析，请稍后重试。';
+                        return;
+                    }
+                    this.token = data.token;
+                    localStorage.setItem('qs-admin-auth-token', this.token);
+                    msg.innerText = 'Success!';
+                    document.getElementById('login-overlay').classList.add('hidden');
+                    document.getElementById('admin-app').classList.remove('hidden');
+                    document.getElementById('admin-user-id').innerText = payload.username || payload.sub;
+                    this.fetchUsers();
                 } catch (e) {
                     msg.innerText = 'Unexpected error: ' + e.message;
                 }
@@ -1041,6 +1171,10 @@
                     return;
                 }
 
+                if (!API_CONFIG_OK) {
+                    msg.innerText = '配置缺失：config.js 未成功加载，无法注册。请刷新页面重试。';
+                    return;
+                }
                 msg.innerText = 'Signing up...';
 
                 try {
@@ -1056,16 +1190,24 @@
                     const data = await res.json();
                     if (!res.ok) {
                         msg.innerText = data.error || '注册失败';
-                    } else {
-                        msg.innerText = 'Sign up successful! Logging in...';
-                        this.token = data.token;
-                        localStorage.setItem('qs-admin-auth-token', this.token);
-                        const payload = parseJwt(this.token);
-                        document.getElementById('login-overlay').classList.add('hidden');
-                        document.getElementById('admin-app').classList.remove('hidden');
-                        document.getElementById('admin-user-id').innerText = payload.username || payload.sub;
-                        this.fetchUsers();
+                        return;
                     }
+                    if (!data || typeof data.token !== 'string' || !data.token) {
+                        msg.innerText = '服务端未返回注册凭证，请稍后重试。';
+                        return;
+                    }
+                    const payload = parseJwt(data.token);
+                    if (!payload) {
+                        msg.innerText = '注册凭证无法解析，请稍后重试。';
+                        return;
+                    }
+                    msg.innerText = 'Sign up successful! Logging in...';
+                    this.token = data.token;
+                    localStorage.setItem('qs-admin-auth-token', this.token);
+                    document.getElementById('login-overlay').classList.add('hidden');
+                    document.getElementById('admin-app').classList.remove('hidden');
+                    document.getElementById('admin-user-id').innerText = payload.username || payload.sub;
+                    this.fetchUsers();
                 } catch (e) {
                     msg.innerText = 'Unexpected error: ' + e.message;
                 }
@@ -1090,13 +1232,15 @@
                 }
                 return res;
             },
-            async fetchUsers() {
+            async fetchUsers(page) {
+                if (typeof page === 'number' && page >= 1) this.userPage = page;
                 const tbody = document.getElementById('user-table-body');
                 const countEl = document.getElementById('user-count');
                 tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Loading users...</td></tr>';
 
                 try {
-                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/users-list`, {
+                    const qParam = this.userSearch ? `&q=${encodeURIComponent(this.userSearch)}` : '';
+                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/users-list?page=${this.userPage}&pageSize=20${qParam}`, {
                         headers: { 'Authorization': `Bearer ${this.token}` }
                     });
 
@@ -1106,7 +1250,25 @@
                     }
 
                     const data = await res.json();
-                    countEl.innerText = data.meta ? data.meta.total : (data.users ? data.users.length : 0);
+                    this.usersCache = data.users || [];
+                    const meta = data.meta || {};
+                    this.userPage = meta.page || this.userPage;
+                    this.userPages = meta.pages || 1;
+                    countEl.innerText = meta.total != null ? meta.total : (data.users ? data.users.length : 0);
+
+                    // 分页控件状态
+                    const pager = document.getElementById('user-pager');
+                    const pageInfo = document.getElementById('user-page-info');
+                    const prevBtn = document.getElementById('user-prev');
+                    const nextBtn = document.getElementById('user-next');
+                    if (pager && pageInfo) {
+                        const multi = (this.userPages || 1) > 1;
+                        pager.classList.toggle('hidden', !multi);
+                        pager.classList.toggle('flex', multi);
+                        pageInfo.innerText = `第 ${this.userPage} / ${this.userPages} 页 · 共 ${meta.total || 0} 位用户`;
+                        if (prevBtn) prevBtn.disabled = this.userPage <= 1;
+                        if (nextBtn) nextBtn.disabled = this.userPage >= this.userPages;
+                    }
 
                     if (!data.users || data.users.length === 0) {
                         tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">No users found.</td></tr>';
@@ -1121,7 +1283,7 @@
                             <td class="px-6 py-4">
                                 <div class="flex flex-col">
                                     <span class="font-bold text-gray-900">${Admin.escapeHTML(u.username || u.email || 'No Name')}</span>
-                                    <span class="font-mono text-[10px] text-gray-400 select-all">${Admin.escapeHTML(u.user_id)}</span>
+                                    <span class="font-mono text-[11px] text-gray-400 select-all">${Admin.escapeHTML(u.user_id)}</span>
                                 </div>
                             </td>
                             <td class="px-6 py-4">
@@ -1135,15 +1297,19 @@
                                 <div class="truncate max-w-[150px] opacity-70" title="${Admin.escapeHTML(u.last_device || 'N/A')}">${Admin.escapeHTML(u.last_device || '-')}</div>
                             </td>
                             <td class="px-6 py-4 text-right">
-                                <button onclick="Admin.viewSets('${u.user_id}')" class="text-blue-600 hover:underline text-xs font-bold mr-2">Manage Banks</button>
+                                <button onclick="Admin.openResetPwModal('${u.user_id}')" class="text-amber-600 hover:underline text-xs font-bold mr-2">Reset PW</button>
+                                <button onclick="Admin.viewSets('${u.user_id}')" class="text-blue-600 hover:underline text-xs font-bold">Manage Banks</button>
                             </td>
                         </tr>
             `).join('');
 
-                    // Restore "Select All" checkbox state
+                    // 全选框状态按「当前页每个用户是否都已选」逐个判断。
+                    // 旧写法拿全局已选总数和本页行数比较：上一页选满 20 人后切到
+                    // 别的页，本页一个没选全选框也会亮着，误导批量操作范围
                     const allCheckbox = document.getElementById('select-all-users');
                     if (allCheckbox) {
-                        allCheckbox.checked = data.users.length > 0 && this.selectedUsers.size === data.users.length;
+                        const pageIds = (data.users || []).map(u => u.user_id);
+                        allCheckbox.checked = pageIds.length > 0 && pageIds.every(pid => this.selectedUsers.has(pid));
                     }
 
                     // Populate the push-user-id select dropdown
@@ -1277,7 +1443,8 @@
                     }
 
                     tbody.innerHTML = data.logs.map(log => {
-                        const statusColor = log.status === 'success' ? 'text-green-400' : 'text-red-400';
+                        const statusColors = { success: 'text-green-400', 'client-error': 'text-yellow-400' };
+                        const statusColor = statusColors[log.status] || 'text-red-400';
                         const safeUserId = Admin.escapeHTML(log.username || log.user_id || '');
                         const safeStatus = Admin.escapeHTML(log.status || '');
                         const delta = (log.delta && typeof log.delta === 'object') ? log.delta : {};
@@ -1287,7 +1454,7 @@
                         return `
                             <tr class="hover:bg-gray-700 transition-colors">
                                 <td class="px-4 py-2 text-gray-500">${(parseUtcDate(log.created_at) ? parseUtcDate(log.created_at).toLocaleString() : '')}</td>
-                                <td class="px-4 py-2 text-gray-400 text-[10px]">${safeUserId}</td>
+                                <td class="px-4 py-2 text-gray-400 text-[11px]">${safeUserId}</td>
                                 <td class="px-4 py-2 font-bold ${statusColor}">${safeStatus}</td>
                                 <td class="px-4 py-2 text-gray-400">${safeIp}</td>
                                 <td class="px-4 py-2 text-gray-500 truncate max-w-[200px]" title="${safeUa}">${safeUa}</td>
@@ -1425,7 +1592,7 @@
 
                 container.innerHTML = this.currentQuestions.map((q, idx) => {
                     const safeQ = this.escapeHTML(q.q || '');
-                    const typeLabels = { mcq: 'Multiple Choice', multi: 'Multi-Select', tf: 'True/False' };
+                    const typeLabels = { mcq: 'Multiple Choice', multi: 'Multi-Select', tf: 'True/False', fill: 'Fill-in-the-blank' };
                     const typeLabel = typeLabels[q.type] || q.type;
 
                     let optionsHtml = '';
@@ -1436,6 +1603,10 @@
                                     <span class="${isTrue ? 'text-green-600 bg-green-50 px-2 py-1 rounded' : 'text-gray-400'}">True</span>
                                     <span class="${!isTrue ? 'text-green-600 bg-green-50 px-2 py-1 rounded' : 'text-gray-400'}">False</span>
                                 </div>
+                                `;
+                    } else if (q.type === 'fill') {
+                        optionsHtml = `
+                                <div class="mt-2 text-xs font-bold text-green-700 bg-green-50 px-2 py-1 rounded inline-block">答案: ${this.escapeHTML(q.a || '')}</div>
                                 `;
                     } else {
                         optionsHtml = `<div class="space-y-1 mt-2">` +
@@ -1457,9 +1628,9 @@
                                 <div class="bg-white border border-gray-200 rounded-xl p-4 mb-4 hover:shadow-md transition-all">
                                     <div class="flex justify-between items-start mb-2">
                                         <div class="flex gap-2 items-center">
-                                            <span class="bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-0.5 rounded">#${idx + 1}</span>
-                                            <span class="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded">${typeLabel}</span>
-                                            <span class="text-[10px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">${this.escapeHTML(q.sub)} / ${this.escapeHTML(q.chap)}</span>
+                                            <span class="bg-gray-100 text-gray-600 text-[11px] font-bold px-2 py-0.5 rounded">#${idx + 1}</span>
+                                            <span class="bg-blue-50 text-blue-600 text-[11px] font-bold px-2 py-0.5 rounded">${typeLabel}</span>
+                                            <span class="text-[11px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">${this.escapeHTML(q.sub)} / ${this.escapeHTML(q.chap)}</span>
                                         </div>
                                         <button onclick="Admin.openQuestionEditor(${idx})" class="text-blue-600 hover:text-blue-800 text-xs font-bold px-3 py-1 rounded hover:bg-blue-50 transition-colors flex items-center gap-1">
                                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 11l3 3L22.5 5.5 18.5 1.5 9 11zM3 21h4l11-11-4-4L3 17v4z"></path></svg>
@@ -1475,6 +1646,10 @@
 
             openQuestionEditor(index) {
                 const modal = document.getElementById('modal-question-editor');
+                // 未传参时 index 是 undefined，index === -1 为假 → 会把字符串 "undefined"
+                // 写进 qe-index，随后 parseInt 得到 NaN，保存时 this.currentQuestions[NaN].id 崩溃。
+                // 这里统一归一化：非法或越界一律按「新增」(-1) 处理。
+                if (!Number.isInteger(index) || index < 0 || index >= this.currentQuestions.length) index = -1;
                 const q = index === -1 ? null : this.currentQuestions[index];
                 document.getElementById('qe-index').value = index;
                 document.getElementById('qe-title').innerText = q ? 'Edit Question' : 'Add Question';
@@ -1536,6 +1711,17 @@
             renderEditorOptions(q) {
                 const list = document.getElementById('qe-options-list');
                 const tfRadios = document.querySelectorAll('input[name="qe-tf"]');
+                const fillBlock = document.getElementById('qe-fill-block');
+                const fillInput = document.getElementById('qe-fill-answer');
+
+                if (q && q.type === 'fill') {
+                    tfRadios.forEach(r => r.checked = false);
+                    list.innerHTML = '';
+                    fillBlock.classList.remove('hidden');
+                    if (fillInput) fillInput.value = q.a || '';
+                    return;
+                }
+                fillBlock.classList.add('hidden');
 
                 if (q && q.type === 'tf') {
                     tfRadios.forEach(r => r.checked = r.value === q.a);
@@ -1577,18 +1763,28 @@
                 const type = document.getElementById('qe-type').value;
                 const optBlock = document.getElementById('qe-options-block');
                 const tfBlock = document.getElementById('qe-tf-block');
+                const fillBlock = document.getElementById('qe-fill-block');
 
                 if (type === 'tf') {
                     optBlock.classList.add('hidden');
                     tfBlock.classList.remove('hidden');
+                    fillBlock.classList.add('hidden');
+                } else if (type === 'fill') {
+                    optBlock.classList.add('hidden');
+                    tfBlock.classList.add('hidden');
+                    fillBlock.classList.remove('hidden');
                 } else {
                     optBlock.classList.remove('hidden');
                     tfBlock.classList.add('hidden');
+                    fillBlock.classList.add('hidden');
                 }
             },
 
             saveQuestionFromEditor() {
-                const index = parseInt(document.getElementById('qe-index').value);
+                // qe-index 为空或非法时 parseInt 会得到 NaN，而 NaN !== -1 为真，
+                // 于是 this.currentQuestions[NaN].id 抛 TypeError、保存静默失败。
+                let index = parseInt(document.getElementById('qe-index').value, 10);
+                if (!Number.isInteger(index) || index < 0 || index >= this.currentQuestions.length) index = -1;
                 const type = document.getElementById('qe-type').value;
                 const qText = document.getElementById('qe-q').value.trim();
                 const subSelect = document.getElementById('qe-subject-select');
@@ -1606,7 +1802,9 @@
                 }
 
                 let newQ = {
-                    id: index !== -1 ? this.currentQuestions[index].id : Date.now().toString(),
+                    id: (index !== -1 && this.currentQuestions[index] && this.currentQuestions[index].id)
+                        ? this.currentQuestions[index].id
+                        : Date.now().toString(),
                     type,
                     sub,
                     chap,
@@ -1620,6 +1818,13 @@
                         return;
                     }
                     newQ.a = checked.value;
+                } else if (type === 'fill') {
+                    const answer = document.getElementById('qe-fill-answer').value.trim();
+                    if (!answer) {
+                        errEl.innerText = 'Fill-in answer is required.';
+                        return;
+                    }
+                    newQ.a = answer;
                 } else {
                     const list = document.getElementById('qe-options-list');
                     const options = [];
@@ -1764,10 +1969,39 @@
                 }
             },
 
-            copyJson() {
+            async copyJson() {
                 const jsonContent = document.getElementById('modal-json-content');
-                jsonContent.select();
-                document.execCommand('copy');
+                const btn = document.getElementById('btn-copy-json');
+                if (!jsonContent) return;
+                const text = jsonContent.value || '';
+                if (!text) return;
+
+                // 给按钮一个短暂的文字反馈：原来复制完毫无提示，用户不知道成没成功
+                const flash = (label) => {
+                    if (!btn) return;
+                    if (!btn.dataset.origLabel) btn.dataset.origLabel = btn.textContent;
+                    btn.textContent = label;
+                    clearTimeout(btn._copyTimer);
+                    btn._copyTimer = setTimeout(() => { btn.textContent = btn.dataset.origLabel; }, 1500);
+                };
+
+                // 优先用标准剪贴板 API：不需要选中文本，也不依赖已废弃的 execCommand
+                try {
+                    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                        await navigator.clipboard.writeText(text);
+                        flash('Copied ✓');
+                        return;
+                    }
+                } catch (e) { /* 非安全上下文或权限被拒，走下面的回退 */ }
+
+                // 回退：选中 + execCommand（老浏览器）
+                try {
+                    jsonContent.select();
+                    const ok = typeof document.execCommand === 'function' && document.execCommand('copy');
+                    flash(ok ? 'Copied ✓' : 'Copy failed');
+                } catch (e) {
+                    flash('Copy failed');
+                }
             }
         };
 

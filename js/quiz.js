@@ -8,8 +8,6 @@ export const quiz = {
                         clearTimeout(this._pendingNextTimer);
                         this._pendingNextTimer = null;
                     }
-                    // 答题期间暂停云端同步，做完再一次性上传
-                    App.data._suppressCloudSync = true;
                     let pool = App.data.getQuestions();
                     if (!pool.length) {
                         alert("当前题库为空，请先在设置中导入题库文件。\n(The question bank is empty. Please import a JSON file in settings.)");
@@ -27,7 +25,10 @@ export const quiz = {
 
                         if (!config.limit) {
                             const l = App.dom.getValue('smart-limit', '20');
-                            limit = l === 'all' ? pool.length : parseInt(l);
+                            const n = parseInt(l, 10);
+                            // parseInt 对空值/非法值返回 NaN，slice(0, NaN) 会得到空队列，
+                            // 用户看到的是空白答题页。这里统一回退到「全部」。
+                            limit = (l === 'all' || !Number.isFinite(n) || n <= 0) ? pool.length : n;
                         } else {
                             limit = config.limit;
                         }
@@ -42,9 +43,8 @@ export const quiz = {
                         else typeConstraint = config.type;
                     }
 
-                    if (typeConstraint === 'mcq') pool = pool.filter(q => q.type === 'mcq');
-                    if (typeConstraint === 'tf') pool = pool.filter(q => q.type === 'tf');
-                    if (typeConstraint === 'multi') pool = pool.filter(q => q.type === 'multi');
+                    // 题型过滤：'all' 不过滤；其余按类型精确匹配（含 fill）
+                    if (typeConstraint !== 'all') pool = pool.filter(q => q.type === typeConstraint);
 
                     if (pool.length === 0) {
                         alert("此筛选条件下没有符合的题目。请更改条件后重试。\n(No questions match your filter criteria.)");
@@ -52,26 +52,43 @@ export const quiz = {
                     }
 
                     if (mode === 'mistakes') {
-                        const errIds = new Set(App.data.history.filter(h => !h.r).map(h => h.id));
+                        const errIds = new Set(App.data.getSafeHistory().filter(h => !h.r).map(h => h.id));
                         pool = pool.filter(q => errIds.has(q.id));
+                        // 排除已被用户从错题本「移除」的题，否则移除后练错题还会抽到它
+                        pool = pool.filter(q => !App.data.isMistakeHidden(q.id));
                         if (!pool.length) { alert("太棒了！您的题库中暂无错题。\n(Great job! No mistakes found.)"); return false; }
                         this.queue = App.utils.shuffle(pool);
+                    } else if (mode === 'review') {
+                        // 间隔复习：只取今日到期（SM-2 计划）的题，按到期时间排序
+                        const due = App.data.getReviewQueue();
+                        if (!due.length) {
+                            alert("今日没有到期的复习题目。\n先完成一轮练习，复习计划会随后出现。");
+                            return false;
+                        }
+                        this.queue = due;
                     } else if (mode === 'random') {
                         this.queue = App.utils.shuffle(pool).slice(0, limit);
                     } else if (mode === 'custom') {
                         const chks = document.querySelectorAll('.setup-chk:checked');
                         if (chks.length > 0) {
                             const targets = Array.from(chks).map(c => c.value);
-                            pool = pool.filter(q => targets.includes(`${q.sub}|${q.chap}`));
+                            pool = pool.filter(q => targets.includes(`${q.sub}\u0001${q.chap}`));
                         }
                         if (!pool.length) { alert("选中的章节下没有符合的题目。\n(No questions in the selected chapters.)"); return false; }
 
                         pool = App.utils.shuffle(pool);
                         const l = App.dom.getValue('setup-limit', '20');
-                        this.queue = l === 'all' ? pool : pool.slice(0, parseInt(l));
+                        const n = parseInt(l, 10);
+                        this.queue = (l === 'all' || !Number.isFinite(n) || n <= 0) ? pool : pool.slice(0, n);
                     }
 
                     this.idx = 0; this.stats = { c: 0, w: 0 };
+                    // 走到这里说明所有校验都通过了，才暂停云端同步（答题期间攒着，做完一次性上传）。
+                    // 注意：不能放在函数开头——上面有多条提前 return 的失败路径
+                    //（题库为空 / 筛选无结果 / 无错题 / 章节无题），一旦泄漏这个标志位，
+                    // 本次会话内所有题库与记录的改动都不再上传云端，而界面仍显示「已同步」。
+                    App.data._suppressCloudSync = true;
+                    this._ensureKeyboard();
                     App.router.go('quiz');
                     this.render();
                     return true;
@@ -89,7 +106,7 @@ export const quiz = {
                     }
                     const q = this.queue[this.idx];
                     if (!q) return;
-                    App.dom.setText('q-type', q.type === 'mcq' ? '单选' : (q.type === 'multi' ? '多选' : '判断'));
+                    App.dom.setText('q-type', q.type === 'mcq' ? '单选' : (q.type === 'multi' ? '多选' : (q.type === 'fill' ? '填空' : '判断')));
                     App.dom.setText('q-sub', q.sub);
                     App.dom.setText('q-text', q.q);
                     App.dom.setText('quiz-progress', `${this.idx + 1} / ${this.queue.length}`);
@@ -101,6 +118,20 @@ export const quiz = {
                     App.dom.hide('quiz-feedback');
 
                     this.currentMultiSelection = new Set();
+
+                    // 填空题：显示输入框 + 提交按钮（隐藏多选/判断交互）
+                    const fillActions = document.getElementById('fill-actions');
+                    const fillInput = document.getElementById('fill-input');
+                    if (fillActions && fillInput) {
+                        if (q.type === 'fill') {
+                            fillActions.classList.remove('hidden');
+                            fillInput.value = '';
+                            fillInput.disabled = false;
+                            setTimeout(() => { try { fillInput.focus(); } catch (e) { } }, 80);
+                        } else {
+                            fillActions.classList.add('hidden');
+                        }
+                    }
 
                     if (q.type === 'multi') {
                         App.dom.show('multi-actions');
@@ -120,7 +151,9 @@ export const quiz = {
                         App.dom.hide('multi-actions');
                         App.dom.hide('multi-hint');
 
-                        if (q.type === 'mcq') {
+                        if (q.type === 'fill') {
+                            // 填空题：选项区留空，答案输入框在下方 fill-actions 中
+                        } else if (q.type === 'mcq') {
                             (q.o || []).forEach((opt, i) => {
                                 const char = String.fromCharCode(65 + i);
                                 const safeOpt = App.utils.escapeHTML(opt);
@@ -152,6 +185,105 @@ export const quiz = {
                     }
                 },
 
+                // ===== 填空题判分 =====
+                // 标准答案支持多个可接受值，用 | 分隔（如 "TCP|传输控制协议"）；
+                // 判分忽略大小写，且忽略全部空白（含词间空格）——
+                // "information asymmetry" / "InformationAsymmetry" / "informationasymmetry" 一律判对
+                submitFill() {
+                    const q = this.queue[this.idx];
+                    const input = document.getElementById('fill-input');
+                    if (!input) return;
+                    const userAns = input.value.trim();
+                    if (!userAns) { alert("请先输入你的答案。(Please type your answer)"); return; }
+
+                    const accepted = String(q.a || '').split('|').map(s => s.trim()).filter(Boolean);
+                    // 归一化：忽略大小写 + 忽略全部空白（中英文一视同仁）
+                    const norm = (s) => s.toLowerCase().replace(/\s+/g, '');
+                    const ok = accepted.some(x => norm(x) === norm(userAns));
+
+                    // 判断「字面上是否与系统答案完全一致」（不做任何归一化），
+                    // 完全一致时反馈里不再重复显示系统答案
+                    const exact = accepted.some(x => x === userAns);
+
+                    const duration = this._questionStartTime ? Math.min(Date.now() - this._questionStartTime, 300000) : 0;
+                    App.data.record(q.id, ok, duration);
+
+                    input.disabled = true;
+                    const c = App.dom.get('q-options');
+                    if (c) c.style.pointerEvents = 'none';
+                    App.dom.show('quiz-feedback');
+                    this._animateFeedback(ok);
+
+                    const answerText = accepted.join(' / ');
+                    if (ok) {
+                        this.stats.c++;
+                        App.dom.setText('fb-icon', '✓');
+                        App.dom.setText('fb-title', '回答正确！');
+                        if (exact) {
+                            App.dom.setText('fb-desc', '太棒了，与系统答案完全一致。');
+                        } else {
+                            // 归一化判对但字面不同（如大小写/空格差异/等价写法）——仍显示系统标准答案
+                            App.dom.setHTML('fb-desc', `回答正确。系统答案：<span class="font-bold text-primary-600">${App.utils.escapeHTML(answerText)}</span>`);
+                        }
+                        // 与选择题行为一致：答对自动进入下一题（稍等片刻让用户看到正确反馈）
+                        if (this._pendingNextTimer) clearTimeout(this._pendingNextTimer);
+                        this._pendingNextTimer = setTimeout(() => {
+                            this._pendingNextTimer = null;
+                            this.next();
+                        }, 700);
+                    } else {
+                        this.stats.w++;
+                        App.dom.setText('fb-icon', '✕');
+                        App.dom.setText('fb-title', '回答错误 (Incorrect)');
+                        App.dom.setHTML('fb-desc', `你的答案：<span class="font-bold text-red-500">${App.utils.escapeHTML(userAns)}</span><br/>正确答案：<span class="font-bold text-primary-600">${App.utils.escapeHTML(answerText)}</span>`);
+                    }
+                },
+
+                // ===== 键盘作答（A–D / 1–4 选择，Enter 提交 / 下一题）=====
+                _ensureKeyboard() {
+                    if (this._keysBound) return;
+                    this._keysBound = true;
+                    document.addEventListener('keydown', (e) => this._onQuizKey(e));
+                },
+
+                _onQuizKey(e) {
+                    if (!window.App || App.router.currentView !== 'quiz') return;
+                    // 输入框（填空题答案）里的按键交给输入框自己处理
+                    if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+                    if (e.ctrlKey || e.metaKey || e.altKey) return;
+                    const q = this.queue && this.queue[this.idx];
+                    if (!q) return;
+                    const fb = document.getElementById('quiz-feedback');
+                    const feedbackShown = fb && !fb.classList.contains('hidden');
+
+                    if (e.key === 'Enter') {
+                        if (q.type === 'fill') return;   // 填空题 Enter 在输入框内提交
+                        if (q.type === 'multi' && !feedbackShown) { e.preventDefault(); this.submitMulti(); return; }
+                        if (feedbackShown) { e.preventDefault(); this.next(); }
+                        return;
+                    }
+                    if (feedbackShown) return;
+
+                    const key = (e.key || '').toLowerCase();
+                    const optBtns = document.querySelectorAll('#q-options .opt-btn');
+
+                    if (q.type === 'tf') {
+                        let v = null;
+                        if (key === '1' || key === 't') v = 'T';
+                        else if (key === '2' || key === 'f') v = 'F';
+                        if (v && optBtns.length === 2) this.sub(v, v === 'T' ? optBtns[0] : optBtns[1]);
+                        return;
+                    }
+
+                    let idx = '123456789'.indexOf(e.key);
+                    if (idx === -1) idx = 'abcde'.indexOf(key);
+                    if (idx === -1 || idx >= (q.o || []).length) return;
+                    const btn = optBtns[idx];
+                    if (!btn) return;
+                    if (q.type === 'multi') this.toggle(String.fromCharCode(65 + idx), btn);
+                    else this.sub(String.fromCharCode(65 + idx), btn);
+                },
+
                 submitMulti() {
                     const q = this.queue[this.idx];
                     const selectedArr = Array.from(this.currentMultiSelection).sort();
@@ -170,6 +302,7 @@ export const quiz = {
                     if (c) c.style.pointerEvents = 'none';
                     App.dom.hide('multi-actions');
                     App.dom.show('quiz-feedback');
+                    this._animateFeedback(ok);
 
                     if (ok) {
                         this.stats.c++;
@@ -219,6 +352,7 @@ export const quiz = {
                         this.stats.w++;
                         el.classList.add('wrong');
                         App.dom.show('quiz-feedback');
+                        this._animateFeedback(false);
                         App.dom.setText('fb-icon', '✕');
                         App.dom.setText('fb-title', '回答错误 (Incorrect)');
 
@@ -262,11 +396,16 @@ export const quiz = {
                     const total = this.queue.length;
                     const answered = this.stats.c + this.stats.w;
                     const unanswered = Math.max(0, total - answered);
-                    const finalWrong = this.stats.w + unanswered;
+                    // 未作答不再并入错误数：提前交卷时把两者混在一起会让用户误以为都答错了
                     const score = total === 0 ? 0 : Math.round((this.stats.c / total) * 100);
                     App.dom.setText('res-score', score + '%');
                     App.dom.setText('res-correct', this.stats.c);
-                    App.dom.setText('res-wrong', finalWrong);
+                    App.dom.setText('res-wrong', this.stats.w);
+                    const unEl = document.getElementById('res-unanswered-wrap');
+                    if (unEl) {
+                        unEl.classList.toggle('hidden', unanswered === 0);
+                        App.dom.setText('res-unanswered', String(unanswered));
+                    }
                 },
                 abort() {
                     if (this._pendingNextTimer) {
@@ -279,5 +418,15 @@ export const quiz = {
                         App.data.saveToCloudDebounced();
                     }
                     App.router.go('dashboard');
+                },
+
+                // 答题反馈的进场动画：答对轻弹出，答错抖一下（与选项的抖动同语言）。
+                // 反馈面板是硬切显示的，不加动画会显得生硬；重复作答要先摘掉旧类。
+                _animateFeedback(ok) {
+                    const fb = document.getElementById('quiz-feedback');
+                    if (!fb) return;
+                    fb.classList.remove('anim-pop-in', 'anim-shake');
+                    void fb.offsetWidth;
+                    fb.classList.add(ok ? 'anim-pop-in' : 'anim-shake');
                 }
-            };
+};

@@ -6,7 +6,9 @@ export const dom = {
     },
     setText(id, text) {
         const el = this.get(id);
-        if (el) el.innerText = text;
+        // 用 textContent 而不是 innerText：前者是标准 API、不触发强制重排，
+        // 而且 innerText 会受 CSS 可见性影响（隐藏元素上读写语义不一致）
+        if (el) el.textContent = text;
     },
     setHTML(id, html) {
         const el = this.get(id);
