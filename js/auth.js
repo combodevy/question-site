@@ -48,6 +48,10 @@
                 async login(loginId, password) {
                     const username = (loginId || '').trim();
                     if (!username) return { error: { message: '用户名不能为空' } };
+                    // 告诉密码管理器这是「登录已有账号」：避免 Chrome 把登录框
+                    // 误判成注册表单而乱弹保存/泄露检查提示
+                    const pwEl = document.getElementById('auth-password');
+                    if (pwEl) pwEl.setAttribute('autocomplete', 'current-password');
                     
                     try {
                         const res = await fetch((App.apiBase || '') + '/api/auth/login', {
@@ -87,6 +91,10 @@
                     }
                 },
                 async signup(loginId, password) {
+                    // 注册 = 设定新密码：标记为 new-password，Chrome 才会按
+                    // 「新密码」流程处理（含正常的泄露检查），而不是按登录复用处理
+                    const pwEl2 = document.getElementById('auth-password');
+                    if (pwEl2) pwEl2.setAttribute('autocomplete', 'new-password');
                     const username = (loginId || '').trim();
                     if (!username) return { error: { message: '用户名不能为空' } };
                     if (username.includes('@')) return { error: { message: '用户名不能包含 @ 符号' } };
