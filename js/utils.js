@@ -210,8 +210,16 @@ export const utils = {
         // 容错数收紧（原来 len/4+1 太宽松：「optimization」容错 4，几乎什么都能命中）。
         // len/6 至少 1：短词容忍 1 个错字，长词按比例但不失控。
         const tolerance = Math.max(1, Math.floor(query.length / 6));
+        // 纯拉丁查询的模糊窗口必须落在「词边界」上：否则 went 会以距离 1
+        // 命中 student 内部的 dent 这类误命中（实测踩过）。中文查询没有
+        // 词边界概念，不做此限制。
+        const latinQuery = /^[a-z0-9]+$/.test(query);
+        const isAlnum = (c) => c !== undefined && /[a-z0-9]/.test(c);
 
         for (let i = 0; i <= text.length - query.length + tolerance; i++) {
+            if (latinQuery && text[i] && /[a-z]/.test(text[i]) && i > 0 && isAlnum(text[i - 1])) {
+                continue;   // 窗口起点嵌在更长拉丁词内部 → 跳过
+            }
             const sub = text.substring(i, i + query.length);
             // 传入 cutoff：行最小值超界立即放弃，不再为注定失败的窗口跑完整 DP
             if (this.editDistance(sub, query, tolerance) <= tolerance) return true;
