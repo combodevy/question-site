@@ -2,8 +2,14 @@ const DB_NAME = 'question_site_db';
 const DB_VERSION = 1;
 const STORE_NAME = 'keyval';
 
+// 连接缓存：persistBank/persistTrash/saveHistory 一次操作连开三个连接，
+// 浏览器要排队处理升级事件，白白增加延迟。单例 promise 全页共享；
+// 打开失败时清空缓存允许下次重试。
+let _dbPromise = null;
+
 function openDatabase() {
-    return new Promise((resolve, reject) => {
+    if (_dbPromise) return _dbPromise;
+    _dbPromise = new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, DB_VERSION);
         request.onupgradeneeded = (e) => {
             const db = e.target.result;
@@ -12,8 +18,12 @@ function openDatabase() {
             }
         };
         request.onsuccess = (e) => resolve(e.target.result);
-        request.onerror = (e) => reject(e.target.error);
+        request.onerror = (e) => {
+            _dbPromise = null;
+            reject(e.target.error);
+        };
     });
+    return _dbPromise;
 }
 
 export async function getDBItem(key) {

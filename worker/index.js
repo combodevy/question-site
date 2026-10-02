@@ -63,14 +63,24 @@ function jsonResponse(data, status = 200, headers = {}) {
         status,
         headers: {
             'Content-Type': 'application/json',
+            // 安全响应头：API 层统一注入（CSP 由 Pages 的 _headers 提供）
+            'X-Content-Type-Options': 'nosniff',
+            'Referrer-Policy': 'no-referrer',
+            'X-Frame-Options': 'DENY',
             ...headers
         }
     });
 }
 
 // 安全读取 JSON 请求体：畸形 JSON 返回 null，由调用方转成 400（而不是冒泡成 500）
+// 请求体大小上限：题库 JSON 前端限 5MB，state 含 history 会更大，
+// 取 10MB 上限——既防恶意超大 body 白白烧 CPU 配额，又不误伤真实大题库
+const MAX_JSON_BYTES = 10 * 1024 * 1024;
+
 async function readJson(request) {
     try {
+        const len = parseInt(request.headers.get("content-length") || "0", 10);
+        if (Number.isFinite(len) && len > MAX_JSON_BYTES) return null;
         const body = await request.json();
         return (body && typeof body === 'object' && !Array.isArray(body)) ? body : null;
     } catch (e) {
@@ -200,6 +210,38 @@ async function verifyJwt(token, secret) {
 }
 
 // ==========================================
+// 2.5 简易限流（isolate 内存滑动窗口）
+// ==========================================
+// 说明：Workers 的内存只在单个 isolate 内存活，这不是分布式限流——
+// 但能拦住同连接内的高频爆破（绝大多数低成本攻击形态），零额外基础设施。
+// 若未来需要跨 isolate 精确限流，接 Cloudflare WAF 规则或 KV 计数器。
+const _rateBuckets = new Map();
+
+function checkRateLimit(key, max, windowMs) {
+    const now = Date.now();
+    // 防泄漏：桶数量失控时整体清一次过期项
+    if (_rateBuckets.size > 10000) {
+        for (const [k, v] of _rateBuckets) {
+            if (now > v.resetAt) _rateBuckets.delete(k);
+        }
+    }
+    const rec = _rateBuckets.get(key);
+    if (!rec || now > rec.resetAt) {
+        _rateBuckets.set(key, { count: 1, resetAt: now + windowMs });
+        return { ok: true, retryAfter: 0 };
+    }
+    rec.count += 1;
+    if (rec.count > max) {
+        return { ok: false, retryAfter: Math.max(1, Math.ceil((rec.resetAt - now) / 1000)) };
+    }
+    return { ok: true, retryAfter: 0 };
+}
+
+function clientIp(request) {
+    return request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "unknown";
+}
+
+// ==========================================
 // 3. Authentication Middleware
 // ==========================================
 async function getAuthUser(request, env) {
@@ -262,6 +304,17 @@ export default {
                 if (typeof password !== "string" || password.length < 6) {
                     return jsonResponse({ error: "密码至少需要 6 位 (Password must be at least 6 characters)" }, 400, headers);
                 }
+                // 用户名规范化：长度与字符集限制（字母/数字/下划线/点/横线/中文/空格内缩进）
+                if (rawUsername.length < 2 || rawUsername.length > 32) {
+                    return jsonResponse({ error: "用户名长度需在 2-32 位之间" }, 400, headers);
+                }
+                if (!/^[a-zA-Z0-9_\u4e00-\u9fa5.-]+$/.test(rawUsername)) {
+                    return jsonResponse({ error: "用户名只能包含字母、数字、下划线、点、横线或中文" }, 400, headers);
+                }
+                // 注册限流：按 IP，1 小时最多 5 个新账号（防批量注册垃圾号）
+                if (!checkRateLimit('signup:' + clientIp(request), 5, 60 * 60 * 1000).ok) {
+                    return jsonResponse({ error: "注册过于频繁，请稍后再试" }, 429, headers);
+                }
 
                 // Check if user already exists
                 const existing = await env.DB.prepare("SELECT id FROM users WHERE username = ?")
@@ -296,6 +349,12 @@ export default {
 
             // 2. LOGIN
             if (path === "/api/auth/login" && request.method === "POST") {
+                // 登录限流：两层——IP 层 15 分钟 30 次总尝试；
+                // IP+用户名层 10 次密码失败后锁定 15 分钟（针对定向爆破单个账号）
+                const ipKey = 'login:' + clientIp(request);
+                if (!checkRateLimit(ipKey, 30, 15 * 60 * 1000).ok) {
+                    return jsonResponse({ error: "尝试过于频繁，请 15 分钟后再试" }, 429, headers);
+                }
                 const secret = env.JWT_SECRET;
                 if (!secret || secret.trim().length < 8) {
                     return jsonResponse({ error: "服务器配置错误: JWT密钥缺失或过短 (JWT Secret is unsafe or missing)" }, 500, headers);
@@ -318,14 +377,27 @@ export default {
                     .bind(queryName)
                     .first();
 
+                const failKey = 'fail:' + clientIp(request) + ':' + queryName;
+                const failRec = _rateBuckets.get(failKey);
+                if (failRec && failRec.count >= 10 && Date.now() < failRec.resetAt) {
+                    return jsonResponse({ error: "失败次数过多，该账号已临时锁定，请 15 分钟后再试" }, 429, headers);
+                }
                 if (!user) {
+                    // 用户不存在也要计数：否则爆破者换随机用户名就能绕过逐账号锁定
+                    checkRateLimit(failKey, 10, 15 * 60 * 1000);
                     return jsonResponse({ error: "用户不存在或密码错误" }, 400, headers);
                 }
 
+                if (failRec && failRec.count >= 10 && Date.now() < failRec.resetAt) {
+                    return jsonResponse({ error: "失败次数过多，该账号已临时锁定，请 15 分钟后再试" }, 429, headers);
+                }
                 const currentHash = await hashPassword(password, user.salt);
                 if (currentHash !== user.password_hash) {
+                    checkRateLimit(failKey, 10, 15 * 60 * 1000);
                     return jsonResponse({ error: "用户不存在或密码错误" }, 400, headers);
                 }
+                // 登录成功：清掉该用户名的失败计数（成功不该被历史失败锁死）
+                _rateBuckets.delete(failKey);
 
                 const token = await signJwt({
                     sub: user.id,
@@ -567,6 +639,29 @@ export default {
                     nextVersion = currentVersion + 1;
                     let finalState = state;
 
+                    // ===== 服务端快照 =====
+                    // 客户端是数据权威，一旦它的 bug 写坏 state 就没有回头路。
+                    // 全量保存（state 存在）且距上次快照超过 24 小时时，
+                    // 把「即将被覆盖的旧 state」在原子批次内存入 bank_snapshots。
+                    let snapshotStatement = null;
+                    if (state && existing && existing.state) {
+                        let lastSnapAt = null;
+                        try {
+                            const snapRow = await env.DB.prepare("SELECT created_at FROM bank_snapshots WHERE user_id = ?")
+                                .bind(userId).first();
+                            if (snapRow && snapRow.created_at) {
+                                lastSnapAt = new Date(String(snapRow.created_at).replace(' ', 'T') + 'Z').getTime();
+                            }
+                        } catch (snapErr) { /* 表尚未建立时静默跳过快照 */ }
+                        const stale = lastSnapAt == null || (Date.now() - lastSnapAt) > 24 * 3600 * 1000;
+                        if (stale) {
+                            snapshotStatement = env.DB.prepare(
+                                "INSERT INTO bank_snapshots (user_id, set_id, version, state, created_at) VALUES (?, ?, ?, ?, datetime('now')) " +
+                                "ON CONFLICT(user_id) DO UPDATE SET set_id = excluded.set_id, version = excluded.version, state = excluded.state, created_at = excluded.created_at"
+                            ).bind(userId, existing.id, currentVersion, existing.state);
+                        }
+                    }
+
                     // Incremental history sync logic
                     if (statePartial && historyAppend && historyAppend.length > 0 && !state) {
                         let parsedState = {};
@@ -610,10 +705,12 @@ export default {
                     }
 
                     // Prepare batch SQL executions to replace transactions
-                    const statements = [
+                    const statements = [];
+                    if (snapshotStatement) statements.push(snapshotStatement);
+                    statements.push(
                         env.DB.prepare("UPDATE question_sets SET name = ?, state = ?, version = ? WHERE id = ?")
                             .bind(name, JSON.stringify(finalState), nextVersion, setId)
-                    ];
+                    );
 
                     if (!skipQuestionsUpdate) {
                         statements.push(
@@ -645,7 +742,10 @@ export default {
 
                     statements.push(
                         env.DB.prepare("INSERT INTO sync_logs (user_id, delta, status, error) VALUES (?, ?, ?, ?)")
-                            .bind(userId, JSON.stringify(logDelta), "success", null)
+                            .bind(userId, JSON.stringify(logDelta), "success", null),
+                        // 顺带清理 30 天前的旧日志：sync_logs 只增不删会持续膨胀拖慢查询
+                        env.DB.prepare("DELETE FROM sync_logs WHERE user_id = ? AND created_at < datetime('now', '-30 days')")
+                            .bind(userId)
                     );
 
                     await env.DB.batch(statements);
@@ -653,9 +753,22 @@ export default {
                 } else {
                     // Create new set
                     nextVersion = 1;
-                    const inserted = await env.DB.prepare("INSERT INTO question_sets (user_id, name, state, version) VALUES (?, ?, ?, ?) RETURNING id")
-                        .bind(userId, name, JSON.stringify(state), nextVersion)
-                        .first();
+                    let inserted;
+                    try {
+                        inserted = await env.DB.prepare("INSERT INTO question_sets (user_id, name, state, version) VALUES (?, ?, ?, ?) RETURNING id")
+                            .bind(userId, name, JSON.stringify(state), nextVersion)
+                            .first();
+                    } catch (insertErr) {
+                        // user_id 唯一索引竞态：两个标签页在全新账号上并发首次保存，
+                        // 都看不到已有行而走了 INSERT。返回 409 让客户端走
+                        // 「拉取云端 → 三方合并 → 重试」的既有管线，而不是 500。
+                        if (String(insertErr && insertErr.message || '').includes('UNIQUE')) {
+                            const latestRow = await env.DB.prepare("SELECT version FROM question_sets WHERE user_id = ? ORDER BY id DESC LIMIT 1")
+                                .bind(userId).first();
+                            return jsonResponse({ error: "并发创建冲突", version: latestRow ? latestRow.version : 0 }, 409, headers);
+                        }
+                        throw insertErr;
+                    }
                     setId = inserted.id;
 
                     const statements = [];
@@ -716,10 +829,12 @@ export default {
                     const pageSize = Math.min(100, Math.max(1, parseInt(urlObj.searchParams.get("pageSize") || "20", 10) || 20));
 
                     const searchQ = (urlObj.searchParams.get("q") || "").trim().toLowerCase();
-                    const whereSql = searchQ ? "WHERE lower(u.username) LIKE ?" : "";
+                    // 转义 LIKE 通配符：否则搜 % 会匹配全部用户
+                    const searchEscaped = searchQ.replace(/[\%_]/g, "\$&");
+                    const whereSql = searchQ ? "WHERE lower(u.username) LIKE ? ESCAPE '\'" : "";
 
                     const countStmt = searchQ
-                        ? env.DB.prepare("SELECT COUNT(*) AS c FROM users WHERE lower(username) LIKE ?").bind('%' + searchQ + '%')
+                        ? env.DB.prepare("SELECT COUNT(*) AS c FROM users WHERE lower(username) LIKE ? ESCAPE '\'").bind('%' + searchEscaped + '%')
                         : env.DB.prepare("SELECT COUNT(*) AS c FROM users");
                     const { results: countRows } = await countStmt.all();
                     const total = (countRows && countRows[0] && countRows[0].c) || 0;
@@ -756,7 +871,7 @@ export default {
                         LIMIT ? OFFSET ?
                     `;
 
-                    const stmtParams = searchQ ? ['%' + searchQ + '%', pageSize, (page - 1) * pageSize] : [pageSize, (page - 1) * pageSize];
+                    const stmtParams = searchQ ? ['%' + searchEscaped + '%', pageSize, (page - 1) * pageSize] : [pageSize, (page - 1) * pageSize];
                     const { results } = await env.DB.prepare(queryStr).bind(...stmtParams).all();
 
                     const users = results.map(row => {

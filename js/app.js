@@ -2,7 +2,7 @@ import { dom } from './dom.js';
 import { utils } from './utils.js';
 import { chart } from './chart.js';
 import { auth } from './auth.js';
-import { data, sync, realtime } from './data.js';
+import { data, sync } from './data.js';
 import { quiz } from './quiz.js';
 import { router } from './router.js';
 import { ui } from './ui.js';
@@ -19,7 +19,6 @@ const App = {
     auth,
     data,
     sync,
-    realtime,
     quiz,
     router,
     ui,
@@ -259,28 +258,8 @@ window.addEventListener('DOMContentLoaded', async () => {
             App.data.loadFromCloud();
         }
     });
-
-    // 跨标签页数据同步同步监听
-    window.addEventListener('storage', async (e) => {
-        if (!e.key) return;
-        const dataKeys = [
-            App.data && App.data.bankKey,
-            App.data && App.data.historyKey,
-            App.data && App.data.trashKey
-        ].filter(Boolean);
-        if (!dataKeys.includes(e.key)) return;
-        const shouldReload = window.confirm(
-            '检测到其他标签页修改了题库数据。\n\n点击“确定”重新加载当前标签页的数据，点击“取消”忽略本次变更。'
-        );
-        if (!shouldReload) return;
-        if (window.App && App.data && typeof App.data.init === 'function') {
-            await App.data.init();
-        }
-        if (window.App && App.router && typeof App.router.go === 'function') {
-            const view = App.router.currentView || 'dashboard';
-            App.router.go(view);
-        }
-    });
+    // 跨标签页数据变更通知已由 BroadcastChannel（qs_data_changed）接管：
+    // 题库数据存在 IndexedDB，storage 事件对它永不触发——旧监听是死代码，已移除。
 
     // 绑定全局云端保存按钮（左键/右键都打开同步历史记录）与账户模态框事件
     const saveBtn = document.getElementById("save-cloud-btn");

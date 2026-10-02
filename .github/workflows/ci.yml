@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Syntax check (all JS modules)
+        run: node scripts/ci-check.mjs
+      - name: Config consistency (frontend API / worker name / D1)
+        run: node scripts/check-deploy-target.mjs
+      - name: JSON validity
+        run: node -e "['package.json','worker/wrangler.json'].forEach(f => JSON.parse(require('fs').readFileSync(f)))"
+      - name: Migration files are ordered and non-empty
+        run: node -e "const fs=require('fs');const m=fs.readdirSync('worker/migrations').sort();if(!m.length)throw new Error('no migrations');m.forEach(f=>{if(!fs.readFileSync('worker/migrations/'+f).toString().includes('CREATE'))throw new Error(f+' empty')})"
