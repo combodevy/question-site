@@ -718,8 +718,25 @@
                     const username = (session.user && session.user.username) || '用户';
                     App.dom.setText('am-username', username);
                     App.dom.setText('am-avatar', (username[0] || '?').toUpperCase());
-                    const uid = App.auth.getUserId() || '';
-                    App.dom.setText('am-uid', uid ? 'ID: ' + uid.slice(0, 8) : '');
+                    // uid 在下方 getUserId 处取值；此处先占位，避免引用未定义变量
+                    const uidEarly = App.auth.getUserId ? App.auth.getUserId() : '';
+                    App.dom.setText('am-uid', uidEarly ? 'ID: ' + uidEarly.slice(0, 8) : '');
+                    // 管理员徽章：token role 仅作前端展示初值，权威判定在服务端
+                    const payload = (window.App && App.auth && App.auth.token) ? App.auth.parseJwt(App.auth.token) : null;
+                    const badge = document.getElementById('am-admin-badge');
+                    if (badge) {
+                        const isAdmin = payload && payload.role === 'admin';
+                        badge.classList.toggle('hidden', !isAdmin);
+                    }
+                    // 注册时间等完整资料从 /api/auth/me 拉取（缓存 5 分钟，避免每次开菜单都打接口）
+                    const profileEl = document.getElementById('am-profile');
+                    if (profileEl) profileEl.classList.remove('hidden');
+                    const now = Date.now();
+                    if (!this._meCache || now - this._meCacheAt > 5 * 60 * 1000) {
+                        this._loadProfileForMenu();
+                    } else if (this._meCache) {
+                        this._applyProfileToMenu(this._meCache);
+                    }
                     // 学习数据速览
                     const s = App.data.getStats();
                     const statsEl = App.dom.get('am-stats');
@@ -731,7 +748,7 @@
                             </div>`;
                         statsEl.innerHTML =
                             cell('题库总量', s.total, 'text-[var(--text)]') +
-                            cell('正确率', s.acc + '%', 'text-primary-600') +
+                            cell('收藏', (window.App.data.starredIds || []).length, 'text-amber-500') +
                             cell('连续天数', s.streak + '天', 'text-orange-500');
                     }
                     // 回收站入口右侧的数量徽标：有内容时才显示，让用户知道里面有没有东西
@@ -746,6 +763,31 @@
                             trashCountEl.classList.add('hidden');
                         }
                     }
+                },
+
+                _loadProfileForMenu() {
+                    const token = window.App && App.auth ? App.auth.token : null;
+                    if (!token || !window.App.apiBase) return;
+                    fetch(window.App.apiBase + '/api/auth/me', { headers: { Authorization: 'Bearer ' + token } })
+                        .then(r => (r.ok ? r.json() : null))
+                        .then(body => {
+                            if (!body || !body.ok || !body.user) return;
+                            this._meCache = body.user;
+                            this._meCacheAt = Date.now();
+                            this._applyProfileToMenu(body.user);
+                        })
+                        .catch(() => { /* 静默：菜单信息缺失不影响功能 */ });
+                },
+
+                _applyProfileToMenu(user) {
+                    const createdEl = document.getElementById('am-created');
+                    if (createdEl) {
+                        // created_at 是 D1 的 UTC 时间串，转本地展示
+                        const m = user.createdAt ? String(user.createdAt).match(/(\d{4})-(\d{2})-(\d{2})/) : null;
+                        createdEl.textContent = m ? `注册于 ${m[1]} 年 ${parseInt(m[2], 10)} 月 ${parseInt(m[3], 10)} 日` : '…';
+                    }
+                    const badge = document.getElementById('am-admin-badge');
+                    if (badge) badge.classList.toggle('hidden', !user.isAdmin);
                 },
 
                 handleAccountMenuAction(act) {
@@ -767,6 +809,7 @@
                         this.openPasswordModal();
                     } else if (act === 'logout') {
                         if (confirm('确定要退出登录吗？\n本地缓存会清空，题库和学习记录都保留在云端，下次登录自动恢复。')) {
+                            this._meCache = null;
                             App.auth.logout();
                         }
                     }
@@ -817,6 +860,11 @@
                     if (newPw.length < 6) return fail('新密码至少需要 6 位。');
                     if (newPw !== newPw2) return fail('两次输入的新密码不一致。');
                     if (newPw === oldPw) return fail('新密码不能与原密码相同。');
+                    // 防呆：弱模式密码提前提示（不强制阻断，与后端策略一致）。
+                    // 纯数字或纯字母连续 6 位会被 Chrome 泄露检查点名，给出软提醒
+                    if (/^\d{6,}$/.test(newPw)) {
+                        if (!confirm('纯数字密码更容易被破解工具猜中，也可能会收到浏览器的安全提醒。\n\n仍要使用这个密码吗？（建议改为字母+数字混合）')) return;
+                    }
                     const token = await App.auth.getToken();
                     if (!token) return fail('登录状态已失效，请重新登录后再试。');
                     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '提交中…'; }
@@ -860,7 +908,14 @@
                     if (!drawer || !backdrop) return;
 
                     App.dom.setText('drawer-meta', `${q.sub} • ${q.chap}`);
-                    App.dom.setText('drawer-q', q.q);
+                    const drawerQ = App.dom.get('drawer-q');
+                    if (drawerQ) {
+                        if (Array.isArray(q.media) && q.media.length) {
+                            drawerQ.innerHTML = App.utils.renderMedia(q.q, q.media, { imgClass: 'max-w-full rounded-lg my-2' });
+                        } else {
+                            drawerQ.textContent = q.q;
+                        }
+                    }
 
                     // ===== 作答记录：近 5 次明细 + 汇总统计 =====
                     const all = App.data.getSafeHistory().filter(x => x.id === id);
@@ -984,22 +1039,25 @@
                                 },
                                 {
                                     "id": "q2",
-                                    "type": "tf",
-                                    "q": "0 是自然数。",
-                                    "a": "T"
-                                },
-                                {
-                                    "id": "q3",
-                                    "type": "multi",
-                                    "q": "以下哪些是偶数？",
-                                    "o": ["1", "2", "3", "4"],
-                                    "a": "BD"
-                                },
-                                {
-                                    "id": "q4",
                                     "type": "fill",
                                     "q": "圆的面积公式是 S = π__。",
                                     "a": "r²|r^2"
+                                },
+                                {
+                                    "id": "q3",
+                                    "type": "mcq",
+                                    "q": "如图所示的图形是 __。[图1]",
+                                    "media": [{ "type": "img", "key": "图1", "src": "https://example.com/shape.png", "alt": "三角形" }],
+                                    "o": ["三角形", "正方形", "圆形", "梯形"],
+                                    "a": "A"
+                                },
+                                {
+                                    "id": "q4",
+                                    "type": "mcq",
+                                    "q": "根据表中数据，增速最快的城市是 __。[表1]",
+                                    "media": [{ "type": "table", "key": "表1", "html": "<table><tr><th>城市</th><th>增速</th></tr><tr><td>甲</td><td>5%</td></tr><tr><td>乙</td><td>8%</td></tr></table>" }],
+                                    "o": ["甲", "乙", "丙", "丁"],
+                                    "a": "B"
                                 }
                             ]
                         }
@@ -1019,6 +1077,9 @@
                         '     · multi 写多个字母连写，如 "BD"',
                         '     · tf 只能是 "T"（正确）或 "F"（错误）',
                         '     · fill 写答案；有多个可接受的写法用 | 分隔，如 "TCP|传输控制协议"',
+                        '   - "media"（可选）：题目带图片或表格时使用。题干中在对应位置写占位符 [图1]、[表1]，然后在 media 数组中提供内容：',
+                        '     · 图片：{ "type": "img", "key": "图1", "src": "https://可公开访问的图片URL", "alt": "图示说明" }',
+                        '     · 表格：{ "type": "table", "key": "表1", "html": "<table><tr><td>内容</td></tr></table>" }（html 只能用 table/thead/tbody/tr/th/td 等表格标签）',
                         '3. 只整理能客观判分的题目（上面四种），不要问答、简答等主观题。',
                         '4. 题目数量以资料内容为准，宁全勿缺。',
                         '',

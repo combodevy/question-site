@@ -403,8 +403,34 @@ export const data = {
                                     q.a = up;
                                 } else if (q.type === 'fill') {
                                     // 填空题允许多答案（| 分隔），每个分支都不能是空白
-                                    if (q.a.split('|').some(p => !p.trim())) {
+                                    if (q.a.split('|').some(pp => !pp.trim())) {
                                         return `Fill answer has an empty variant for ID ${q.id}`;
+                                    }
+                                }
+
+                                // media（可选）：题干中的 [图N]/[表N] 占位符对应的内容
+                                if (q.media !== undefined) {
+                                    if (!Array.isArray(q.media)) {
+                                        return `media must be an array for ID ${q.id}`;
+                                    }
+                                    for (let mi = 0; mi < q.media.length; mi++) {
+                                        const m = q.media[mi];
+                                        if (!m || typeof m !== 'object') return `media[${mi}] is not an object for ID ${q.id}`;
+                                        if (typeof m.key !== 'string' || !m.key.trim()) return `media[${mi}].key must be a non-empty string for ID ${q.id}`;
+                                        const mt = m.type || 'img';
+                                        if (mt === 'img') {
+                                            if (typeof m.src !== 'string' || !/^(https:\/\/|data:image\/)/.test(m.src)) {
+                                                return `media[${mi}].src must be https:// or data:image/ URL for ID ${q.id}`;
+                                            }
+                                            if (m.src.length > 500000) return `media[${mi}].src too large (max ~500KB base64) for ID ${q.id}`;
+                                        } else if (mt === 'table') {
+                                            if (typeof m.html !== 'string' || !/<table[\s>]/i.test(m.html)) {
+                                                return `media[${mi}].html must contain a <table> for ID ${q.id}`;
+                                            }
+                                            if (m.html.length > 50000) return `media[${mi}].html too large for ID ${q.id}`;
+                                        } else {
+                                            return `media[${mi}].type must be img or table for ID ${q.id}`;
+                                        }
                                     }
                                 }
                             }
@@ -620,6 +646,11 @@ export const data = {
                             this.bank = JSON.parse(JSON.stringify(prevBank || {}));
                             this.trash = JSON.parse(JSON.stringify(prevTrash || {}));
                             this.history = Array.isArray(prevHistory) ? prevHistory.slice() : [];
+                            this._cachedQuestions = null;
+                            this._questionMap = null;
+                            this._errFreqCache = null;
+                            this._isHistoryDirty = true;
+                            this.bumpHistoryRev();
                         } catch (rollbackError) {
                             console.error('导入回滚失败', rollbackError);
                         }

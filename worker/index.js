@@ -419,6 +419,42 @@ export default {
             const userId = user.sub;
 
             // 2.5 CHANGE PASSWORD（需验证原密码；旧 JWT 在有效期内仍可用，属无状态令牌的已知取舍）
+            // 3. ME：当前用户资料（用户名/注册时间/题库统计），供账户菜单展示
+            if (path === "/api/auth/me" && request.method === "GET") {
+                const secret = env.JWT_SECRET;
+                if (!secret || secret.trim().length < 8) {
+                    return jsonResponse({ error: "服务器配置错误" }, 500, headers);
+                }
+                const payload = await getAuthUser(request, env);
+                if (!payload) return jsonResponse({ error: "Unauthorized" }, 401, headers);
+
+                const user = await env.DB.prepare("SELECT id, username, created_at FROM users WHERE id = ?")
+                    .bind(payload.sub).first();
+                if (!user) return jsonResponse({ error: "账户不存在" }, 404, headers);
+
+                // 注意：question_sets 没有 updated_at 列（0001 schema），不要查询不存在的列
+                const setRow = await env.DB.prepare(
+                    "SELECT version, created_at FROM question_sets WHERE user_id = ? ORDER BY id DESC LIMIT 1"
+                ).bind(payload.sub).first();
+
+                const qCount = await env.DB.prepare(
+                    "SELECT COUNT(*) AS c FROM questions WHERE question_set_id IN (SELECT id FROM question_sets WHERE user_id = ?)"
+                ).bind(payload.sub).first();
+
+                return jsonResponse({
+                    ok: true,
+                    user: {
+                        id: user.id,
+                        username: user.username,
+                        createdAt: user.created_at,
+                        isAdmin: verifyAdmin(user, env),
+                        questionSets: setRow ? 1 : 0,
+                        questionCount: (qCount && qCount.c) || 0,
+                        lastVersion: setRow ? setRow.version : 0
+                    }
+                }, 200, headers);
+            }
+
             if (path === "/api/auth/change-password" && request.method === "POST") {
                 const body = await readJson(request);
                 if (!body) return badJson(headers);
@@ -1227,7 +1263,7 @@ export default {
                     // questions 表与 state.bank 双写（两处表示保持一致）：
                     // load 时以 questions 表为权威源重建 bank，若不同步 state.bank，
                     // 管理端的删改可能被旧 JSON 里的题目数量回退逻辑"复活"。
-                    const newState = { bank: {}, history: [], trash: {}, hiddenMistakeIds: [] };
+                    const newState = { bank: {}, history: [], trash: {}, hiddenMistakeIds: [], starred: [] };
                     for (const q of questions) {
                         if (!q || typeof q !== 'object') continue;
                         if (!q.id) q.id = crypto.randomUUID();
@@ -1245,6 +1281,7 @@ export default {
                             if (Array.isArray(ps.history)) newState.history = ps.history;
                             if (ps.trash && typeof ps.trash === 'object') newState.trash = ps.trash;
                             if (Array.isArray(ps.hiddenMistakeIds)) newState.hiddenMistakeIds = ps.hiddenMistakeIds;
+                            if (Array.isArray(ps.starred)) newState.starred = ps.starred;
                             if (typeof ps.lastPracticeTime === 'number') newState.lastPracticeTime = ps.lastPracticeTime;
                             if (typeof ps.bankName === 'string' && ps.bankName) newState.bankName = ps.bankName;
                         }

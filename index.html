@@ -495,6 +495,20 @@
         onclick="App.ui.closeAccountMenu()"></div>
     <div id="account-menu"
         class="fixed right-2 top-16 left-2 sm:left-auto sm:right-4 sm:w-72 z-50 bg-[var(--card)] border border-[var(--border)] rounded-2xl shadow-2xl hidden opacity-0 pointer-events-none transition-all duration-200 overflow-hidden">
+        <!-- 个人信息区：登录后展示，未登录隐藏 -->
+        <div id="am-profile" class="hidden px-3 pt-3 pb-2 border-b border-[var(--border)] mb-1">
+            <div class="flex items-center gap-3">
+                <div id="am-avatar" class="w-10 h-10 rounded-full bg-primary-600 text-white flex items-center justify-center text-base font-bold flex-shrink-0">?</div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-1.5">
+                        <span id="am-username" class="font-bold text-sm text-[var(--text)] truncate">—</span>
+                        <span id="am-admin-badge" class="hidden text-[10px] font-bold text-purple-700 bg-purple-100 dark:text-purple-300 dark:bg-purple-900/40 px-1.5 py-0.5 rounded-full flex-shrink-0">管理员</span>
+                    </div>
+                    <div id="am-created" class="text-[11px] text-[var(--sub)] truncate">…</div>
+                </div>
+            </div>
+
+        </div>
         <div class="p-4 flex items-center gap-3 border-b border-[var(--border)]">
             <div id="am-avatar"
                 class="w-11 h-11 rounded-full bg-primary-600 text-white flex items-center justify-center text-lg font-bold flex-shrink-0 select-none">
@@ -1262,13 +1276,13 @@
             </div>
             <div class="flex flex-col gap-2">
                 <label for="pw-old" class="text-[11px] text-[var(--sub)]">原密码</label>
-                <input id="pw-old" type="password" autocomplete="current-password"
+                <input id="pw-old" type="password" autocomplete="current-password" minlength="6"
                     class="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none focus:border-primary-500">
-                <label for="pw-new" class="text-[11px] text-[var(--sub)]">新密码（至少 6 位）</label>
-                <input id="pw-new" type="password" autocomplete="new-password"
+                <label for="pw-new" class="text-[11px] text-[var(--sub)]">新密码（至少 6 位，建议字母+数字混合）</label>
+                <input id="pw-new" type="password" autocomplete="new-password" minlength="6"
                     class="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none focus:border-primary-500">
                 <label for="pw-new2" class="text-[11px] text-[var(--sub)]">确认新密码</label>
-                <input id="pw-new2" type="password" autocomplete="new-password"
+                <input id="pw-new2" type="password" autocomplete="new-password" minlength="6"
                     class="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none focus:border-primary-500">
             </div>
             <div id="pw-status" class="text-[11px] text-[var(--sub)] min-h-[1rem]"></div>
