@@ -12,6 +12,10 @@ export const data = {
                 // 记录本地数据属于哪个账号，防止同设备换账号后串数据
                 lastUserIdKey: 'lms_v26_last_user',
                 _currentUserId: null,
+                // 收藏（星标）题目的 id 集合：随云端 state 一起同步（state.starred），
+                // 本地另有 IndexedDB 键做全量覆盖写
+                starredKey: 'lms_v26_starred',
+                starredIds: [],
 
                 // 刷题历史
                 history: [],
@@ -128,6 +132,15 @@ export const data = {
                         }
                     } catch (e) { console.error("Trash parse error", e); }
 
+                    // 恢复收藏集合
+                    try {
+                        const sStr = await getDBItem(this.starredKey);
+                        if (sStr) {
+                            const parsed = JSON.parse(sStr);
+                            if (Array.isArray(parsed)) this.starredIds = parsed.filter(x => typeof x === 'string');
+                        }
+                    } catch (e) { console.error("Starred parse error", e); }
+
                     // 恢复「有未上传修改」标记：上次会话可能改完没来得及上传就关掉了。
                     // 带着脏标记启动，2.4 守卫会拦下云端覆盖，登录后走「先推后拉」。
                     if (this._hasUnsyncedFlag()) {
@@ -176,6 +189,27 @@ export const data = {
                 // 任何视图都不应直接读 App.data.history —— 一旦里面混进 null 项或非法时间戳，
                 // new Date(x.t).toISOString() 会抛 RangeError、h.r / h.id 会抛 TypeError，
                 // 表现就是整页白屏（首页 7 日图、分析页遗忘曲线都踩过）。
+                // ===== 收藏（星标）=====
+                toggleStar(id) {
+                    if (!id) return;
+                    const i = this.starredIds.indexOf(id);
+                    if (i === -1) this.starredIds.push(id);
+                    else this.starredIds.splice(i, 1);
+                    this._persistStarred();
+                },
+                isStarred(id) {
+                    return Array.isArray(this.starredIds) && this.starredIds.includes(id);
+                },
+                _persistStarred() {
+                    this._editSeq++;
+                    this._markUnsynced();
+                    setDBItem(this.starredKey, JSON.stringify(this.starredIds)).catch(() => { });
+                    if (window.App && App._syncBroadcast) App._syncBroadcast(this.starredKey);
+                    if (!this._suppressCloudSync && this.saveToCloudDebounced) {
+                        this.saveToCloudDebounced();
+                    }
+                },
+
                 getSafeHistory() {
                     // 历史修订号缓存：sanitizeHistory 每次都复制+排序全部记录，
                     // 首页/分析页/抽屉一轮会调多次；数据没变时直接复用上次结果。
@@ -264,6 +298,7 @@ export const data = {
                     this.history = [];
                     this.trash = {};
                     this.hiddenMistakeIds = [];
+                    this.starredIds = [];
                     this._sanitizedCache = null;
                     this._sanitizedCacheRev = -1;
                     this._cachedQuestions = null;
@@ -604,6 +639,19 @@ export const data = {
 
                 resetHistory() {
                     if (confirm("确定清空所有刷题记录吗？\n(Are you sure to reset all practice history?)")) {
+                        // 清空前自动备份完整记录到下载目录：误删有救
+                        try {
+                            const backup = { exportedAt: new Date().toISOString(), history: this.history, lastPracticeTime: this.lastPracticeTime };
+                            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = '刷题记录备份_' + new Date().toISOString().slice(0, 10) + '.json';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                        } catch (bkErr) { console.error('自动备份失败（继续清空）', bkErr); }
                         this.history = [];
                         this.lastPracticeTime = null;
                         // 三件套必须一起做，否则刚答完题留在增量缓冲里的记录会在随后的
@@ -975,7 +1023,8 @@ export const data = {
                             history,
                             lastPracticeTime,
                             trash,
-                            hiddenMistakeIds: Array.isArray(this.hiddenMistakeIds) ? this.hiddenMistakeIds : []
+                            hiddenMistakeIds: Array.isArray(this.hiddenMistakeIds) ? this.hiddenMistakeIds : [],
+                            starred: Array.isArray(this.starredIds) ? this.starredIds : []
                         };
                         const allIds = [];
                         for (const sub in bank) {
@@ -1297,6 +1346,10 @@ export const data = {
                                                 const localHidden = Array.isArray(this.hiddenMistakeIds) ? this.hiddenMistakeIds : [];
                                                 const remoteHidden = (remote.state && Array.isArray(remote.state.hiddenMistakeIds)) ? remote.state.hiddenMistakeIds : [];
                                                 this.hiddenMistakeIds = [...new Set([...localHidden, ...remoteHidden])];
+                                                // 收藏：同样并集合并（收藏是用户偏好，任何一端的收藏都不该丢）
+                                                const localStarred = Array.isArray(this.starredIds) ? this.starredIds : [];
+                                                const remoteStarred = (remote.state && Array.isArray(remote.state.starred)) ? remote.state.starred : [];
+                                                this.starredIds = [...new Set([...localStarred, ...remoteStarred])];
 
                                                 this._safeSetItem(this.bankKey, JSON.stringify(this.bank));
                                                 this._safeSetItem(this.historyKey, JSON.stringify({
@@ -1650,6 +1703,7 @@ this.bumpHistoryRev();
                                 typeof state.lastPracticeTime === "number" ? state.lastPracticeTime : null;
                             this.trash = state.trash && typeof state.trash === "object" ? state.trash : {};
                             this.hiddenMistakeIds = Array.isArray(state.hiddenMistakeIds) ? state.hiddenMistakeIds : [];
+                            this.starredIds = Array.isArray(state.starred) ? state.starred.filter(x => typeof x === 'string') : [];
                             this.bankName = typeof data.name === "string" && data.name ? data.name : (state.bankName || this.bankName || '');
                             if (this.bankName) {
                                 this._safeSetItem(this.bankNameKey, this.bankName);
@@ -1751,6 +1805,14 @@ this.bumpHistoryRev();
                  * 软删除：将指定 ID 的题目从 bank 移动到 trash
                  */
                 softDeleteByIds(idSet, reason = 'manual-delete') {
+                    // 被删除的题同步移出收藏（星标不指向已删题目）
+                    const removed = [];
+                    for (const arr of Object.values(this.bank || {})) {
+                        for (const sub of Object.values(arr || {})) {
+                            for (const q of (sub || [])) { if (q && idSet.has(q.id)) removed.push(q.id); }
+                        }
+                    }
+                    if (removed.length) this.starredIds = (this.starredIds || []).filter(sid => !idSet.has(sid));
                     const now = Date.now();
                     let changed = false;
 
@@ -1965,6 +2027,8 @@ this.bumpHistoryRev();
 
                     // 清理残留的空容器
                     this._pruneEmptyContainers();
+                    // 题目被删除（同 id 旧题被覆盖移除）时同步移出收藏
+                    this.starredIds = (this.starredIds || []).filter(sid => sid !== q.id);
                     this.persistBank();
                 },
 

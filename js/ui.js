@@ -756,6 +756,8 @@
                         App.ui.openImportCenter();
                     } else if (act === 'export') {
                         App.ui.exportAllBank();
+                    } else if (act === 'export-txt') {
+                        App.ui.exportBankAsText();
                     } else if (act === 'sync') {
                         App.sync.openLogPanel();
                     } else if (act === 'trash') {
@@ -1100,6 +1102,56 @@
                     const a = document.createElement('a');
                     a.href = url;
                     a.download = 'LMS_Question_Bank_Template.json';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                },
+
+                // 导出为可读文本（.txt）：按科目/章节分组的纯文本，适合打印或分享。
+                // 与 JSON 导出互补——JSON 用于再导入，文本用于人看。
+                exportBankAsText() {
+                    const all = App.data.getQuestions();
+                    if (!all.length) {
+                        alert('题库为空，没有可导出的内容。');
+                        return;
+                    }
+                    const typeLabel = { mcq: '单选', multi: '多选', tf: '判断', fill: '填空' };
+                    const fmtAnswer = (q) => {
+                        if (q.type === 'tf') return q.a === 'T' ? '正确' : '错误';
+                        if (q.type === 'mcq' || q.type === 'multi') {
+                            const idxs = (q.a || '').split('');
+                            return idxs.map(l => (q.o || [])[l.charCodeAt(0) - 65] || l).join('；');
+                        }
+                        return (q.a || '').split('|').join(' / ');
+                    };
+                    const lines = [];
+                    let n = 0;
+                    const bySub = {};
+                    all.forEach(q => {
+                        (bySub[q.sub] = bySub[q.sub] || {})[q.chap] = (bySub[q.sub][q.chap] || []).concat(q);
+                    });
+                    for (const sub of Object.keys(bySub).sort()) {
+                        lines.push(`【${sub}】`);
+                        for (const chap of Object.keys(bySub[sub]).sort()) {
+                            lines.push(`  ◇ ${chap}`);
+                            for (const q of bySub[sub][chap]) {
+                                n++;
+                                lines.push(`    ${n}. [${typeLabel[q.type] || q.type}] ${q.q}`);
+                                if (q.type === 'mcq' || q.type === 'multi') {
+                                    (q.o || []).forEach((o, i) => lines.push(`       ${String.fromCharCode(65 + i)}. ${o}`));
+                                }
+                                lines.push(`       答案：${fmtAnswer(q)}`);
+                                lines.push('');
+                            }
+                        }
+                    }
+                    lines.push(`—— 共 ${n} 题，导出自 LMS Genesis ——`);
+                    const blob = new Blob([lines.join(String.fromCharCode(10))], { type: 'text/plain;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `题库文本_${new Date().toISOString().slice(0, 10)}.txt`;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);

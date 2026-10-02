@@ -528,6 +528,13 @@
                 </svg>
                 <span>导出全部题库</span>
             </button>
+            <button data-act="export-txt"
+                class="account-menu-item flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[var(--text)] hover:bg-[var(--bg)] active:bg-[var(--bg)] transition-colors text-left">
+                <svg class="w-4 h-4 text-teal-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>导出文本版（打印用）</span>
+            </button>
             <button data-act="sync"
                 class="account-menu-item flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[var(--text)] hover:bg-[var(--bg)] active:bg-[var(--bg)] transition-colors text-left">
                 <svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -724,7 +731,8 @@
                                 高频错题
                             </h2>
                             <div class="flex items-center gap-2">
-
+                                <button onclick="App.router.go('library'); setTimeout(() => App.views.library.render('starred'), 60)"
+                                    class="text-[11px] md:text-xs font-bold text-amber-500 bg-amber-50 px-2.5 py-1 rounded-full active:bg-amber-100 transition-colors whitespace-nowrap">收藏 ★</button>
                                 <button onclick="App.quiz.init('mistakes')"
                                     class="text-[11px] md:text-xs font-bold text-red-500 bg-red-50 px-2.5 py-1 rounded-full active:bg-red-100 transition-colors whitespace-nowrap">错题突击
                                     →</button>
