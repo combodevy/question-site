@@ -1,0 +1,22 @@
+{
+  "name": "question-site",
+  "version": "3.0.0",
+  "description": "LMS Genesis - Online Question Bank & Study Platform",
+  "private": true,
+  "scripts": {
+    "deploy:worker": "node scripts/check-deploy-target.mjs && cd worker && npx wrangler deploy",
+    "deploy:pages": "node scripts/stage-pages.mjs && npx wrangler pages deploy .pages-dist --project-name question-site-front --commit-dirty",
+    "deploy": "npm run deploy:worker && npm run deploy:pages",
+    "dev:worker": "cd worker && npx wrangler dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/combodevy/question-site.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/combodevy/question-site/issues"
+  },
+  "homepage": "https://github.com/combodevy/question-site#readme"
+}

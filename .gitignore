@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+worker/node_modules/
+
+# Cloudflare
+.wrangler/
+worker/.wrangler/
+
+# Netlify (legacy)
+.netlify
+
+# Database
+db/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Logs
+*.log
+
+# Cloudflare Pages staging output
+.pages-dist/
+
+# OS files
+.DS_Store
+Thumbs.db# Wrangler local dev secrets
+worker/.dev.vars
