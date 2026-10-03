@@ -792,14 +792,16 @@
 
                 handleAccountMenuAction(act) {
                     this.closeAccountMenu();
-                    if (act === 'analytics') {
+                    if (act === 'profile') {
+                        App.router.go('profile');
+                    } else if (act === 'analytics') {
                         App.router.go('analytics');
                     } else if (act === 'import') {
                         App.ui.openImportCenter();
                     } else if (act === 'export') {
                         App.ui.exportAllBank();
-                    } else if (act === 'export-txt') {
-                        App.ui.exportBankAsText();
+                    } else if (act === 'export-print') {
+                        App.ui.openPrintExport();
                     } else if (act === 'sync') {
                         App.sync.openLogPanel();
                     } else if (act === 'trash') {
@@ -1228,13 +1230,38 @@
 
                 // 导出为可读文本（.txt）：按科目/章节分组的纯文本，适合打印或分享。
                 // 与 JSON 导出互补——JSON 用于再导入，文本用于人看。
-                exportBankAsText() {
+                // ===== 导出 PDF（打印版题库）=====
+                // 生成一份排版良好的打印文档（封面 + 按科目/章节分组的题目 + 末尾参考答案），
+                // 在新窗口打开并自动呼起系统打印对话框——用户在打印目标里选「另存为 PDF」
+                // 即可得到 PDF 文件。零第三方依赖；全部 HTML 在主页面生成（escapeHTML /
+                // renderMedia 白名单渲染），打印窗口不含任何可执行脚本。
+                openPrintExport() {
                     const all = App.data.getQuestions();
                     if (!all.length) {
                         alert('题库为空，没有可导出的内容。');
                         return;
                     }
-                    const typeLabel = { mcq: '单选', multi: '多选', tf: '判断', fill: '填空' };
+                    const html = this._buildPrintDoc();
+                    const win = window.open('', '_blank');
+                    if (!win) {
+                        alert('打印窗口被浏览器拦截了。\n请允许本站弹出窗口后重试（地址栏右侧一般会有拦截提示）。');
+                        return;
+                    }
+                    win.document.open();
+                    win.document.write(html);
+                    win.document.close();
+                    const autoPrint = () => {
+                        setTimeout(() => { try { win.focus(); win.print(); } catch (e) { /* 用户可手动点工具栏按钮 */ } }, 400);
+                    };
+                    if (win.document.readyState === 'complete') autoPrint();
+                    else win.addEventListener('load', autoPrint);
+                },
+
+                // 纯文档生成（无副作用，便于测试）：返回完整打印版 HTML 字符串
+                _buildPrintDoc() {
+                    const all = App.data.getQuestions();
+                    const esc = App.utils.escapeHTML;
+                    const typeLabel = { mcq: '单选题', multi: '多选题', tf: '判断题', fill: '填空题' };
                     const fmtAnswer = (q) => {
                         if (q.type === 'tf') return q.a === 'T' ? '正确' : '错误';
                         if (q.type === 'mcq' || q.type === 'multi') {
@@ -1243,37 +1270,125 @@
                         }
                         return (q.a || '').split('|').join(' / ');
                     };
-                    const lines = [];
-                    let n = 0;
+
                     const bySub = {};
                     all.forEach(q => {
                         (bySub[q.sub] = bySub[q.sub] || {})[q.chap] = (bySub[q.sub][q.chap] || []).concat(q);
                     });
+
+                    let n = 0;
+                    const bodyParts = [];
+                    const ansRows = [];
                     for (const sub of Object.keys(bySub).sort()) {
-                        lines.push(`【${sub}】`);
+                        const subCount = Object.values(bySub[sub]).reduce((t, a) => t + a.length, 0);
+                        bodyParts.push(`<section class="subject"><h2>${esc(sub)}<span class="scnt">${subCount} 题</span></h2>`);
                         for (const chap of Object.keys(bySub[sub]).sort()) {
-                            lines.push(`  ◇ ${chap}`);
-                            for (const q of bySub[sub][chap]) {
+                            const arr = bySub[sub][chap];
+                            bodyParts.push(`<h3>${esc(chap)}<span class="cnt">${arr.length} 题</span></h3>`);
+                            for (const q of arr) {
                                 n++;
-                                lines.push(`    ${n}. [${typeLabel[q.type] || q.type}] ${q.q}`);
+                                const stemHtml = (Array.isArray(q.media) && q.media.length)
+                                    ? App.utils.renderMedia(q.q, q.media, {})
+                                    : esc(q.q);
+                                let opts = '';
                                 if (q.type === 'mcq' || q.type === 'multi') {
-                                    (q.o || []).forEach((o, i) => lines.push(`       ${String.fromCharCode(65 + i)}. ${o}`));
+                                    opts = (q.o || []).map((o, i) =>
+                                        `<div class="opt"><span class="letter">${String.fromCharCode(65 + i)}.</span>${esc(o)}</div>`).join('');
+                                } else if (q.type === 'tf') {
+                                    opts = '<div class="opt"><span class="letter">A.</span>正确</div><div class="opt"><span class="letter">B.</span>错误</div>';
+                                } else {
+                                    opts = '<div class="blank">作答：＿＿＿＿＿＿＿＿＿＿＿＿</div>';
                                 }
-                                lines.push(`       答案：${fmtAnswer(q)}`);
-                                lines.push('');
+                                bodyParts.push(
+                                    `<div class="q"><div class="qt"><span class="no">${n}.</span><span class="tag">${typeLabel[q.type] || esc(q.type)}</span><span class="loc">${esc(sub)} · ${esc(chap)}</span></div>` +
+                                    `<div class="stem">${stemHtml}</div>${opts}</div>`
+                                );
+                                ansRows.push(
+                                    `<tr><td class="ano">${n}</td><td class="aans">${esc(fmtAnswer(q))}</td><td class="aloc">${esc(sub)} / ${esc(chap)}</td></tr>`
+                                );
                             }
                         }
+                        bodyParts.push('</section>');
                     }
-                    lines.push(`—— 共 ${n} 题，导出自 LMS Genesis ——`);
-                    const blob = new Blob([lines.join(String.fromCharCode(10))], { type: 'text/plain;charset=utf-8' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `题库文本_${new Date().toISOString().slice(0, 10)}.txt`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
+
+                    const bankName = (App.data.bankName || '我的题库').slice(0, 60);
+                    const dateStr = new Date().toISOString().slice(0, 10);
+                    const user = (App.auth && App.auth.session && App.auth.session.user && App.auth.session.user.username) || '';
+
+                    const html = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>${esc(bankName)}_${dateStr}</title>
+<style>
+    @page { size: A4; margin: 14mm 13mm; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body { font: 12pt/1.7 Georgia, "Microsoft YaHei", "PingFang SC", sans-serif; color: #1a1a1a; background: #fff; }
+    .toolbar { position: sticky; top: 0; z-index: 9; display: flex; align-items: center; gap: 10px;
+        padding: 10px 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-family: system-ui, sans-serif; }
+    .toolbar button { padding: 7px 16px; border-radius: 8px; border: 1px solid #2563eb; background: #2563eb;
+        color: #fff; font-weight: 600; font-size: 13px; cursor: pointer; }
+    .toolbar button.ghost { background: #fff; color: #334155; border-color: #cbd5e1; }
+    .toolbar .tip { font-size: 12px; color: #64748b; }
+    .wrap { max-width: 186mm; margin: 0 auto; padding: 10px 4mm 20mm; }
+    .cover { text-align: center; padding: 26px 0 14px; border-bottom: 3px double #333; margin-bottom: 10px; }
+    .cover h1 { font-size: 21pt; margin: 0 0 8px; letter-spacing: 2px; }
+    .cover .meta { font-size: 10pt; color: #555; }
+    h2 { font-size: 14.5pt; margin: 26px 0 6px; padding-bottom: 4px; border-bottom: 2px solid #333;
+        page-break-after: avoid; break-after: avoid; }
+    h2 .scnt { font-size: 9.5pt; font-weight: normal; color: #777; margin-left: 8px; }
+    h3 { font-size: 12pt; margin: 16px 0 6px; color: #222; page-break-after: avoid; break-after: avoid; }
+    h3 .cnt { font-size: 9pt; font-weight: normal; color: #999; margin-left: 6px; }
+    .q { padding: 7px 2px 9px; border-bottom: 1px dashed #bbb; page-break-inside: avoid; break-inside: avoid; }
+    .qt { font-size: 9.5pt; color: #666; margin-bottom: 2px; }
+    .qt .no { font-weight: 700; color: #000; font-size: 11pt; margin-right: 4px; }
+    .qt .tag { border: 1px solid #aaa; border-radius: 3px; padding: 0 5px; font-size: 8.5pt; margin-right: 6px; color: #444; }
+    .qt .loc { font-size: 9pt; color: #999; }
+    .stem { margin: 2px 0; }
+    .opt { margin: 2px 0 2px 16px; }
+    .opt .letter { font-weight: 700; margin-right: 6px; }
+    .blank { margin: 6px 0 2px 16px; color: #333; }
+    .media-img { max-width: 62%; height: auto; display: block; margin: 6px 0; border: 1px solid #ddd; border-radius: 4px; }
+    .media-table { margin: 6px 0; }
+    .media-table table { border-collapse: collapse; }
+    .media-table th, .media-table td { border: 1px solid #888; padding: 3px 10px; text-align: left; }
+    .media-table th { background: #f0f0f0; }
+    .answers { page-break-before: always; break-before: page; }
+    .answers table { width: 100%; border-collapse: collapse; font-size: 10.5pt; margin-top: 8px; }
+    .answers th, .answers td { border: 1px solid #999; padding: 4px 9px; text-align: left; }
+    .answers th { background: #efefef; font-size: 10pt; }
+    .answers .ano { width: 44px; text-align: center; font-weight: 700; }
+    .answers .aloc { color: #777; font-size: 9.5pt; }
+    footer { margin-top: 24px; text-align: center; font-size: 9pt; color: #aaa; }
+    @media print { .no-print { display: none !important; } body { font-size: 11pt; } .wrap { padding: 0; } }
+</style>
+</head>
+<body>
+    <div class="toolbar no-print">
+        <button onclick="window.print()">🖨 打印 / 保存为 PDF</button>
+        <button class="ghost" onclick="window.close()">关闭</button>
+        <span class="tip">在打印对话框的「目标打印机」中选择「另存为 PDF」，即可导出 PDF 文件</span>
+    </div>
+    <div class="wrap">
+        <header class="cover">
+            <h1>${esc(bankName)}</h1>
+            <div class="meta">共 ${n} 题${user ? ' · ' + esc(user) : ''} · 导出于 ${dateStr} · LMS Genesis</div>
+        </header>
+        ${bodyParts.join('\n')}
+        <section class="answers">
+            <h2>参考答案</h2>
+            <table>
+                <thead><tr><th style="width:44px">题号</th><th>答案</th><th>出处</th></tr></thead>
+                <tbody>${ansRows.join('\n')}</tbody>
+            </table>
+        </section>
+        <footer>—— 本文档由 LMS Genesis 生成 ——</footer>
+    </div>
+</body>
+</html>`;
+
+                    return html;
                 },
 
                 // 打开疑似相似题审查弹窗

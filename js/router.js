@@ -1,5 +1,5 @@
 export const router = {
-    validViews: ['dashboard', 'setup', 'library', 'quiz', 'result', 'analytics'],
+    validViews: ['dashboard', 'setup', 'library', 'quiz', 'result', 'analytics', 'profile'],
     currentView: 'dashboard',
 
     go(id) {
@@ -38,6 +38,7 @@ export const router = {
         if (id === 'setup') App.views.setup.render();
         if (id === 'library' || id === 'mistake_book') App.views.library.render(libMode);
         if (id === 'analytics') App.views.analytics.render();
+        if (id === 'profile') App.views.profile.render();
     },
     refresh() {
         const view = this.currentView || 'dashboard';

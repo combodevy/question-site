@@ -10,6 +10,7 @@ import { dashboard } from './views/dashboard.js';
 import { setup } from './views/setup.js';
 import { library } from './views/library.js';
 import { analytics } from './views/analytics.js';
+import { profile } from './views/profile.js';
 
 const App = {
     apiBase: window.API_BASE || '',
@@ -26,7 +27,8 @@ const App = {
         dashboard,
         setup,
         library,
-        analytics
+        analytics,
+        profile
     },
     async init() {
         // 逐步容错：任何一步失败都不能阻止后面的初始化。
