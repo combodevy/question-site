@@ -108,7 +108,15 @@ export const quiz = {
                     if (!q) return;
                     App.dom.setText('q-type', q.type === 'mcq' ? '单选' : (q.type === 'multi' ? '多选' : (q.type === 'fill' ? '填空' : '判断')));
                     App.dom.setText('q-sub', q.sub);
-                    App.dom.setText('q-text', q.q);
+                    // 题干支持 [图N]/[表N] 占位符（media 白名单渲染），普通题干不受影响
+                    const qTextEl = App.dom.get('q-text');
+                    if (qTextEl) {
+                        if (Array.isArray(q.media) && q.media.length) {
+                            qTextEl.innerHTML = App.utils.renderMedia(q.q, q.media, { imgClass: 'max-w-full rounded-lg my-2 mx-auto' });
+                        } else {
+                            qTextEl.textContent = q.q;
+                        }
+                    }
                     App.dom.setText('quiz-progress', `${this.idx + 1} / ${this.queue.length}`);
 
                     this._questionStartTime = Date.now();

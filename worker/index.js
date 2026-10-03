@@ -455,6 +455,49 @@ export default {
                 }, 200, headers);
             }
 
+            // 3.5 注销账号：自删（数据一并清除，不可恢复）。
+            // 需要密码二次确认——防止设备被他人借用时误触；成功后前端强制登出。
+            if (path === "/api/auth/delete-account" && request.method === "POST") {
+                const secret = env.JWT_SECRET;
+                if (!secret || secret.trim().length < 8) {
+                    return jsonResponse({ error: "服务器配置错误" }, 500, headers);
+                }
+                const payload = await getAuthUser(request, env);
+                if (!payload) return jsonResponse({ error: "Unauthorized" }, 401, headers);
+                const delBody = await readJson(request);
+                if (!delBody) return badJson(headers);
+                const delPw = typeof delBody.password === "string" ? delBody.password : "";
+                if (!delPw) return jsonResponse({ error: "请输入密码确认注销" }, 400, headers);
+
+                const delUser = await env.DB.prepare("SELECT id, username, password_hash, salt FROM users WHERE id = ?")
+                    .bind(payload.sub).first();
+                if (!delUser) return jsonResponse({ error: "账户不存在或已被删除" }, 404, headers);
+                if (verifyAdmin(delUser, env)) {
+                    return jsonResponse({ error: "管理员账号不能自助注销，请联系其他管理员处理" }, 403, headers);
+                }
+                const delHash = await hashPassword(delPw, delUser.salt);
+                if (delHash !== delUser.password_hash) {
+                    return jsonResponse({ error: "密码不正确，注销已取消" }, 400, headers);
+                }
+
+                // 级联清理：questions → sets → logs → snapshots → user（与 admin delete-user 同序）
+                const delSetRows = await env.DB.prepare("SELECT id FROM question_sets WHERE user_id = ?").bind(delUser.id).all();
+                const statements = [];
+                const delSetIds = (delSetRows.results || []).map(r => r.id);
+                if (delSetIds.length > 0) {
+                    const delPh = delSetIds.map(() => "?").join(",");
+                    statements.push(env.DB.prepare(`DELETE FROM questions WHERE question_set_id IN (${delPh})`).bind(...delSetIds));
+                }
+                statements.push(
+                    env.DB.prepare("DELETE FROM question_sets WHERE user_id = ?").bind(delUser.id),
+                    env.DB.prepare("DELETE FROM sync_logs WHERE user_id = ?").bind(delUser.id),
+                    env.DB.prepare("DELETE FROM bank_snapshots WHERE user_id = ?").bind(delUser.id),
+                    env.DB.prepare("DELETE FROM users WHERE id = ?").bind(delUser.id)
+                );
+                await env.DB.batch(statements);
+                return jsonResponse({ ok: true }, 200, headers);
+            }
+
             if (path === "/api/auth/change-password" && request.method === "POST") {
                 const body = await readJson(request);
                 if (!body) return badJson(headers);

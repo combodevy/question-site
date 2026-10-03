@@ -807,12 +807,52 @@
                         App.ui.openTrashModal();
                     } else if (act === 'password') {
                         this.openPasswordModal();
+                    } else if (act === 'delete-account') {
+                        this._startAccountDeletion();
                     } else if (act === 'logout') {
                         if (confirm('确定要退出登录吗？\n本地缓存会清空，题库和学习记录都保留在云端，下次登录自动恢复。')) {
                             this._meCache = null;
                             App.auth.logout();
                         }
                     }
+                },
+
+                // ===== 注销账号：三重防呆（警告 → 输入用户名 → 输入密码）=====
+                _startAccountDeletion() {
+                    const session = window.App && App.auth && App.auth.session;
+                    if (!session) return;
+                    const username = (session.user && session.user.username) || '';
+                    const stats = App.data.getStats();
+                    if (!confirm(
+                        '⚠️ 注销账号将永久删除：\n\n· 全部题库（' + stats.total + ' 题）\n· 全部刷题记录与学习数据\n· 收藏、错题本与云端备份\n\n此操作不可恢复！\n\n确定要继续吗？'
+                    )) return;
+                    const typed = prompt('防呆确认：请输入你的用户名「' + username + '」以继续');
+                    if (typed === null) return;
+                    if (typed.trim() !== username) {
+                        alert('用户名不匹配，注销已取消。');
+                        return;
+                    }
+                    const pw = prompt('最后一步：输入账号密码以确认注销');
+                    if (pw === null) return;
+                    if (!pw) { alert('密码不能为空。'); return; }
+
+                    const token = App.auth.getToken();
+                    if (!token) { alert('登录状态已失效，请刷新页面后重试。'); return; }
+                    fetch((App.apiBase || '') + '/api/auth/delete-account', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                        body: JSON.stringify({ password: pw })
+                    }).then(r => r.json().then(b => ({ status: r.status, body: b })).catch(() => ({ status: r.status, body: {} })))
+                      .then(({ status, body }) => {
+                          if (status === 200 && body.ok) {
+                              alert('账号已注销。所有数据已删除，感谢使用。');
+                              App.auth.logout();
+                              App.data.clearAllForLogout().then(() => location.reload());
+                          } else {
+                              alert((body && body.error) || ('注销失败 (HTTP ' + status + ')'));
+                          }
+                      })
+                      .catch(() => alert('网络异常，注销未完成。'));
                 },
 
                 // ===== 导出全部题库（备份 / 换设备迁移用）=====
@@ -843,7 +883,22 @@
 
                 // ===== 修改密码 =====
                 openPasswordModal() {
-                    ['pw-old', 'pw-new', 'pw-new2'].forEach(id => { const el = App.dom.get(id); if (el) el.value = ''; });
+                    ['pw-old', 'pw-new', 'pw-new2'].forEach(id => {
+                        const el = App.dom.get(id);
+                        if (!el) return;
+                        el.value = '';
+                        el.type = 'password';   // 每次打开重置为隐藏态
+                    });
+                    const modal = App.dom.get('modal-password');
+                    if (modal && !modal.dataset.pwToggleBound) {
+                        modal.dataset.pwToggleBound = '1';
+                        modal.addEventListener('click', (e) => {
+                            const t = e.target.closest('[data-pw-toggle]');
+                            if (!t) return;
+                            const input = document.getElementById(t.dataset.pwToggle);
+                            if (input) input.type = input.type === 'password' ? 'text' : 'password';
+                        });
+                    }
                     const statusEl = App.dom.get('pw-status');
                     if (statusEl) statusEl.textContent = '';
                     this.toggleModal('password');
@@ -880,6 +935,8 @@
                             return;
                         }
                         if (statusEl) statusEl.textContent = '密码修改成功，下次登录请使用新密码。';
+                        // 清空输入框（避免浏览器自动填充残留），稍后自动关闭
+                        ['pw-old', 'pw-new', 'pw-new2'].forEach(id => { const el = App.dom.get(id); if (el) el.value = ''; });
                         setTimeout(() => this.closeModal('password'), 1200);
                     } catch (e) {
                         fail('网络异常，请稍后重试。');

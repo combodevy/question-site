@@ -3,6 +3,75 @@ export const utils = {
         if (!text || typeof pinyinPro === 'undefined') return text ? String(text).toLowerCase() : '';
         return pinyinPro.pinyin(text, { toneType: 'none', separator: '' }).toLowerCase();
     },
+    // ===== 题目富媒体（图片/表格）渲染 =====
+    // 设计：题干中用 [图N] / [表N] 占位，JSON 的 media 数组提供内容：
+    //   { type: 'img', key: '图1', src: 'https://...' 或 'data:image/...;base64,...', alt?: '' }
+    //   { type: 'table', key: '表1', html: '<table>...</table>', caption?: '' }
+    // 渲染时只输出白名单生成的标签，题干其余部分照旧 escapeHTML——XSS 面不扩大。
+    // 用途：quiz 题干 / 题库列表 / 详情抽屉共用。
+    renderMedia(text, media, opts) {
+        const opts2 = opts || {};
+        const list = Array.isArray(media) ? media : [];
+        const map = new Map();
+        for (const m of list) {
+            if (!m || typeof m.key !== 'string') continue;
+            map.set(m.key, m);
+        }
+        const esc = this.escapeHTML;
+        // 阶段1：占位符替换为带哨兵的占位 token（防止后续 escapeHTML 破坏生成的标签）
+        const tokens = [];
+        let out = esc(String(text == null ? '' : text));
+        out = out.replace(/\[(图|表|fig|table)\s*(\d+)\]/gi, (raw, kind, num) => {
+            const key = (kind.toLowerCase() === '图' ? '图' : (kind.toLowerCase() === '表' ? '表' : kind.toLowerCase())) + num;
+            const m = map.get(key);
+            if (!m) return raw;   // 无对应 media → 占位符原样保留（用户能看到缺图标记）
+            const idx = tokens.length;
+            let tag = '';
+            if ((m.type || 'img') === 'table' && typeof m.html === 'string') {
+                // 表格 HTML 做白名单过滤：只保留 table/thead/tbody/tr/th/td/caption + 无属性或极简属性
+                const clean = this.sanitizeTableHTML(m.html);
+                tag = `<div class="media-table">${clean}</div>`;
+            } else if (typeof m.src === 'string' && /^(https:\/\/|data:image\/)/.test(m.src)) {
+                const alt = esc(m.alt || key);
+                tag = `<img src="${esc(m.src)}" alt="${alt}" class="media-img ${opts2.imgClass || ''}" loading="lazy">`;
+            } else {
+                return raw;
+            }
+            tokens.push(tag);
+            return `\u0000MEDIA${idx}\u0000`;
+        });
+        // 阶段2：escapeHTML 已经做过（out 一开始就 esc 了）——但占位符替换发生在 esc 之后，
+        // 这里直接把 token 换回标签（token 本身含 \u0000 不会被 esc 破坏，因为我们是在 esc 后替换）
+        out = out.replace(/\u0000MEDIA(\d+)\u0000/g, (_, i) => tokens[parseInt(i, 10)] || '');
+        if (opts2.wrap) return `<div class="${opts2.wrapClass || 'question-media'}">${out}</div>`;
+        return out;
+    },
+
+    // 表格 HTML 白名单过滤：只允许表格相关标签，剥掉一切属性（防 onerror/onclick/style 注入）
+    sanitizeTableHTML(html) {
+        const doc = new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html');
+        const root = doc.body.firstElementChild;
+        if (!root || root.tagName !== 'TABLE') return this.escapeHTML(String(html)).slice(0, 500);
+        const ALLOWED = new Set(['TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TH', 'TD', 'CAPTION', 'COLGROUP', 'COL']);
+        const clean = (node) => {
+            const out = [];
+            for (const child of node.childNodes) {
+                if (child.nodeType === 3) { out.push(this.escapeHTML(child.textContent)); continue; }
+                if (child.nodeType !== 1) continue;
+                const tag = child.tagName;
+                if (!ALLOWED.has(tag)) { out.push(this.escapeHTML(child.textContent)); continue; }
+                const attrs = (tag === 'TD' || tag === 'TH') && child.hasAttribute('colspan')
+                    ? ` colspan="${parseInt(child.getAttribute('colspan'), 10) || 1}"`
+                    : ((tag === 'TD' || tag === 'TH') && child.hasAttribute('rowspan')
+                        ? ` rowspan="${parseInt(child.getAttribute('rowspan'), 10) || 1}"`
+                        : '');
+                out.push(`<${tag.toLowerCase()}${attrs}>` + clean(child) + `</${tag.toLowerCase()}>`);
+            }
+            return out.join('');
+        };
+        return clean(root);
+    },
+
     // 找到元素真正的滚动容器。
     // 不能想当然：#lib-list 自己也写了 overflow-y-auto，但它没有固定高度
     //（scrollHeight == clientHeight），实际并不滚动；真正滚动的是外层 <main>。
