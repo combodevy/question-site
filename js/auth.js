@@ -59,9 +59,11 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ username, password })
                         });
-                        const data = await res.json();
+                        // 网关 502/504 会返回 HTML，res.json() 直接抛 SyntaxError——兜住给友好文案
+                        let data = null;
+                        try { data = await res.json(); } catch (_) {}
                         if (!res.ok) {
-                            return { error: { message: data.error || '登录失败' } };
+                            return { error: { message: (data && data.error) || (res.status >= 500 ? '服务器暂时不可用，请稍后重试' : '登录失败') } };
                         }
                         // 服务端没给凭证时不能继续：否则会把字符串 "undefined" 写进 localStorage，
                         // 并把内部的 TypeError 文案直接显示给用户
@@ -105,9 +107,10 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ username, password })
                         });
-                        const data = await res.json();
+                        let data = null;
+                        try { data = await res.json(); } catch (_) {}
                         if (!res.ok) {
-                            return { error: { message: data.error || '注册失败' } };
+                            return { error: { message: (data && data.error) || (res.status >= 500 ? '服务器暂时不可用，请稍后重试' : '注册失败') } };
                         }
                         // 同 login：没凭证就停下，不要写入 "undefined" 或泄露内部错误
                         if (!data || typeof data.token !== 'string' || !data.token) {

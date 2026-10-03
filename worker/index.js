@@ -224,6 +224,8 @@ function checkRateLimit(key, max, windowMs) {
         for (const [k, v] of _rateBuckets) {
             if (now > v.resetAt) _rateBuckets.delete(k);
         }
+        // 仍超上限（攻击者用海量唯一键灌桶）就整体清空：短暂放行好过 OOM
+        if (_rateBuckets.size > 50000) _rateBuckets.clear();
     }
     const rec = _rateBuckets.get(key);
     if (!rec || now > rec.resetAt) {
@@ -311,6 +313,12 @@ export default {
                 if (!/^[a-zA-Z0-9_\u4e00-\u9fa5.-]+$/.test(rawUsername)) {
                     return jsonResponse({ error: "用户名只能包含字母、数字、下划线、点、横线或中文" }, 400, headers);
                 }
+                // 保留用户名：ADMIN_USERNAMES 里的名字不允许被公开注册抢注（TOFU 提权面）
+                const reservedNames = String(env.ADMIN_USERNAMES || "admin").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+                if (reservedNames.includes(rawUsername.toLowerCase())) {
+                    return jsonResponse({ error: "该用户名被保留，请换一个 (Username reserved)" }, 400, headers);
+                }
+
                 // 注册限流：按 IP，1 小时最多 5 个新账号（防批量注册垃圾号）
                 if (!checkRateLimit('signup:' + clientIp(request), 5, 60 * 60 * 1000).ok) {
                     return jsonResponse({ error: "注册过于频繁，请稍后再试" }, 429, headers);
@@ -333,8 +341,11 @@ export default {
                         .bind(userId, rawUsername.toLowerCase(), passwordHash, salt)
                         .run();
                 } catch (e) {
-                    // UNIQUE 约束兜底：并发注册同名用户时给友好提示而不是 500
-                    return jsonResponse({ error: "用户名已被注册" }, 400, headers);
+                    // UNIQUE 约束兜底：并发注册同名用户时给友好提示；其他错误如实 500
+                    if (String((e && e.message) || '').includes('UNIQUE')) {
+                        return jsonResponse({ error: "用户名已被注册" }, 400, headers);
+                    }
+                    return jsonResponse({ error: "注册失败，请稍后重试" }, 500, headers);
                 }
 
                 const token = await signJwt({
@@ -544,6 +555,10 @@ export default {
             // 2.7 客户端错误上报：前端全局异常处理把未捕获错误 POST 到这里，
             // 存入 sync_logs（status=client-error），管理后台「系统日志」页可见
             if (path === "/api/client-errors" && request.method === "POST") {
+                // 限流：异常上报接口可被刷量灌满 sync_logs（30 天清理只挂在保存路径上）
+                if (!checkRateLimit('cerr:' + userId, 30, 60 * 60 * 1000).ok) {
+                    return jsonResponse({ error: "Too Many Requests" }, 429, headers);
+                }
                 const body = await readJson(request);
                 if (!body) return badJson(headers);
                 const msg = typeof body.message === "string" ? body.message.slice(0, 300) : "unknown";
@@ -742,11 +757,16 @@ export default {
                     }
 
                     // Incremental history sync logic
-                    if (statePartial && historyAppend && historyAppend.length > 0 && !state) {
+                    // 增量保存必须以云端现有 state 为底本合并——历史上这里要求
+                    // historyAppend 非空才进合并分支，否则 finalState 保持 null，
+                    // JSON.stringify(null) 会把整份 state 覆写成字符串 "null"，
+                    // 用户的作答历史/回收站/设置全部清零且快照不触发（P0 级数据丢失）。
+                    if (statePartial && !state) {
                         let parsedState = {};
                         if (existing.state) {
                             try { parsedState = JSON.parse(existing.state); } catch (e) {}
                         }
+                        if (!parsedState || typeof parsedState !== 'object') parsedState = {};
                         if (!Array.isArray(parsedState.history)) {
                             parsedState.history = [];
                         }
@@ -773,14 +793,19 @@ export default {
                         }
                         finalState = parsedState;
                     } else if (finalState && historyAppend && historyAppend.length > 0) {
-                        if (Array.isArray(finalState.history)) {
-                            // rid 优先去重（无 rid 旧记录回退按 t）：两台设备的不同记录
-                            // 碰巧同一毫秒时，按 t 去重会把其中一条静默丢掉
-                            const keyOf = (h) => (h && typeof h.rid === 'string' && h.rid) ? 'r:' + h.rid : 'k:' + ((h && h.id) || '') + '|' + (h && h.t);
-                            const seenKeys = new Set(finalState.history.map(keyOf));
-                            const newEntries = historyAppend.filter(h => !seenKeys.has(keyOf(h)));
-                            finalState.history = finalState.history.concat(newEntries);
-                        }
+                        if (!Array.isArray(finalState.history)) finalState.history = [];
+                        // rid 优先去重（无 rid 旧记录回退按 t）：两台设备的不同记录
+                        // 碰巧同一毫秒时，按 t 去重会把其中一条静默丢掉
+                        const keyOf = (h) => (h && typeof h.rid === 'string' && h.rid) ? 'r:' + h.rid : 'k:' + ((h && h.id) || '') + '|' + (h && h.t);
+                        const seenKeys = new Set(finalState.history.map(keyOf));
+                        const newEntries = historyAppend.filter(h => !seenKeys.has(keyOf(h)));
+                        finalState.history = finalState.history.concat(newEntries);
+                    }
+
+                    // 全量保存必须带 state：到这里还是 null 说明请求既非增量合并
+                    // 也非全量（畸形/旧客户端），落库会把 state 覆写成 "null" —— 直接拒绝。
+                    if (!finalState || typeof finalState !== 'object') {
+                        return jsonResponse({ error: "state is required" }, 400, headers);
                     }
 
                     // Prepare batch SQL executions to replace transactions
@@ -812,6 +837,10 @@ export default {
                         }
 
                         for (const q of uniqueQuestions) {
+                            // type 白名单化：API 直写绕过前端校验时，未知 type 一律降级为 mcq
+                            if (q && typeof q === 'object' && !['mcq', 'multi', 'tf', 'fill'].includes(q.type)) {
+                                q.type = 'mcq';
+                            }
                             statements.push(
                                 env.DB.prepare("INSERT INTO questions (question_set_id, content) VALUES (?, ?)")
                                     .bind(setId, JSON.stringify(q))
@@ -835,7 +864,7 @@ export default {
                     let inserted;
                     try {
                         inserted = await env.DB.prepare("INSERT INTO question_sets (user_id, name, state, version) VALUES (?, ?, ?, ?) RETURNING id")
-                            .bind(userId, name, JSON.stringify(state), nextVersion)
+                            .bind(userId, name, JSON.stringify(state || {}), nextVersion)
                             .first();
                     } catch (insertErr) {
                         // user_id 唯一索引竞态：两个标签页在全新账号上并发首次保存，
@@ -852,6 +881,9 @@ export default {
 
                     const statements = [];
                     for (const q of questions) {
+                        if (q && typeof q === 'object' && !['mcq', 'multi', 'tf', 'fill'].includes(q.type)) {
+                            q.type = 'mcq';
+                        }
                         statements.push(
                             env.DB.prepare("INSERT INTO questions (question_set_id, content) VALUES (?, ?)")
                                 .bind(setId, JSON.stringify(q))
@@ -909,11 +941,11 @@ export default {
 
                     const searchQ = (urlObj.searchParams.get("q") || "").trim().toLowerCase();
                     // 转义 LIKE 通配符：否则搜 % 会匹配全部用户
-                    const searchEscaped = searchQ.replace(/[\%_]/g, "\$&");
-                    const whereSql = searchQ ? "WHERE lower(u.username) LIKE ? ESCAPE '\'" : "";
+                    const searchEscaped = searchQ.replace(/[\%_]/g, "\\$&");
+                    const whereSql = searchQ ? "WHERE lower(u.username) LIKE ? ESCAPE '\\'" : "";
 
                     const countStmt = searchQ
-                        ? env.DB.prepare("SELECT COUNT(*) AS c FROM users WHERE lower(username) LIKE ? ESCAPE '\'").bind('%' + searchEscaped + '%')
+                        ? env.DB.prepare("SELECT COUNT(*) AS c FROM users WHERE lower(username) LIKE ? ESCAPE '\\'").bind('%' + searchEscaped + '%')
                         : env.DB.prepare("SELECT COUNT(*) AS c FROM users");
                     const { results: countRows } = await countStmt.all();
                     const total = (countRows && countRows[0] && countRows[0].c) || 0;
@@ -996,6 +1028,16 @@ export default {
                     if (!rawUsername || !password) {
                         return jsonResponse({ error: "Username and password are required" }, 400, headers);
                     }
+                    // 与公开 signup 同一套校验：管理员创建的账号不该比自注册的更弱
+                    if (typeof password !== "string" || password.length < 6) {
+                        return jsonResponse({ error: "密码至少需要 6 位 (Password must be at least 6 characters)" }, 400, headers);
+                    }
+                    if (rawUsername.length < 2 || rawUsername.length > 32) {
+                        return jsonResponse({ error: "用户名长度需在 2-32 位之间" }, 400, headers);
+                    }
+                    if (!/^[a-zA-Z0-9_一-龥.-]+$/.test(rawUsername)) {
+                        return jsonResponse({ error: "用户名只能包含字母、数字、下划线、点、横线或中文" }, 400, headers);
+                    }
 
                     // Map email address
                     let queryName = rawUsername.toLowerCase();
@@ -1059,6 +1101,7 @@ export default {
                     statements.push(
                         env.DB.prepare(`DELETE FROM question_sets WHERE user_id IN (${placeholders})`).bind(...userIds),
                         env.DB.prepare(`DELETE FROM sync_logs WHERE user_id IN (${placeholders})`).bind(...userIds),
+                        env.DB.prepare(`DELETE FROM bank_snapshots WHERE user_id IN (${placeholders})`).bind(...userIds),
                         env.DB.prepare(`DELETE FROM users WHERE id IN (${placeholders})`).bind(...userIds)
                     );
 
@@ -1098,7 +1141,8 @@ export default {
                     targetUserIds = [...new Set(targetUserIds.map(String).filter(Boolean))];
 
                     if (targetUserIds.length === 0) {
-                        return jsonResponse({ ok: true, message: 'No users found to push to.' }, 200, headers);
+                        // 契约与成功路径一致：前端会读 data.summary.success，缺了会 TypeError
+                        return jsonResponse({ ok: true, message: 'No users found to push to.', summary: { target, total: 0, success: 0, failed: 0, skippedDuplicate: 0 } }, 200, headers);
                     }
 
                     // 校验目标用户确实存在，避免创建挂在不存在的 user_id 上的孤儿题集

@@ -17,7 +17,14 @@ function openDatabase() {
                 db.createObjectStore(STORE_NAME);
             }
         };
-        request.onsuccess = (e) => resolve(e.target.result);
+        request.onsuccess = (e) => {
+            const db = e.target.result;
+            // 连接被浏览器回收或版本升级时清空单例——否则缓存的死连接
+            // 会让之后所有读写永久 reject 且被调用方吞掉，静默丢持久化
+            db.onclose = () => { _dbPromise = null; };
+            db.onversionchange = () => { try { db.close(); } catch (_) {} _dbPromise = null; };
+            resolve(db);
+        };
         request.onerror = (e) => {
             _dbPromise = null;
             reject(e.target.error);

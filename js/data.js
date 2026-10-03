@@ -293,6 +293,8 @@ export const data = {
                 },
 
                 async clearAllForLogout() {
+                    // 答题页中途置位的同步抑制标志若不清掉，换账号登录后所有云同步会被静默跳过
+                    this._suppressCloudSync = false;
                     this.bank = {};
                     this.bankName = '';
                     this.history = [];
@@ -1843,7 +1845,10 @@ this.bumpHistoryRev();
                             for (const q of (sub || [])) { if (q && idSet.has(q.id)) removed.push(q.id); }
                         }
                     }
-                    if (removed.length) this.starredIds = (this.starredIds || []).filter(sid => !idSet.has(sid));
+                    if (removed.length) {
+                        this.starredIds = (this.starredIds || []).filter(sid => !idSet.has(sid));
+                        this._persistStarred();   // 同步落 IndexedDB，否则重载后陈旧收藏复活
+                    }
                     const now = Date.now();
                     let changed = false;
 

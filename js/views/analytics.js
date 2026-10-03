@@ -105,11 +105,13 @@
                         const width = popRect.width;
                         const height = popRect.height;
 
-                        let top = window.scrollY + anchorRect.bottom + 10;
-                        if (top + height + padding > window.scrollY + viewportHeight) {
-                            top = window.scrollY + anchorRect.top - height - 10;
-                            if (top < window.scrollY + padding) {
-                                top = window.scrollY + Math.max(padding, anchorRect.top + (anchorRect.height / 2) - height / 2);
+                        // overlay 是 fixed、pop 是其内 absolute → 用视口坐标，
+                        // 不加 scrollY/scrollX（文档级滚动出现时加了反而错位）
+                        let top = anchorRect.bottom + 10;
+                        if (top + height + padding > viewportHeight) {
+                            top = anchorRect.top - height - 10;
+                            if (top < padding) {
+                                top = Math.max(padding, anchorRect.top + (anchorRect.height / 2) - height / 2);
                             }
                         }
 
@@ -208,7 +210,8 @@
                                 { label: '>14天', min: 15, max: Infinity, attempts: 0, correct: 0 }
                             ];
                             filteredHistory.forEach(hEntry => {
-                                const days = Math.floor((now - hEntry.t) / 86400000);
+                                // 时钟偏快/多端同步可能产生负天数——钳到今天，别漏出所有桶
+                                const days = Math.max(0, Math.floor((now - hEntry.t) / 86400000));
                                 for (let i = 0; i < buckets.length; i++) {
                                     const b = buckets[i];
                                     if (days >= b.min && days <= b.max) {
@@ -269,14 +272,15 @@
                                         const avgSec = item.avgMs / 1000;
                                         const avgSecRounded = Math.round(avgSec * 10) / 10;
                                         const totalSec = Math.round(item.totalMs / 1000);
-                                        const qText = App.utils.escapeHTML(item.q.q).slice(0, 40);
+                                        const rawQ = String(item.q.q || '');
+                                        const qText = App.utils.escapeHTML(rawQ.slice(0, 40));
                                         return `
                                             <div class="flex flex-col gap-0.5 border-b border-[var(--border)] pb-1 last:border-b-0 cursor-pointer" data-qtime-idx="${idx}">
                                                 <div class="flex items-center justify-between">
                                                     <span class="text-[11px] text-[var(--sub)]">#${idx + 1}</span>
                                                     <span class="text-[11px] text-[var(--sub)]">${item.attempts} 次</span>
                                                 </div>
-                                                <div class="text-[11px] text-[var(--text)]">${qText}${item.q.q.length > 40 ? '…' : ''}</div>
+                                                <div class="text-[11px] text-[var(--text)]">${qText}${rawQ.length > 40 ? '…' : ''}</div>
                                                 <div class="flex items-center justify-between text-[11px] text-[var(--sub)]">
                                                     <span>平均用时约 ${avgSecRounded} 秒，总用时 ${totalSec} 秒</span>
                                                 </div>

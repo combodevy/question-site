@@ -206,6 +206,21 @@ export const utils = {
         const reg = new RegExp(`(${escapedQuery})`, 'gi');
         return escapedText.replace(reg, '<mark class="bg-yellow-200 dark:bg-yellow-700/50 rounded px-0.5 text-inherit">$1</mark>');
     },
+
+    // 对【已含白名单标签】的 HTML（renderMedia 输出）做关键词高亮。
+    // 不能走 highlight()：它会把整段 escapeHTML，把 <img>/<table> 变成可见文字；
+    // 这里标签段原样保留，只在文本段插 <mark>。文本段已是转义后内容，不再二次转义。
+    highlightHTML(html, query) {
+        if (typeof html !== 'string' || !html || !query) return html;
+        const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        if (!escapedQuery) return html;
+        let reg;
+        try { reg = new RegExp(`(${escapedQuery})`, 'gi'); } catch (e) { return html; }
+        return html.split(/(<[^>]*>)/).map(seg => {
+            if (!seg || seg[0] === '<') return seg;
+            return seg.replace(reg, '<mark class="bg-yellow-200 dark:bg-yellow-700/50 rounded px-0.5 text-inherit">$1</mark>');
+        }).join('');
+    },
     getDetailedOptionHTML(q, charStr, searchQuery = '') {
         if (!q.o || !Array.isArray(q.o)) return '<span class="text-red-500 text-xs">选项数据缺失</span>';
 

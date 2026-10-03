@@ -1320,7 +1320,7 @@
                     }
                 } catch (e) {
                     console.error(e);
-                    tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-red-500">Error: ${e.message}</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-red-500">Error: ${this.escapeHTML((e && e.message) || String(e))}</td></tr>`;
                 }
             },
 
@@ -1464,7 +1464,7 @@
                     }).join('');
 
                 } catch (e) {
-                    tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-red-500">Error: ${e.message}</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-red-500">Error: ${this.escapeHTML((e && e.message) || String(e))}</td></tr>`;
                 }
             },
 
@@ -1510,7 +1510,7 @@
                             `;
                     }).join('');
                 } catch (e) {
-                    tbody.innerHTML = `<tr><td colspan="6" class="text-red-500 text-center py-4">Error: ${e.message}</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="6" class="text-red-500 text-center py-4">Error: ${this.escapeHTML((e && e.message) || String(e))}</td></tr>`;
                 }
             },
 
@@ -1593,7 +1593,7 @@
                 container.innerHTML = this.currentQuestions.map((q, idx) => {
                     const safeQ = this.escapeHTML(q.q || '');
                     const typeLabels = { mcq: 'Multiple Choice', multi: 'Multi-Select', tf: 'True/False', fill: 'Fill-in-the-blank' };
-                    const typeLabel = typeLabels[q.type] || q.type;
+                    const typeLabel = this.escapeHTML(typeLabels[q.type] || q.type || '');
 
                     let optionsHtml = '';
                     if (q.type === 'tf') {

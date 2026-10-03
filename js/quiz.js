@@ -256,16 +256,25 @@ export const quiz = {
 
                 _onQuizKey(e) {
                     if (!window.App || App.router.currentView !== 'quiz') return;
+                    if (e.repeat) return;   // 长按自动重复会以 ~400ms/题 的速度刷卷并全部落历史
                     // 输入框（填空题答案）里的按键交给输入框自己处理
                     if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
                     if (e.ctrlKey || e.metaKey || e.altKey) return;
                     const q = this.queue && this.queue[this.idx];
                     if (!q) return;
+                    // 已答对、正在等自动进入下一题：忽略一切按键——
+                    // 否则 400ms 窗口内的连按会重复写历史、得分率还会超过 100%
+                    if (this._pendingNextTimer) return;
                     const fb = document.getElementById('quiz-feedback');
                     const feedbackShown = fb && !fb.classList.contains('hidden');
 
                     if (e.key === 'Enter') {
-                        if (q.type === 'fill') return;   // 填空题 Enter 在输入框内提交
+                        // 填空题：作答时 Enter 在输入框内提交；出分后输入框已禁用，
+                        // 此时 Enter 应像选择题一样进入下一题（纯键盘可玩）
+                        if (q.type === 'fill') {
+                            if (feedbackShown) { e.preventDefault(); this.next(); }
+                            return;
+                        }
                         if (q.type === 'multi' && !feedbackShown) { e.preventDefault(); this.submitMulti(); return; }
                         if (feedbackShown) { e.preventDefault(); this.next(); }
                         return;
@@ -322,7 +331,7 @@ export const quiz = {
                         App.dom.setText('fb-icon', '✕');
                         App.dom.setText('fb-title', '回答错误 (Incorrect)');
                         const detailedHTML = App.utils.getDetailedOptionHTML(q, q.a);
-                        App.dom.setHTML('fb-desc', `正确答案是：<span class="font-bold text-primary-600">${q.a}</span><br/>${detailedHTML}`);
+                        App.dom.setHTML('fb-desc', `正确答案是：<span class="font-bold text-primary-600">${App.utils.escapeHTML(q.a)}</span><br/>${detailedHTML}`);
                     }
 
                     if (c) {
@@ -339,6 +348,7 @@ export const quiz = {
                 },
 
                 sub(val, el) {
+                    if (this._pendingNextTimer) return;   // 已答对等待跳转：忽略重复提交
                     const q = this.queue[this.idx];
                     const ok = val === q.a;
                     const duration = this._questionStartTime ? Math.min(Date.now() - this._questionStartTime, 300000) : 0;
@@ -366,7 +376,7 @@ export const quiz = {
 
                         if (q.type === 'mcq') {
                             const detailedHTML = App.utils.getDetailedOptionHTML(q, q.a);
-                            App.dom.setHTML('fb-desc', `正确答案：<span class="font-bold text-primary-600">${q.a}</span><br/>${detailedHTML}`);
+                            App.dom.setHTML('fb-desc', `正确答案：<span class="font-bold text-primary-600">${App.utils.escapeHTML(q.a)}</span><br/>${detailedHTML}`);
                         } else {
                             const ansText = q.a === 'T' ? '正确 (True)' : '错误 (False)';
                             App.dom.setText('fb-desc', `正确答案：${ansText}`);

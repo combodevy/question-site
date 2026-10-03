@@ -210,14 +210,15 @@
                                 : '<span class="status-false">× (错误/False)</span>';
                             detailsHtml = `<div class="mt-2 text-xs text-[var(--sub)] ${this._expandAll ? '' : 'hidden'} details-panel">此题为判断题。</div>`;
                         } else {
-                            let inlineAns = q.a;
+                            // q.a 可能被同步写入任意字符串（云端不校验），兜底转义防注入
+                            let inlineAns = App.utils.escapeHTML(q.a);
                             if (q.type === 'mcq') {
                                 const idx = q.a.charCodeAt(0) - 65;
-                                if (q.o && q.o[idx]) inlineAns = `${q.a}. ${App.utils.highlight(q.o[idx], this._searchQuery)}`;
+                                if (q.o && q.o[idx]) inlineAns = `${App.utils.escapeHTML(q.a)}. ${App.utils.highlight(q.o[idx], this._searchQuery)}`;
                             } else if (q.type === 'multi') {
                                 inlineAns = q.a.split('').map(c => {
                                     const idx = c.charCodeAt(0) - 65;
-                                    return (q.o && q.o[idx]) ? `${c}. ${App.utils.highlight(q.o[idx], this._searchQuery)}` : c;
+                                    return (q.o && q.o[idx]) ? `${App.utils.escapeHTML(c)}. ${App.utils.highlight(q.o[idx], this._searchQuery)}` : App.utils.escapeHTML(c);
                                 }).join(' , ');
                             }
 
@@ -231,14 +232,11 @@
                         // 含 media 的题干：占位符替换为缩略图/表格标记后仍走高亮管线
                         let highlightedQ;
                         if (Array.isArray(q.media) && q.media.length) {
-                            const med = q.media.filter(m => m && (m.type || 'img') === 'img' && typeof m.src === 'string');
-                            if (med.length) {
-                                const rendered = App.utils.renderMedia(q.q, q.media, {});
-                                highlightedQ = App.utils.highlight(rendered, this._searchQuery)
-                                    .replace(/<img /g, '<img data-media ');
-                            } else {
-                                highlightedQ = App.utils.highlight(q.q, this._searchQuery);
-                            }
+                            // renderMedia 输出已含 <img>/<table> 白名单标签——必须用 highlightHTML
+                            //（旧逻辑走 highlight() 会把标签整段转义成可见文字，媒体永远显示不出来）
+                            const rendered = App.utils.renderMedia(q.q, q.media, {});
+                            highlightedQ = App.utils.highlightHTML(rendered, this._searchQuery)
+                                .replace(/<img /g, '<img data-media ');
                         } else {
                             highlightedQ = App.utils.highlight(q.q, this._searchQuery);
                         }
@@ -285,7 +283,9 @@
                             const node = this._buildItem(list[i], i);
                             if (node) frag.appendChild(node);
                         }
-                        container.appendChild(frag);
+                        // 新行要插在「已显示 N/M」提示条之前——appendChild 会把数据放到提示条下面
+                        const hintEl = container.querySelector('.lib-load-more');
+                        container.insertBefore(frag, hintEl);
                         this._renderedCount = end;
                         this._updateLoadMore(container);
                         return end;
@@ -545,8 +545,13 @@
                                 if (!qid) return;
                                 if (btn.dataset.role === 'star') {
                                     App.data.toggleStar(qid);
-                                    // 只更新这一颗星的状态，不重渲染整个列表
                                     const starred = App.data.isStarred(qid);
+                                    // 收藏模式下取消收藏：该行已不符合列表条件，整列表重渲染
+                                    if (!starred && this.currentMode === 'starred') {
+                                        this.render('starred');
+                                        return;
+                                    }
+                                    // 只更新这一颗星的状态，不重渲染整个列表
                                     btn.textContent = starred ? '★' : '☆';
                                     btn.classList.toggle('text-amber-400', starred);
                                     btn.classList.toggle('text-[var(--sub)]', !starred);

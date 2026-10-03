@@ -35,14 +35,14 @@
                                     const safeQuestion = App.utils.escapeHTML(q.q || '');
                                     let fullAnswer = '';
                                     if (q.type === 'mcq' || q.type === 'multi') {
-                                        let inlineAns = q.a;
+                                        let inlineAns = App.utils.escapeHTML(q.a);
                                         if (q.type === 'mcq') {
                                             const idx = q.a.charCodeAt(0) - 65;
-                                            if (q.o && q.o[idx]) inlineAns = `${q.a}. ${App.utils.escapeHTML(q.o[idx])}`;
+                                            if (q.o && q.o[idx]) inlineAns = `${App.utils.escapeHTML(q.a)}. ${App.utils.escapeHTML(q.o[idx])}`;
                                         } else if (q.type === 'multi') {
                                             inlineAns = q.a.split('').map(c => {
                                                 const idx = c.charCodeAt(0) - 65;
-                                                return (q.o && q.o[idx]) ? `${c}. ${App.utils.escapeHTML(q.o[idx])}` : c;
+                                                return (q.o && q.o[idx]) ? `${App.utils.escapeHTML(c)}. ${App.utils.escapeHTML(q.o[idx])}` : App.utils.escapeHTML(c);
                                             }).join(' , ');
                                         }
                                         fullAnswer = `<div class="font-bold text-emerald-600 mb-1">答案：${inlineAns}</div>` + App.utils.getDetailedOptionHTML(q, q.a);

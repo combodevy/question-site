@@ -50,7 +50,7 @@
                                 chk.className = "setup-chk accent-primary-600 w-4 h-4";
                                 chk.value = `${sub}\u0001${chap}`;
                                 // 该科目在记忆中出现过 → 按记忆勾选；否则（新科目）默认全选
-                                chk.checked = subjectInMemory ? savedSet.has(chk.value) : true;
+                                chk.checked = !subjectInMemory || savedSet.has(chk.value);   // 科目在记忆中但章节不在 → 新章节默认勾选
                                 const span = document.createElement('span');
                                 span.className = "text-xs font-medium truncate";
                                 span.textContent = chap;
