@@ -46,7 +46,7 @@ const csp = [
     "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
     "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com",
     "font-src 'self' data:",
-    "img-src 'self' data:",
+    "img-src 'self' data: https:",
     `connect-src 'self' ${apiOrigin}`,
     "frame-ancestors 'none'",
     "base-uri 'self'",

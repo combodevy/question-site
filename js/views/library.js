@@ -195,7 +195,7 @@
 
                         // 星标按钮：所有模式都显示；已收藏高亮实心星
                         const starred = App.data.isStarred(q.id);
-                        const starBtn = `<button class="text-[13px] leading-none mr-1.5 ${starred ? 'text-amber-400' : 'text-[var(--sub)] hover:text-amber-400'} transition-colors" data-role="star" data-id="${App.utils.escapeHTML(String(q.id || ''))}" title="${starred ? '取消收藏' : '收藏'}">${starred ? '★' : '☆'}</button>`;
+                        const starBtn = `<button class="text-[13px] leading-none mr-1.5 ${starred ? 'text-amber-400' : 'text-[var(--sub)] hover:text-amber-400'} transition-colors" data-role="star" data-id="${App.utils.escapeHTML(String(q.id || ''))}" title="${starred ? '取消收藏' : '收藏'}" aria-label="${starred ? '取消收藏' : '收藏'}">${starred ? '★' : '☆'}</button>`;
 
                         let ansPreview = '';
                         let detailsHtml = '';
@@ -228,7 +228,20 @@
                         }
 
                         const typeLabel = q.type === 'mcq' ? '单选' : (q.type === 'multi' ? '多选' : (q.type === 'fill' ? '填空' : '判断'));
-                        const highlightedQ = App.utils.highlight(q.q, this._searchQuery);
+                        // 含 media 的题干：占位符替换为缩略图/表格标记后仍走高亮管线
+                        let highlightedQ;
+                        if (Array.isArray(q.media) && q.media.length) {
+                            const med = q.media.filter(m => m && (m.type || 'img') === 'img' && typeof m.src === 'string');
+                            if (med.length) {
+                                const rendered = App.utils.renderMedia(q.q, q.media, {});
+                                highlightedQ = App.utils.highlight(rendered, this._searchQuery)
+                                    .replace(/<img /g, '<img data-media ');
+                            } else {
+                                highlightedQ = App.utils.highlight(q.q, this._searchQuery);
+                            }
+                        } else {
+                            highlightedQ = App.utils.highlight(q.q, this._searchQuery);
+                        }
 
                         const safeSub = App.utils.escapeHTML(q.sub || '');
                         d.innerHTML = `

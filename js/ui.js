@@ -1444,6 +1444,8 @@
                     const optionsBlock = App.dom.get('qe-options-block');
                     const tfBlock = App.dom.get('qe-tf-block');
                     const optList = App.dom.get('qe-options-list');
+                    const mediaHint = App.dom.get('qe-media-hint');
+                    if (mediaHint) { mediaHint.classList.add('hidden'); mediaHint.textContent = ''; }
 
                     if (!qId) {
                         if (titleEl) titleEl.textContent = '新增题目';
@@ -1467,6 +1469,13 @@
                         if (titleEl) titleEl.textContent = '编辑题目';
                         if (idInput) idInput.value = q.id;
                         if (qText) qText.value = q.q;
+                        // 富媒体提示：media 只能经 JSON 导入/导出维护，编辑弹窗改不了它，但要告知用户它存在
+                        if (mediaHint && Array.isArray(q.media) && q.media.length) {
+                            const imgs = q.media.filter(m => m && (m.type || 'img') === 'img').length;
+                            const tabs = q.media.length - imgs;
+                            mediaHint.textContent = `⚠ 此题含富媒体（图片 ${imgs} 个${tabs ? `、表格 ${tabs} 个` : ''}），题干中以 [图N]/[表N] 占位。编辑保存不会丢失这些内容；修改媒体本身请走「导入题库」。`;
+                            mediaHint.classList.remove('hidden');
+                        }
                         if (subSelect) subSelect.value = q.sub;
                         updateChaps(q.sub);
                         if (chapSelect) chapSelect.value = q.chap;
@@ -1659,7 +1668,19 @@
                         return txt.replace(/^[A-Za-z0-9①-⑳Ａ-Ｚａ-ｚ０-９][\.、．:：）)\-\s]+/, '').trim();
                     });
 
+                    // 编辑已有题时，保留表单覆盖不到的扩展字段（media 图片/表格等）——
+                    // 否则编辑一次题干，media 就会被 upsertQuestion 整体替换掉（数据丢失）
+                    let carried = {};
+                    if (id) {
+                        const existing = App.data.getQuestionById(id);
+                        if (existing) {
+                            const { id: _i, sub: _s, chap: _c, type: _t, q: _q, o: _o, a: _a, ...rest } = existing;
+                            carried = rest;
+                        }
+                    }
+
                     App.data.upsertQuestion({
+                        ...carried,
                         id,
                         sub,
                         chap,

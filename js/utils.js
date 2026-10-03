@@ -49,9 +49,11 @@ export const utils = {
 
     // 表格 HTML 白名单过滤：只允许表格相关标签，剥掉一切属性（防 onerror/onclick/style 注入）
     sanitizeTableHTML(html) {
-        const doc = new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html');
-        const root = doc.body.firstElementChild;
-        if (!root || root.tagName !== 'TABLE') return this.escapeHTML(String(html)).slice(0, 500);
+        // 不能包一层 div 再取 firstElementChild：root 会是 DIV 而非 TABLE，
+        // 恒走 fallback 整串转义（回归 bug）。直接在 body 里找 table 元素。
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const root = doc.body.querySelector('table');
+        if (!root) return this.escapeHTML(String(html)).slice(0, 500);
         const ALLOWED = new Set(['TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TH', 'TD', 'CAPTION', 'COLGROUP', 'COL']);
         const clean = (node) => {
             const out = [];
@@ -69,7 +71,9 @@ export const utils = {
             }
             return out.join('');
         };
-        return clean(root);
+        // clean 只序列化子节点——根 <table> 自身的开闭标签必须在这里补上，
+        // 否则输出裸 <tr>，浏览器按无效 HTML 丢弃（第二个回归点）
+        return '<table>' + clean(root) + '</table>';
     },
 
     // 找到元素真正的滚动容器。
