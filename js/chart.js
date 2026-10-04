@@ -245,7 +245,6 @@
                     const gridColor = isDark ? 'rgba(148,163,184,0.14)' : 'rgba(100,116,139,0.12)';
                     const okColor = '#14b8a6';
                     const badColor = '#ef4444';
-                    const en = window.App && App.i18n && App.i18n.lang === 'en';
 
                     ctx.clearRect(0, 0, w, h);
 
@@ -301,22 +300,6 @@
                         ctx.fillText(d.label, cx, h - 5);
                     });
 
-                    // 图例（右上角，随主题）
-                    const legend = en
-                        ? [['Correct', okColor], ['Wrong', badColor]]
-                        : [['答对', okColor], ['答错', badColor]];
-                    let lx = w - padR;
-                    ctx.font = '10px Inter, system-ui, sans-serif';
-                    ctx.textAlign = 'right';
-                    for (let k = legend.length - 1; k >= 0; k--) {
-                        const [name, color] = legend[k];
-                        ctx.fillStyle = color;
-                        ctx.fillRect(lx - 8, padT - 12, 8, 8);
-                        ctx.fillStyle = labelColor;
-                        const tw = ctx.measureText(name).width;
-                        ctx.fillText(name, lx - 12, padT - 4);
-                        lx -= tw + 24;
-                    }
                 },
 
                 _roundRectTop(ctx, x, y, w, h, r) {
