@@ -125,13 +125,17 @@
                     if (!el) return;
 
                     if (el.classList.contains('hidden')) {
+                        // 打开设置弹窗时同步偏好控件的当前值
+                        if (id === 'config' && window.App && App.prefs && typeof App.prefs.open === 'function') {
+                            App.prefs.open();
+                        }
                         if (id === 'smart-practice') {
                             const container = App.dom.get('smart-subjects-list');
                             if (container) {
                                 container.innerHTML = '';
                                 const subs = App.data.getSubjects();
                                 if (subs.length === 0) {
-                                    container.innerHTML = '<div class="text-xs text-[var(--sub)] italic">当前题库为空，请前往右上角设置导入数据。</div>';
+                                    container.innerHTML = '<div class="text-xs text-[var(--sub)] italic">' + App.t('当前题库为空，请先在设置中导入题库文件。') + '</div>';
                                 } else {
                                     subs.forEach(sub => {
                                         const div = document.createElement('div');

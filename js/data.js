@@ -2364,34 +2364,34 @@ export const sync = {
                     icon.className = "w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full transition-all duration-300";
                     
                     let titleText = '';
-                    let statusText = '已同步';
+                    let statusText = (window.App && App.t) ? App.t('已同步') : '已同步';
 
                     // 未登录时谈不上「已同步」——给出灰色未登录态，避免误导
                     if (!window.App || !App.auth || !App.auth.session) {
                         btn.classList.add('border-slate-300', 'dark:border-slate-700', 'bg-slate-100/50', 'dark:bg-slate-900/50');
                         icon.classList.add('bg-slate-400');
-                        statusText = '未登录';
+                        statusText = (window.App && App.t) ? App.t('未登录') : '未登录';
                         titleText = '登录后题库与学习数据自动同步';
                     } else if (this._lastStatus === 'error') {
                         btn.classList.add('border-red-400', 'bg-red-500/5');
                         icon.classList.add('bg-red-500', 'shadow-[0_0_8px_rgba(239,68,68,0.4)]');
-                        statusText = '同步失败';
-                        titleText = '最近同步：失败（' + (this._lastMessage || '同步失败') + '）';
+                        statusText = (window.App && App.t) ? App.t('同步失败') : '同步失败';
+                        titleText = (window.App && App.t) ? App.t('最近同步：失败') + ((window.App && App.t && this._lastMessage) ? ' (' + this._lastMessage + ')' : '') : titleText;
                     } else if (this._lastStatus === 'pending') {
                         btn.classList.add('border-primary-500', 'bg-primary-500/5');
                         icon.classList.add('bg-primary-500', 'animate-pulse');
-                        statusText = '同步中...';
-                        titleText = '同步中...';
+                        statusText = (window.App && App.t) ? App.t('同步中...') : '同步中...';
+                        titleText = (window.App && App.t) ? App.t('同步中...') : '同步中...';
                     } else if (this._realtimeDisconnected) {
                         btn.classList.add('border-yellow-400', 'bg-yellow-500/5');
                         icon.classList.add('bg-yellow-500');
-                        statusText = '未连接';
-                        titleText = '实时通道未连接' + (this._lastMessage ? '（' + this._lastMessage + '）' : '');
+                        statusText = (window.App && App.t) ? App.t('未连接') : '未连接';
+                        titleText = (window.App && App.t) ? App.t('实时通道未连接') + (this._lastMessage ? ' (' + this._lastMessage + ')' : '') : titleText;
                     } else {
                         btn.classList.add('border-emerald-500', 'bg-emerald-500/5');
                         icon.classList.add('bg-emerald-500');
-                        statusText = '已同步';
-                        titleText = '最近同步：成功';
+                        statusText = (window.App && App.t) ? App.t('已同步') : '已同步';
+                        titleText = (window.App && App.t) ? App.t('最近同步：成功') : '最近同步：成功';
                     }
 
                     if (textEl) {
@@ -2412,7 +2412,7 @@ export const sync = {
                     if (status === 'error') {
                         const toast = document.getElementById('sync-toast');
                         if (toast) {
-                            toast.textContent = message || '同步失败';
+                            toast.textContent = (window.App && App.t) ? (message ? App.t(message) : App.t('同步失败')) : (message || '同步失败');
                             toast.classList.remove('opacity-0');
                             toast.classList.add('opacity-100');
                             if (this._toastTimer) {

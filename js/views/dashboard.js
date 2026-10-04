@@ -2,6 +2,7 @@
 
                     render() {
                         const s = App.data.getStats();
+                        this._renderDailyGoal(s);
                         this._animateNumber('dash-acc', s.acc, '%');
                         App.dom.setText('dash-total', s.total);
                         App.dom.setText('dash-err', s.mistakes);
@@ -86,6 +87,33 @@
 
                 // 数字滚动：只有数值真的变了才动画（轮询刷新数值不变时直接写），
                 // 400ms ease-out 计数，让「正确率变化」被看见而不喧宾夺主
+                // 每日目标进度卡（Quizlet/多邻国式）：今日已练 X / 目标 Y
+                // 目标在「设置 → 偏好设置」里配置，0 = 不显示
+                _renderDailyGoal(s) {
+                    const host = document.getElementById('dash-goal-slot');
+                    if (!host) return;
+                    const goal = (window.App && App.prefs && typeof App.prefs.getGoal === 'function') ? App.prefs.getGoal() : 0;
+                    if (!goal) { host.innerHTML = ''; return; }
+                    const today = s.daily30 && s.daily30.length ? s.daily30[s.daily30.length - 1] : null;
+                    const done = today ? today.attempts : 0;
+                    const pct = Math.min(100, Math.round(done / goal * 100));
+                    const reached = done >= goal;
+                    const t = (x) => App.t(x);
+                    host.innerHTML = `
+                        <div class="bg-[var(--card)] border ${reached ? 'border-emerald-300 dark:border-emerald-700' : 'border-[var(--border)]'} rounded-2xl p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-base">${reached ? '🎉' : '🎯'}</span>
+                                    <span class="text-xs font-bold text-[var(--text)]">${t('今日目标')}</span>
+                                </div>
+                                <span class="text-[11px] ${reached ? 'text-emerald-500 font-bold' : 'text-[var(--sub)]'}">${reached ? t('已达成') : `${done} / ${goal}`}</span>
+                            </div>
+                            <div class="h-2.5 rounded-full bg-[var(--bg)] overflow-hidden">
+                                <div class="h-full rounded-full ${reached ? 'bg-emerald-500' : 'bg-primary-500'} transition-all duration-500" style="width:${Math.max(3, pct)}%"></div>
+                            </div>
+                            <div class="text-[10px] text-[var(--sub)] mt-1.5">${t('今日已练')} ${done} / ${goal} ${t('题')}</div>
+                        </div>`;
+                },
                 _animateNumber(id, target, suffix) {
                     const el = App.dom.get(id);
                     if (!el) return;

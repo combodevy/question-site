@@ -703,6 +703,7 @@
     </div>
 
     <div id="view-dashboard" class="view-section flex flex-col gap-6 md:gap-8 animate-slide-up">
+            <div id="dash-goal-slot"></div>
                 <!-- 间隔复习横幅：有到期题目时显示 -->
                 <div id="review-banner"
                     class="hidden card p-4 rounded-xl md:rounded-2xl flex items-center justify-between gap-3 border-l-4 border-l-amber-400 dark:border-l-amber-600">
@@ -1085,7 +1086,7 @@
                         </div>
                         <span id="setup-selected-info" class="text-xs text-[var(--sub)]"></span>
                         <button onclick="App.quiz.init('custom')"
-                            class="btn px-6 py-2.5 bg-primary-600 text-white rounded-lg shadow-md hover:bg-primary-700 text-xs md:text-sm ml-auto">开始刷题</button>
+                            class="btn px-6 py-2.5 bg-primary-600 text-white rounded-lg shadow-md hover:bg-primary-700 text-xs md:text-sm ml-auto" data-i18n>开始刷题</button>
                     </div>
                 </div>
             </div>
@@ -1107,15 +1108,15 @@
                         id="res-score">0%</div>
                     <div class="grid grid-cols-2 gap-3 md:gap-4 text-sm mb-6 md:mb-8">
                         <div class="p-3 md:p-4 bg-green-50 text-green-700 rounded-xl border border-green-100">
-                            <div class="font-bold text-[11px] opacity-70 mb-1">答对 <span class="opacity-70">Correct</span></div>
+                            <div class="font-bold text-[11px] opacity-70 mb-1">答对</div>
                             <div class="text-xl md:text-2xl font-bold" id="res-correct">0</div>
                         </div>
                         <div class="p-3 md:p-4 bg-red-50 text-red-700 rounded-xl border border-red-100">
-                            <div class="font-bold text-[11px] opacity-70 mb-1">答错 <span class="opacity-70">Mistakes</span></div>
+                            <div class="font-bold text-[11px] opacity-70 mb-1">答错</div>
                             <div class="text-xl md:text-2xl font-bold" id="res-wrong">0</div>
                         </div>
                         <div id="res-unanswered-wrap" class="hidden">
-                            <div class="text-[11px] text-[var(--sub)]">未作答 <span class="opacity-70">Unanswered</span></div>
+                            <div class="text-[11px] text-[var(--sub)]">未作答</div>
                             <div class="text-xl md:text-2xl font-bold text-amber-500" id="res-unanswered">0</div>
                         </div>
                     </div>
@@ -1480,7 +1481,48 @@
                     </svg></button>
             </div>
             <div class="p-4 md:p-6 space-y-4 overflow-y-auto custom-scroll flex-grow">
-                
+
+                <!-- 偏好设置：语言 / 每日目标 / 默认题数 -->
+                <div class="space-y-3">
+                    <div class="text-xs font-bold text-[var(--sub)] uppercase tracking-wider" data-i18n-key="题库管理|Question bank">题库管理</div>
+                    <div class="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3.5 space-y-3.5">
+                        <!-- 语言 -->
+                        <div>
+                            <div class="text-xs font-bold text-[var(--text)] mb-2">界面语言</div>
+                            <div class="grid grid-cols-2 gap-2" id="pref-lang-group">
+                                <button type="button" data-lang="zh" onclick="App.i18n.pickLang('zh')"
+                                    class="pref-lang px-3 py-2 rounded-lg border text-xs font-bold transition-all">简体中文</button>
+                                <button type="button" data-lang="en" onclick="App.i18n.pickLang('en')"
+                                    class="pref-lang px-3 py-2 rounded-lg border text-xs font-bold transition-all">English</button>
+                            </div>
+                        </div>
+                        <!-- 每日目标 -->
+                        <div>
+                            <div class="text-xs font-bold text-[var(--text)] mb-2">每日目标（题）</div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <input type="number" id="pref-goal" min="0" max="9999"
+                                    class="w-24 bg-[var(--card)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-sm outline-none"
+                                    placeholder="0">
+                                <span class="text-[11px] text-[var(--sub)]">0 = 不设目标</span>
+                            </div>
+                        </div>
+                        <!-- 默认题数 -->
+                        <div>
+                            <div class="text-xs font-bold text-[var(--text)] mb-2">默认练习题数</div>
+                            <select id="pref-limit"
+                                class="w-full text-sm bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 outline-none">
+                                <option value="10">10</option>
+                                <option value="20">20</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                                <option value="all">All</option>
+                            </select>
+                        </div>
+                        <button onclick="App.i18n.savePrefs()" id="pref-save-btn"
+                            class="w-full py-2 rounded-lg bg-primary-600 text-white text-xs font-bold active:scale-[0.98] transition-transform">保存</button>
+                    </div>
+                </div>
+
                 <div class="space-y-2">
                     <div class="text-xs font-bold text-[var(--sub)] uppercase tracking-wider mb-2">题库管理</div>
                     <input type="file" id="import-file" class="hidden" accept=".json,.txt"

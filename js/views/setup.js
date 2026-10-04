@@ -3,7 +3,7 @@
                     render() {
                         // 恢复上次选的题型 / 题数（记住选择，不用每次重选）
                         App.ui.restoreSelectChoice('setup-type', 'all');
-                        App.ui.restoreSelectChoice('setup-limit', '20');
+                        App.ui.restoreSelectChoice('setup-limit', (window.App && App.prefs && App.prefs.getDefaultLimit) ? App.prefs.getDefaultLimit() : '20');
 
                         const c = App.dom.get('setup-options');
                         if (!c) return;
@@ -31,7 +31,7 @@
                             const allBtn = document.createElement('button');
                             allBtn.type = 'button';
                             allBtn.className = "text-[11px] font-bold text-primary-600 hover:underline";
-                            allBtn.textContent = '全选';
+                            allBtn.textContent = App.t('全选');
                             header.appendChild(allBtn);
                             w.appendChild(header);
 
@@ -65,14 +65,14 @@
                                 const boxes = Array.from(g.querySelectorAll('.setup-chk'));
                                 const anyUnchecked = boxes.some(b => !b.checked);
                                 boxes.forEach(b => { b.checked = anyUnchecked; });
-                                allBtn.textContent = anyUnchecked ? '全选' : '取消全选';
+                                allBtn.textContent = App.t(anyUnchecked ? '全选' : '取消全选');
                                 this._persistChapterSelection(c);
                                 this._updateSelectedInfo();
                             };
                             allBtn.addEventListener('click', toggleAll);
                             // 初始按钮文案与当前状态一致
                             const boxes = Array.from(g.querySelectorAll('.setup-chk'));
-                            if (boxes.length && boxes.every(b => b.checked)) allBtn.textContent = '取消全选';
+                            if (boxes.length && boxes.every(b => b.checked)) allBtn.textContent = App.t('取消全选');
                         });
 
                         // 勾选变化时持久化 + 更新底部计数（容器本身不重建，绑一次即可）
@@ -108,7 +108,7 @@
                         if (!info) return;
                         const checked = document.querySelectorAll('#setup-options .setup-chk:checked').length;
                         const total = document.querySelectorAll('#setup-options .setup-chk').length;
-                        info.textContent = total ? `已选 ${checked} / ${total} 章` : '';
+                        info.textContent = total ? ((window.App && App.t && localStorage.getItem('qs_lang') === 'en') ? `${checked} / ${total} chapters selected` : `已选 ${checked} / ${total} 章`) : '';
                     }
                 
 };

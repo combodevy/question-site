@@ -47,6 +47,11 @@ export const router = {
         if (id === 'library' || id === 'mistake_book') App.views.library.render(libMode);
         if (id === 'analytics') App.views.analytics.render();
         if (id === 'profile') App.views.profile.render();
+        // 视图重渲染后跑一遍翻译 walker（仅精确命中字典的 UI 文本，内容区已排除）
+        if (App.i18n && typeof App.i18n.walk === 'function') {
+            App.i18n.walk(targetEl);
+            App.i18n.walkAttrs(targetEl);
+        }
     },
     refresh() {
         const view = this.currentView || 'dashboard';

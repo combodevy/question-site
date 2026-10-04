@@ -9,12 +9,13 @@ export const profile = {
         if (!App.auth || !App.auth.session) {
             root.innerHTML = `<div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-10 text-center">
                 <div class="text-3xl mb-3">🔐</div>
-                <div class="text-sm font-bold text-[var(--text)] mb-1">请先登录</div>
-                <div class="text-xs text-[var(--sub)]">登录后即可查看你的学习数据、趋势与成就。</div>
+                <div class="text-sm font-bold text-[var(--text)] mb-1">${App.t('请先登录')}</div>
+                <div class="text-xs text-[var(--sub)]">${App.t('登录后即可查看你的学习数据、趋势与成就。')}</div>
             </div>`;
             return;
         }
         const esc = App.utils.escapeHTML;
+        const t = (s) => App.t(s);
         const s = App.data.getStats();
         const hist = App.data.getSafeHistory();
         const starred = (App.data.starredIds || []).length;
@@ -48,18 +49,18 @@ export const profile = {
         const subjectTouched = Object.values(s.subjectStats).filter(v => v.attempts > 0).length;
 
         const achievements = [
-            { e: '🌱', name: '初来乍到', cond: '注册账号', ok: true },
-            { e: '✏️', name: '小试牛刀', cond: '完成第 1 次作答', ok: s.totalAttempts >= 1 },
-            { e: '💯', name: '百题斩', cond: '累计作答 ≥ 100 次', ok: s.totalAttempts >= 100 },
-            { e: '🏆', name: '千题斩', cond: '累计作答 ≥ 1000 次', ok: s.totalAttempts >= 1000 },
-            { e: '🔥', name: '三日坚持', cond: '连续练习 ≥ 3 天', ok: s.streak >= 3 },
-            { e: '📅', name: '七日之约', cond: '连续练习 ≥ 7 天', ok: s.streak >= 7 },
-            { e: '🌙', name: '三十而立', cond: '连续练习 ≥ 30 天', ok: s.streak >= 30 },
-            { e: '🎯', name: '神射手', cond: '≥50 次作答且正确率 ≥ 85%', ok: s.totalAttempts >= 50 && s.acc >= 85 },
-            { e: '⚡', name: '完美一日', cond: '单日作答 ≥ 20 次且全部正确', ok: perfectDay },
-            { e: '⭐', name: '收藏家', cond: '收藏 ≥ 10 题', ok: starred >= 10 },
-            { e: '🏗️', name: '题库建筑师', cond: '题库 ≥ 50 题', ok: s.total >= 50 },
-            { e: '🧭', name: '全科探索', cond: '在 ≥ 3 个科目作答过', ok: subjectTouched >= 3 }
+            { e: '🌱', name: t('初来乍到'), cond: t('注册账号'), ok: true },
+            { e: '✏️', name: t('小试牛刀'), cond: t('完成第 1 次作答'), ok: s.totalAttempts >= 1 },
+            { e: '💯', name: t('百题斩'), cond: t('累计作答 ≥ 100 次'), ok: s.totalAttempts >= 100 },
+            { e: '🏆', name: t('千题斩'), cond: t('累计作答 ≥ 1000 次'), ok: s.totalAttempts >= 1000 },
+            { e: '🔥', name: t('三日坚持'), cond: t('连续练习 ≥ 3 天'), ok: s.streak >= 3 },
+            { e: '📅', name: t('七日之约'), cond: t('连续练习 ≥ 7 天'), ok: s.streak >= 7 },
+            { e: '🌙', name: t('三十而立'), cond: t('连续练习 ≥ 30 天'), ok: s.streak >= 30 },
+            { e: '🎯', name: t('神射手'), cond: t('≥50 次作答且正确率 ≥ 85%'), ok: s.totalAttempts >= 50 && s.acc >= 85 },
+            { e: '⚡', name: t('完美一日'), cond: t('单日作答 ≥ 20 次且全部正确'), ok: perfectDay },
+            { e: '⭐', name: t('收藏家'), cond: t('收藏 ≥ 10 题'), ok: starred >= 10 },
+            { e: '🏗️', name: t('题库建筑师'), cond: t('题库 ≥ 50 题'), ok: s.total >= 50 },
+            { e: '🧭', name: t('全科探索'), cond: t('在 ≥ 3 个科目作答过'), ok: subjectTouched >= 3 }
         ];
         const unlocked = achievements.filter(a => a.ok).length;
 
@@ -88,7 +89,7 @@ export const profile = {
                     <div class="h-full rounded-full ${color} transition-all" style="width:${v.attempts ? Math.max(4, v.acc) : 0}%"></div>
                 </div>
             </div>`;
-        }).join('') || '<div class="text-xs text-[var(--sub)]">还没有科目数据。</div>';
+        }).join('') || t('还没有科目数据。');
 
         // ===== 最近动态（最近 10 条）=====
         const fmtTime = (t) => {
@@ -110,7 +111,7 @@ export const profile = {
                 <span class="text-[11px] text-[var(--sub)] flex-shrink-0">${dur}</span>
                 <span class="text-xs font-bold flex-shrink-0 ${x.r ? 'text-emerald-500' : 'text-red-500'}">${x.r ? '✓' : '✕'}</span>
             </div>`;
-        }).join('') || `<div class="text-xs text-[var(--sub)]">还没有作答记录，去练习一轮吧。</div>`;
+        }).join('') || t('还没有作答记录，去练习一轮吧。');
 
         // ===== 成就墙 =====
         const badgeHtml = achievements.map(a => `
@@ -141,24 +142,24 @@ export const profile = {
                 </div>
                 <div class="flex-shrink-0 text-center rounded-xl bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-900 px-3 py-2">
                     <div class="text-base font-bold text-orange-500">🔥 ${s.streak}</div>
-                    <div class="text-[10px] text-[var(--sub)]">连续天数</div>
+                    <div class="text-[10px] text-[var(--sub)]">${t('连续天数')}</div>
                 </div>
             </div>
 
             <!-- 核心统计 -->
             <div class="grid grid-cols-3 md:grid-cols-6 gap-3">
-                ${statCell('题库总量', s.total, 'text-[var(--text)]')}
-                ${statCell('累计作答', s.totalAttempts, 'text-primary-600')}
-                ${statCell('总正确率', (s.totalAttempts ? s.acc + '%' : '—'), 'text-emerald-500')}
-                ${statCell('收藏', starred, 'text-amber-500')}
-                ${statCell('平均用时', s.avgDuration ? s.avgDuration + ' 秒' : '—', 'text-[var(--text)]')}
-                ${statCell('成就', unlocked + '/' + achievements.length, 'text-purple-500')}
+                ${statCell(t('题库总量'), s.total, 'text-[var(--text)]')}
+                ${statCell(t('累计作答'), s.totalAttempts, 'text-primary-600')}
+                ${statCell(t('总正确率'), (s.totalAttempts ? s.acc + '%' : '—'), 'text-emerald-500')}
+                ${statCell(t('收藏'), starred, 'text-amber-500')}
+                ${statCell(t('平均用时'), s.avgDuration ? s.avgDuration + ' 秒' : '—', 'text-[var(--text)]')}
+                ${statCell(t('成就'), unlocked + '/' + achievements.length, 'text-purple-500')}
             </div>
 
             <!-- 30 天趋势 -->
             <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="font-bold text-sm text-[var(--text)]">近 30 天作答趋势</h3>
+                    <h3 class="font-bold text-sm text-[var(--text)]">${t('近 30 天作答趋势')}</h3>
                     <span class="text-[11px] text-[var(--sub)]">共 ${trendTotal} 次</span>
                 </div>
                 <div class="flex items-end gap-[3px] h-28">${trendCols}</div>
@@ -167,11 +168,11 @@ export const profile = {
             <!-- 科目掌握 + 最近动态 -->
             <div class="grid md:grid-cols-2 gap-6">
                 <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
-                    <h3 class="font-bold text-sm text-[var(--text)] mb-3">科目掌握</h3>
+                    <h3 class="font-bold text-sm text-[var(--text)] mb-3">${t('科目掌握')}</h3>
                     <div class="space-y-3">${subRows}</div>
                 </div>
                 <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
-                    <h3 class="font-bold text-sm text-[var(--text)] mb-1">最近动态</h3>
+                    <h3 class="font-bold text-sm text-[var(--text)] mb-1">${t('最近动态')}</h3>
                     ${recent}
                 </div>
             </div>
@@ -179,7 +180,7 @@ export const profile = {
             <!-- 成就墙 -->
             <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="font-bold text-sm text-[var(--text)]">成就墙</h3>
+                    <h3 class="font-bold text-sm text-[var(--text)]">${t('成就墙')}</h3>
                     <span class="text-[11px] text-[var(--sub)]">已点亮 ${unlocked} / ${achievements.length}</span>
                 </div>
                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">${badgeHtml}</div>
@@ -187,7 +188,7 @@ export const profile = {
 
             <!-- 账户操作 -->
             <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
-                <h3 class="font-bold text-sm text-[var(--text)] mb-3">账户操作</h3>
+                <h3 class="font-bold text-sm text-[var(--text)] mb-3">${t('账户操作')}</h3>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <button onclick="App.ui.openPasswordModal()" class="px-3 py-2.5 rounded-xl border border-[var(--border)] text-xs font-bold text-[var(--text)] hover:bg-[var(--bg)] active:scale-95 transition-all">修改密码</button>
                     <button onclick="App.ui.exportAllBank()" class="px-3 py-2.5 rounded-xl border border-[var(--border)] text-xs font-bold text-[var(--text)] hover:bg-[var(--bg)] active:scale-95 transition-all">导出备份 JSON</button>
@@ -201,7 +202,7 @@ export const profile = {
         const copyBtn = document.getElementById('pf-copy-id');
         if (copyBtn) {
             copyBtn.onclick = () => {
-                const done = () => { copyBtn.textContent = '已复制'; setTimeout(() => { copyBtn.textContent = '复制'; }, 1500); };
+                const done = () => { copyBtn.textContent = t('已复制'); setTimeout(() => { copyBtn.textContent = t('复制'); }, 1500); };
                 if (navigator.clipboard && navigator.clipboard.writeText) {
                     navigator.clipboard.writeText(uid).then(done).catch(() => {});
                 } else {

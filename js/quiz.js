@@ -107,7 +107,7 @@ export const quiz = {
                     }
                     const q = this.queue[this.idx];
                     if (!q) return;
-                    App.dom.setText('q-type', q.type === 'mcq' ? '单选' : (q.type === 'multi' ? '多选' : (q.type === 'fill' ? '填空' : '判断')));
+                    App.dom.setText('q-type', App.t(q.type === 'mcq' ? '单选' : (q.type === 'multi' ? '多选' : (q.type === 'fill' ? '填空' : '判断'))));
                     App.dom.setText('q-sub', q.sub);
                     // 题干支持 [图N]/[表N] 占位符（media 白名单渲染），普通题干不受影响
                     const qTextEl = App.dom.get('q-text');
@@ -227,12 +227,12 @@ export const quiz = {
                     if (ok) {
                         this.stats.c++;
                         App.dom.setText('fb-icon', '✓');
-                        App.dom.setText('fb-title', '回答正确！');
+                        App.dom.setText('fb-title', App.t('回答正确！'));
                         if (exact) {
-                            App.dom.setText('fb-desc', '太棒了，与系统答案完全一致。');
+                            App.dom.setText('fb-desc', App.t('太棒了，与系统答案完全一致。'));
                         } else {
                             // 归一化判对但字面不同（如大小写/空格差异/等价写法）——仍显示系统标准答案
-                            App.dom.setHTML('fb-desc', `回答正确。系统答案：<span class="font-bold text-primary-600">${App.utils.escapeHTML(answerText)}</span>`);
+                            App.dom.setHTML('fb-desc', `${App.t('回答正确。系统答案：')}<span class="font-bold text-primary-600">${App.utils.escapeHTML(answerText)}</span>`);
                         }
                         // 与选择题行为一致：答对自动进入下一题（稍等片刻让用户看到正确反馈）
                         if (this._pendingNextTimer) clearTimeout(this._pendingNextTimer);
@@ -243,8 +243,8 @@ export const quiz = {
                     } else {
                         this.stats.w++;
                         App.dom.setText('fb-icon', '✕');
-                        App.dom.setText('fb-title', '回答错误 (Incorrect)');
-                        App.dom.setHTML('fb-desc', `你的答案：<span class="font-bold text-red-500">${App.utils.escapeHTML(userAns)}</span><br/>正确答案：<span class="font-bold text-primary-600">${App.utils.escapeHTML(answerText)}</span>`);
+                        App.dom.setText('fb-title', App.t('回答错误 (Incorrect)'));
+                        App.dom.setHTML('fb-desc', `${App.t('你的答案：')}<span class="font-bold text-red-500">${App.utils.escapeHTML(userAns)}</span><br/>正确答案：<span class="font-bold text-primary-600">${App.utils.escapeHTML(answerText)}</span>`);
                     }
                 },
 
@@ -325,14 +325,14 @@ export const quiz = {
                     if (ok) {
                         this.stats.c++;
                         App.dom.setText('fb-icon', '✓');
-                        App.dom.setText('fb-title', '回答正确！');
-                        App.dom.setText('fb-desc', '太棒了，完全匹配。');
+                        App.dom.setText('fb-title', App.t('回答正确！'));
+                        App.dom.setText('fb-desc', App.t('太棒了，完全匹配。'));
                     } else {
                         this.stats.w++;
                         App.dom.setText('fb-icon', '✕');
-                        App.dom.setText('fb-title', '回答错误 (Incorrect)');
+                        App.dom.setText('fb-title', App.t('回答错误 (Incorrect)'));
                         const detailedHTML = App.utils.getDetailedOptionHTML(q, q.a);
-                        App.dom.setHTML('fb-desc', `正确答案是：<span class="font-bold text-primary-600">${App.utils.escapeHTML(q.a)}</span><br/>${detailedHTML}`);
+                        App.dom.setHTML('fb-desc', `${App.t('正确答案是：')}<span class="font-bold text-primary-600">${App.utils.escapeHTML(q.a)}</span><br/>${detailedHTML}`);
                     }
 
                     if (c) {
@@ -373,13 +373,13 @@ export const quiz = {
                         App.dom.show('quiz-feedback');
                         this._animateFeedback(false);
                         App.dom.setText('fb-icon', '✕');
-                        App.dom.setText('fb-title', '回答错误 (Incorrect)');
+                        App.dom.setText('fb-title', App.t('回答错误 (Incorrect)'));
 
                         if (q.type === 'mcq') {
                             const detailedHTML = App.utils.getDetailedOptionHTML(q, q.a);
-                            App.dom.setHTML('fb-desc', `正确答案：<span class="font-bold text-primary-600">${App.utils.escapeHTML(q.a)}</span><br/>${detailedHTML}`);
+                            App.dom.setHTML('fb-desc', `${App.t('正确答案：')}<span class="font-bold text-primary-600">${App.utils.escapeHTML(q.a)}</span><br/>${detailedHTML}`);
                         } else {
-                            const ansText = q.a === 'T' ? '正确 (True)' : '错误 (False)';
+                            const ansText = q.a === 'T' ? App.t('正确 (True)') : App.t('错误 (False)');
                             App.dom.setText('fb-desc', `正确答案：${ansText}`);
                         }
 

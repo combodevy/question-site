@@ -11,6 +11,8 @@ import { setup } from './views/setup.js';
 import { library } from './views/library.js';
 import { analytics } from './views/analytics.js';
 import { profile } from './views/profile.js';
+import { i18n } from './i18n.js';
+import { prefs } from './prefs.js';
 
 const App = {
     apiBase: window.API_BASE || '',
@@ -23,6 +25,10 @@ const App = {
     quiz,
     router,
     ui,
+    i18n,
+    prefs,
+    // 全局翻译入口：UI 生成字符串专用（题库用户内容不得经过它）
+    t: (s) => i18n.t(s),
     views: {
         dashboard,
         setup,
@@ -34,6 +40,8 @@ const App = {
         // 逐步容错：任何一步失败都不能阻止后面的初始化。
         // 特别是 auth.init()——它负责把「请先登录」遮罩收起来；
         // 一旦它没跑，整页都会被那个遮罩挡住，表现为「什么按钮都点不了」。
+        // 语言先行：翻译钩子（alert/confirm/DOM walker）必须在任何 UI 渲染前就位
+        try { this.i18n.apply(); } catch (e) { console.error('i18n apply failed', e); }
         const steps = [
             ['data.init', () => this.data.init()],
             ['ui.initTheme', () => this.ui.initTheme()],
