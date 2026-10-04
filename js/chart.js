@@ -271,13 +271,20 @@
                         if (hasData) {
                             const okH = (d.correct / maxV) * plotH;
                             const badH = ((d.attempts - d.correct) / maxV) * plotH;
-                            // 答对（teal 底段）
-                            ctx.fillStyle = okColor;
-                            this._roundRectTop(ctx, cx - barW / 2, padT + plotH - okH, barW, Math.max(2, okH), 3);
-                            // 答错（红 上段）
-                            if (badH > 0) {
+                            // 只有堆叠柱最顶端的一段才圆角：有红色段时红段圆顶、绿段方顶
+                            const okY = padT + plotH - okH;
+                            const badY = okY - badH;
+                            if (badH > 0.5) {
                                 ctx.fillStyle = badColor;
-                                ctx.fillRect(cx - barW / 2, padT + plotH - okH - badH, barW, badH);
+                                this._roundRectTop(ctx, cx - barW / 2, badY, barW, badH, 3);
+                            }
+                            if (okH > 0.5) {
+                                ctx.fillStyle = okColor;
+                                if (badH > 0.5) {
+                                    ctx.fillRect(cx - barW / 2, okY, barW, okH);
+                                } else {
+                                    this._roundRectTop(ctx, cx - barW / 2, okY, barW, okH, 3);
+                                }
                             }
                             // 柱顶只标正确率（用户指定：不要题数）
                             ctx.fillStyle = labelColor;
