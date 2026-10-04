@@ -1272,6 +1272,8 @@
                     const esc = App.utils.escapeHTML;
                     const t = (s) => App.t(s);
                     const en = App.i18n && App.i18n.lang === 'en';
+                    // 跟随应用当前深浅色主题，导出窗口的工具栏与底色保持一致观感
+                    const isDark = document.documentElement.classList.contains('dark');
                     const typeLabel = { mcq: t('单选题'), multi: t('多选题'), tf: t('判断题'), fill: t('填空题') };
 
                     const bySub = {};
@@ -1318,7 +1320,7 @@
                     const user = (App.auth && App.auth.session && App.auth.session.user && App.auth.session.user.username) || '';
 
                     const html = `<!DOCTYPE html>
-<html lang="${en ? 'en' : 'zh-CN'}">
+<html lang="${en ? 'en' : 'zh-CN'}" class="${isDark ? 'dark' : ''}">
 <head>
 <meta charset="utf-8">
 <title>${esc(bankName)}_${dateStr}</title>
@@ -1326,14 +1328,21 @@
     @page { size: A4; margin: 16mm 15mm; }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
-    body { font: 11.5pt/1.75 Georgia, "Microsoft YaHei", "PingFang SC", sans-serif; color: #111; background: #fff; }
+    /* 主题变量：与主应用 :root/.dark 完全一致 */
+    :root { --bg:#f8fafc; --card:#ffffff; --text:#0f172a; --sub:#64748b; --border:#e2e8f0; --primary:#0d9488; --primary-h:#0f766e; }
+    .dark { --bg:#0f172a; --card:#1e293b; --text:#f8fafc; --sub:#94a3b8; --border:#334155; }
+    body { font: 11.5pt/1.75 Inter, -apple-system, "Microsoft YaHei", "PingFang SC", sans-serif; color: #111; background: var(--bg); }
     .toolbar { position: sticky; top: 0; z-index: 9; display: flex; align-items: center; gap: 10px;
-        padding: 10px 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-family: system-ui, sans-serif; }
-    .toolbar button { padding: 7px 16px; border-radius: 8px; border: 1px solid #2563eb; background: #2563eb;
-        color: #fff; font-weight: 600; font-size: 13px; cursor: pointer; }
-    .toolbar button.ghost { background: #fff; color: #334155; border-color: #cbd5e1; }
-    .toolbar .tip { font-size: 12px; color: #64748b; }
-    .wrap { max-width: 180mm; margin: 0 auto; padding: 8px 2mm 16mm; }
+        padding: 10px 16px; background: var(--card); border-bottom: 1px solid var(--border); color: var(--text);
+        font-family: Inter, -apple-system, sans-serif; }
+    .toolbar button { padding: 7px 16px; border-radius: 10px; border: 1px solid var(--primary); background: var(--primary);
+        color: #fff; font-weight: 600; font-size: 13px; cursor: pointer; transition: background .15s; }
+    .toolbar button:hover { background: var(--primary-h); }
+    .toolbar button.ghost { background: var(--card); color: var(--text); border-color: var(--border); }
+    .toolbar button.ghost:hover { background: var(--bg); }
+    .toolbar .tip { font-size: 12px; color: var(--sub); }
+    .wrap { max-width: 180mm; margin: 0 auto; padding: 8px 2mm 16mm; background: #fff; border-radius: 12px;
+        box-shadow: 0 4px 24px rgba(0,0,0,.12); }
     .cover { text-align: center; padding: 20px 0 12px; border-bottom: 2.5px solid #222; margin-bottom: 6px; }
     .cover h1 { font-size: 20pt; margin: 0 0 6px; letter-spacing: 2px; }
     .cover .meta { font-size: 10pt; color: #555; }
@@ -1362,7 +1371,7 @@
     .answers .ano { width: 44px; text-align: center; font-weight: 700; }
     .answers .aloc { color: #777; font-size: 9.5pt; }
     footer { margin-top: 22px; text-align: center; font-size: 9pt; color: #aaa; }
-    @media print { .no-print { display: none !important; } body { font-size: 10.5pt; } .wrap { padding: 0; } }
+    @media print { .no-print { display: none !important; } body { font-size: 10.5pt; background: #fff; } .wrap { padding: 0; background: #fff; box-shadow: none; border-radius: 0; } }
 </style>
 </head>
 <body>
