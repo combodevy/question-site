@@ -235,6 +235,11 @@ export const i18n = {
         '答案': { en: 'Answer' },
         '导出于': { en: 'Exported on' },
 
+        // ---- 抽屉 ----
+        '✓ 正确': { en: '✓ Correct' },
+        '✕ 错误': { en: '✕ Wrong' },
+        '≥5分': { en: '≥5min' },
+
         // ---- 全量补齐（第四波）----
         '本地还有未同步到云端的修改。': { en: 'You have unsaved changes not yet synced.' },
         '点击「确定」= 先把修改上传到云端，成功后自动退出；': { en: 'OK = upload changes first, then sign out automatically;' },
@@ -704,7 +709,7 @@ export const i18n = {
     // ============ DOM 静态文本 walker ============
     // 只处理「整节点文本精确命中字典」或「整节点命中尾括注模式」的文本节点，
     // 且跳过所有题库内容容器——用户内容零风险。
-    skipSelector: '#q-text, #fb-desc, #lib-list, #insight-drawer, #modal-dup-review, .stem, .qt, #print-root, #setup-options, #smart-subjects-list, .qe-opt-row, #import-json-list, #import-json-struct, textarea, input, #res-score, #am-stats, #profile-root',
+    skipSelector: '#q-text, #fb-desc, #lib-list, #drawer-q, #modal-dup-review, .stem, .qt, #print-root, #setup-options, #smart-subjects-list, .qe-opt-row, #import-json-list, #import-json-struct, textarea, input, #res-score, #am-stats, #profile-root',
     walk(root) {
         const walker = document.createTreeWalker(root || document.body, NodeFilter.SHOW_TEXT, {
             acceptNode: (n) => {

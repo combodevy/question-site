@@ -222,7 +222,7 @@ export const utils = {
         }).join('');
     },
     getDetailedOptionHTML(q, charStr, searchQuery = '') {
-        if (!q.o || !Array.isArray(q.o)) return '<span class="text-red-500 text-xs">选项数据缺失</span>';
+        if (!q.o || !Array.isArray(q.o)) return '<span class="text-red-500 text-xs">' + (window.App && App.t ? App.t('选项数据缺失') : '选项数据缺失') + '</span>';
 
         const texts = q.o.map((optText, idx) => {
             const char = String.fromCharCode(65 + idx);

@@ -258,8 +258,8 @@
                     if (mcqEl) mcqEl.textContent = '0';
                     if (multiEl) multiEl.textContent = '0';
                     if (tfEl) tfEl.textContent = '0';
-                    if (structEl) structEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">正在解析文件…</div>';
-                    if (listEl) listEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">正在解析文件…</div>';
+                    if (structEl) structEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">' + App.t('正在解析文件…') + '</div>';
+                    if (listEl) listEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">' + App.t('正在解析文件…') + '</div>';
                     if (statusEl) statusEl.textContent = `${App.t('正在读取文件：')}${file.name}`;
 
                     if (file.size > 5 * 1024 * 1024) {
@@ -280,8 +280,8 @@
                             let parsed = this._parseLooseJson(text);
                             if (parsed === null) {
                                 if (statusEl) statusEl.textContent = App.t("JSON 解析失败：未找到有效的 JSON 内容。");
-                                if (structEl) structEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">JSON 解析失败，无法预览。</div>';
-                                if (listEl) listEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">JSON 解析失败，无法预览。</div>';
+                                if (structEl) structEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">' + App.t('JSON 解析失败，无法预览。') + '</div>';
+                                if (listEl) listEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">' + App.t('JSON 解析失败，无法预览。') + '</div>';
                                 // 清掉旧文件的预览，防止用户误导入上一个文件的内容
                                 this._jsonImportPreview = null;
                                 this._jsonImportPreviewCount = 0;
@@ -302,8 +302,8 @@
                             const check = App.data.validateSchema(sanitized);
                             if (check !== true) {
                                 if (statusEl) statusEl.textContent = "结构校验失败：" + check;
-                                if (structEl) structEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">结构校验失败，请根据模板调整 JSON。</div>';
-                                if (listEl) listEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">结构校验失败，无法生成预览。</div>';
+                                if (structEl) structEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">' + App.t('结构校验失败，请根据模板调整 JSON。') + '</div>';
+                                if (listEl) listEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">' + App.t('结构校验失败，无法生成预览。') + '</div>';
                                 this._jsonImportPreview = null;
                                 this._jsonImportPreviewCount = 0;
                                 this._setImportBanner('error', '<b>结构校验失败：</b>' + App.utils.escapeHTML(String(check))
@@ -975,6 +975,7 @@
                 },
                 openDrawer(id) {
                     const q = App.data.getQuestionById(id); if (!q) return;
+                    const en = App.i18n && App.i18n.lang === 'en';
                     const drawer = App.dom.get('insight-drawer');
                     const backdrop = App.dom.get('drawer-backdrop');
                     if (!drawer || !backdrop) return;
@@ -996,7 +997,7 @@
                     const attemptsEl = App.dom.get('drawer-attempts');
                     if (attemptsEl) {
                         if (!recent.length) {
-                            attemptsEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] py-3">还没有作答记录。</div>';
+                            attemptsEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] py-3">' + App.t('还没有作答记录。') + '</div>';
                         } else {
                             attemptsEl.innerHTML = recent.map((rec) => {
                                 const d = new Date(rec.t);
@@ -1007,11 +1008,11 @@
                                 //（不是精确计时）；分秒用整数进位，修复 119999ms 显示「1分60秒」的问题
                                 const sec = Math.round(rec.d / 1000);
                                 const durStr = rec.d > 0
-                                    ? (rec.x ? '≥5分' : (sec < 60 ? `${sec}秒` : `${Math.floor(sec / 60)}分${String(sec % 60).padStart(2, '0')}秒`))
+                                    ? (rec.x ? App.t('≥5分') : (sec < 60 ? `${sec}${en ? 's' : '秒'}` : `${Math.floor(sec / 60)}${en ? 'm ' : '分'}${String(sec % 60).padStart(2, '0')}${en ? 's' : '秒'}`))
                                     : '—';
                                 const status = rec.r
-                                    ? '<span class="text-emerald-600 dark:text-emerald-400 font-bold">✓ 正确</span>'
-                                    : '<span class="text-red-500 font-bold">✕ 错误</span>';
+                                    ? '<span class="text-emerald-600 dark:text-emerald-400 font-bold">✓ ' + App.t('正确') + '</span>'
+                                    : '<span class="text-red-500 font-bold">✕ ' + App.t('错误') + '</span>';
                                 return `
                                     <div class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg bg-[var(--bg)] text-[11px]">
                                         <span class="font-mono text-[var(--sub)] flex-shrink-0">${dateStr} ${timeStr}</span>
@@ -1022,12 +1023,12 @@
                             // 题目被编辑过且存在早于编辑时间的记录：历史可能对应旧版本题干/答案
                             if (q._editedAt && recent.some(rec => rec.t < q._editedAt)) {
                                 attemptsEl.insertAdjacentHTML('beforeend',
-                                    '<div class="text-[11px] text-amber-600 dark:text-amber-400 pt-1">该题曾被修改，早于修改时间的记录可能对应旧版题目内容。</div>');
+                                    '<div class="text-[11px] text-amber-600 dark:text-amber-400 pt-1">' + App.t('该题曾被修改，早于修改时间的记录可能对应旧版题目内容。') + '</div>');
                             }
                             // 表头（与记录行对齐）
                             const header = document.createElement('div');
                             header.className = 'flex items-center gap-2.5 px-2.5 text-[10px] text-[var(--sub)] uppercase tracking-wider';
-                            header.innerHTML = '<span class="flex-1">日期 / 时间</span><span class="flex-1 text-right">结果</span><span class="w-14 text-right flex-shrink-0">用时</span>';
+                            header.innerHTML = `<span class="flex-1">${App.t('日期 / 时间')}</span><span class="flex-1 text-right">${App.t('结果')}</span><span class="w-14 text-right flex-shrink-0">${App.t('用时')}</span>`;
                             attemptsEl.prepend(header);
                         }
                     }
@@ -1035,9 +1036,9 @@
                     // 汇总统计（与学习分析页的单题数据一致）
                     const summaryEl = App.dom.get('drawer-summary');
                     if (summaryEl) {
-                        const b = (label, value) => `<div>${label}：<span class="font-bold text-[var(--text)]">${value}</span></div>`;
+                        const b = (label, value) => `<div>${label}${en ? ': ' : '：'}<span class="font-bold text-[var(--text)]">${value}</span></div>`;
                         if (!all.length) {
-                            summaryEl.innerHTML = b('作答次数', 0);
+                            summaryEl.innerHTML = b(App.t('作答次数'), 0);
                         } else {
                             const correct = all.filter(x => x.r).length;
                             const errRate = Math.round((all.length - correct) / all.length * 100);
@@ -1045,11 +1046,11 @@
                             const avgSec = durRecs.length ? (durRecs.reduce((s, x) => s + x.d, 0) / durRecs.length / 1000).toFixed(1) : null;
                             const totalSec = Math.round(all.filter(x => x.d > 0).reduce((s, x) => s + x.d, 0) / 1000);
                             summaryEl.innerHTML =
-                                b('作答次数', all.length) +
-                                b('正确次数', correct) +
-                                b('错误率', errRate + '%') +
-                                (avgSec != null ? b('平均用时', avgSec + '秒/次') : b('平均用时', '—')) +
-                                (totalSec ? b('总用时', totalSec + '秒') : '');
+                                b(App.t('作答次数'), all.length) +
+                                b(App.t('正确次数'), correct) +
+                                b(App.t('错误率'), errRate + '%') +
+                                (avgSec != null ? b(App.t('平均用时'), avgSec + (en ? 's/attempt' : '秒/次')) : b(App.t('平均用时'), '—')) +
+                                (totalSec ? b(App.t('总用时'), totalSec + (en ? 's' : '秒')) : '');
                         }
                     }
 
