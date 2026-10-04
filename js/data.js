@@ -2162,16 +2162,16 @@ this.bumpHistoryRev();
                     const topMistakes = Object.entries(errFreq).sort((a, b) => b[1] - a[1]).slice(0, 10)
                         .map(([id, count]) => { const q = this.getQuestionById(id); return q ? { ...q, count, a: q.a, type: q.type, o: q.o } : null; }).filter(Boolean);
 
-                    let timeText = '从未练习 (Never Practiced)';
+                    let timeText = (window.App && App.t) ? App.t('从未练习 (Never Practiced)') : '从未练习 (Never Practiced)';
                     if (this.lastPracticeTime) {
                         const diff = Date.now() - this.lastPracticeTime;
                         const mins = Math.floor(diff / 60000);
                         if (mins < 60) {
-                            timeText = `距离上次练习已过去：${mins}分钟 (Minutes ago)`;
+                            timeText = (window.App && App.i18n && App.i18n.lang === 'en') ? `Last practice: ${mins} min ago` : `距离上次练习已过去：${mins}分钟`;
                         } else {
                             const hrs = Math.floor(mins / 60);
                             const m = mins % 60;
-                            timeText = `距离上次练习已过去：${hrs}小时${m}分钟`;
+                            timeText = (window.App && App.i18n && App.i18n.lang === 'en') ? `Last practice: ${hrs}h ${m}m ago` : `距离上次练习已过去：${hrs}小时${m}分钟`;
                         }
                     }
 

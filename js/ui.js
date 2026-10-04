@@ -225,9 +225,9 @@
                             if (el) el.textContent = '0';
                         });
                     const structEl = App.dom.get('import-json-struct');
-                    if (structEl) structEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">请选择 JSON 文件后查看科目和章节分布。</div>';
+                    if (structEl) structEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">' + App.t('请选择 JSON 文件后查看科目和章节分布。') + '</div>';
                     const listEl = App.dom.get('import-json-list');
-                    if (listEl) listEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">暂无预览，请先选择 JSON 文件。</div>';
+                    if (listEl) listEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">' + App.t('暂无预览，请先选择 JSON 文件。') + '</div>';
                     const statusEl = App.dom.get('import-json-status');
                     if (statusEl) statusEl.textContent = '尚未选择文件';
                     this.toggleModal('import-center');
@@ -755,9 +755,9 @@
                                 <div class="text-[11px] text-[var(--sub)] mt-0.5">${label}</div>
                             </div>`;
                         statsEl.innerHTML =
-                            cell('题库总量', s.total, 'text-[var(--text)]') +
-                            cell('收藏', (window.App.data.starredIds || []).length, 'text-amber-500') +
-                            cell('连续天数', s.streak + '天', 'text-orange-500');
+                            cell(App.t('题库总量'), s.total, 'text-[var(--text)]') +
+                            cell(App.t('收藏'), (window.App.data.starredIds || []).length, 'text-amber-500') +
+                            cell(App.t('连续天数'), s.streak + (App.i18n.lang === 'en' ? 'd' : '天'), 'text-orange-500');
                     }
                     // 回收站入口右侧的数量徽标：有内容时才显示，让用户知道里面有没有东西
                     const trashCountEl = App.dom.get('am-trash-count');

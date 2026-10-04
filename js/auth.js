@@ -208,7 +208,7 @@
                     );
                     btn.classList.add("border", "border-[var(--border)]", "bg-[var(--card)]", "text-[var(--sub)]");
                     if (this.session) {
-                        btn.title = "账户";
+                        btn.title = (window.App && App.t) ? App.t("账户") : "账户";
                         btn.classList.remove("border-[var(--border)]", "bg-[var(--card)]", "text-[var(--sub)]");
                         btn.classList.add(
                             "border-emerald-400",
@@ -247,7 +247,7 @@
                         // 登录后立即把同步 chip 从「未登录」切回正常态（不等第一次同步往返）
                         if (window.App && App.sync && typeof App.sync.render === 'function') App.sync.render();
                     } else {
-                        btn.title = "登录";
+                        btn.title = (window.App && App.t) ? App.t("登录") : "登录";
                         // 页面加载即未登录：把同步 chip 从静态「已同步」修正为「未登录」
                         if (window.App && App.sync && typeof App.sync.render === 'function') App.sync.render();
                         if (overlay) {

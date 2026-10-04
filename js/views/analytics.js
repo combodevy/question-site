@@ -146,7 +146,7 @@
 
                         App.dom.setText('an-total-attempts', s.totalAttempts);
                         App.dom.setText('an-acc', s.acc + '%');
-                        App.dom.setText('an-streak', s.streak + '天');
+                        App.dom.setText('an-streak', s.streak + (App.i18n.lang === 'en' ? 'd' : '天'));
                         App.dom.setText('an-avg-dur', s.avgDuration != null ? s.avgDuration + '秒' : '--');
 
                         const subSelect = App.dom.get('an-subject-select');
@@ -231,9 +231,9 @@
                                     const totalSec = Math.round(totalDurMs / 1000);
                                     const totalMin = Math.floor(totalSec / 60);
                                     const totalSecRem = totalSec % 60;
-                                    const totalTimeText = totalSec ? (totalMin ? `${totalMin}分${totalSecRem}秒` : `${totalSecRem}秒`) : '--';
+                                    const totalTimeText = totalSec ? (App.i18n.lang === 'en' ? (totalMin ? `${totalMin}m ${totalSecRem}s` : `${totalSecRem}s`) : (totalMin ? `${totalMin}分${totalSecRem}秒` : `${totalSecRem}秒`)) : '--';
                                     const accSub = totalAttemptsSub ? Math.round(totalCorrectSub / totalAttemptsSub * 100) : 0;
-                                    const avgTimeText = avgDurSub != null ? `${avgDurSub}秒/题` : '--';
+                                    const avgTimeText = avgDurSub != null ? `${avgDurSub}${App.i18n.lang === 'en' ? 's / q' : '秒/题'}` : '--';
                                     subDetail.innerHTML = `
                                         <div>
                                             <div class="text-[11px] text-[var(--sub)]">当前科目作答次数</div>

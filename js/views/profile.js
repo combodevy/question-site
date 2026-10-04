@@ -69,7 +69,7 @@ export const profile = {
         const trendCols = s.daily30.map(d => {
             const hPct = Math.round(d.attempts / maxDay * 100);
             const cPct = d.attempts ? Math.round(d.correct / d.attempts * hPct) : 0;
-            return `<div class="flex-1 min-w-0 flex flex-col justify-end items-center h-full" title="${esc(d.label)}：${d.attempts} 次（对 ${d.correct}）">
+            return `<div class="flex-1 min-w-0 flex flex-col justify-end items-center h-full" title="${esc(d.label)}: ${d.attempts} (${d.correct} correct)">
                 <div class="w-full max-w-[10px] rounded-t bg-emerald-500" style="height:${cPct}%"></div>
                 <div class="w-full max-w-[10px] rounded-b bg-primary-500/70 ${cPct ? '' : 'rounded-t'}" style="height:${Math.max(2, hPct - cPct)}%"></div>
             </div>`;
@@ -83,7 +83,7 @@ export const profile = {
             return `<div class="space-y-1">
                 <div class="flex items-center justify-between text-xs">
                     <span class="font-medium text-[var(--text)] truncate mr-2">${esc(sub)}</span>
-                    <span class="text-[11px] text-[var(--sub)] flex-shrink-0">${v.attempts} 次 · ${v.attempts ? v.acc + '%' : '未作答'}</span>
+                    <span class="text-[11px] text-[var(--sub)] flex-shrink-0">${App.i18n.lang === 'en' ? `${v.attempts} · ${v.attempts ? v.acc + '%' : 'none'}` : `${v.attempts} 次 · ${v.attempts ? v.acc + '%' : '未作答'}`}</span>
                 </div>
                 <div class="h-2 rounded-full bg-[var(--bg)] overflow-hidden">
                     <div class="h-full rounded-full ${color} transition-all" style="width:${v.attempts ? Math.max(4, v.acc) : 0}%"></div>
@@ -101,7 +101,7 @@ export const profile = {
             const q = App.data.getQuestionById(x.id);
             const title = q ? (q.q || '').slice(0, 32) : '题目已删除';
             const loc = q ? `${q.sub} · ${q.chap}` : '—';
-            const dur = x.d > 0 ? Math.round(x.d / 1000) + ' 秒' : '—';
+            const dur = x.d > 0 ? (App.i18n.lang === 'en' ? Math.round(x.d / 1000) + 's' : Math.round(x.d / 1000) + ' 秒') : '—';
             return `<div class="flex items-center gap-3 py-2 border-b border-[var(--border)] last:border-b-0">
                 <span class="text-[11px] text-[var(--sub)] font-mono flex-shrink-0 w-24">${fmtTime(x.t)}</span>
                 <div class="flex-1 min-w-0">
@@ -138,7 +138,7 @@ export const profile = {
                         <span class="text-lg font-bold text-[var(--text)] truncate">${esc(username)}</span>
                         ${isAdmin ? '<span class="text-[10px] font-bold text-purple-700 bg-purple-100 dark:text-purple-300 dark:bg-purple-900/40 px-1.5 py-0.5 rounded-full">管理员</span>' : ''}
                     </div>
-                    <div class="text-[11px] text-[var(--sub)] mt-1">注册于 ${esc(createdText)} · ID <span class="font-mono">${esc(shortId)}</span><button id="pf-copy-id" class="ml-1 text-primary-600 hover:underline">复制</button></div>
+                    <div class="text-[11px] text-[var(--sub)] mt-1">${App.i18n.lang === 'en' ? 'Joined' : '注册于'} ${esc(createdText)} · ID <span class="font-mono">${esc(shortId)}</span><button id="pf-copy-id" class="ml-1 text-primary-600 hover:underline">${t('复制')}</button></div>
                 </div>
                 <div class="flex-shrink-0 text-center rounded-xl bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-900 px-3 py-2">
                     <div class="text-base font-bold text-orange-500">🔥 ${s.streak}</div>
@@ -152,7 +152,7 @@ export const profile = {
                 ${statCell(t('累计作答'), s.totalAttempts, 'text-primary-600')}
                 ${statCell(t('总正确率'), (s.totalAttempts ? s.acc + '%' : '—'), 'text-emerald-500')}
                 ${statCell(t('收藏'), starred, 'text-amber-500')}
-                ${statCell(t('平均用时'), s.avgDuration ? s.avgDuration + ' 秒' : '—', 'text-[var(--text)]')}
+                ${statCell(t('平均用时'), s.avgDuration ? s.avgDuration + (App.i18n.lang === 'en' ? 's' : ' 秒') : '—', 'text-[var(--text)]')}
                 ${statCell(t('成就'), unlocked + '/' + achievements.length, 'text-purple-500')}
             </div>
 
@@ -160,7 +160,7 @@ export const profile = {
             <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
                 <div class="flex items-center justify-between mb-3">
                     <h3 class="font-bold text-sm text-[var(--text)]">${t('近 30 天作答趋势')}</h3>
-                    <span class="text-[11px] text-[var(--sub)]">共 ${trendTotal} 次</span>
+                    <span class="text-[11px] text-[var(--sub)]">${t('共')} ${trendTotal} ${t('次')}</span>
                 </div>
                 <div class="flex items-end gap-[3px] h-28">${trendCols}</div>
             </div>
@@ -181,7 +181,7 @@ export const profile = {
             <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
                 <div class="flex items-center justify-between mb-3">
                     <h3 class="font-bold text-sm text-[var(--text)]">${t('成就墙')}</h3>
-                    <span class="text-[11px] text-[var(--sub)]">已点亮 ${unlocked} / ${achievements.length}</span>
+                    <span class="text-[11px] text-[var(--sub)]">${t('已点亮')} ${unlocked} / ${achievements.length}</span>
                 </div>
                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">${badgeHtml}</div>
             </div>
@@ -190,12 +190,12 @@ export const profile = {
             <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
                 <h3 class="font-bold text-sm text-[var(--text)] mb-3">${t('账户操作')}</h3>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <button onclick="App.ui.openPasswordModal()" class="px-3 py-2.5 rounded-xl border border-[var(--border)] text-xs font-bold text-[var(--text)] hover:bg-[var(--bg)] active:scale-95 transition-all">修改密码</button>
-                    <button onclick="App.ui.exportAllBank()" class="px-3 py-2.5 rounded-xl border border-[var(--border)] text-xs font-bold text-[var(--text)] hover:bg-[var(--bg)] active:scale-95 transition-all">导出备份 JSON</button>
-                    <button onclick="App.ui.openPrintExport()" class="px-3 py-2.5 rounded-xl border border-[var(--border)] text-xs font-bold text-[var(--text)] hover:bg-[var(--bg)] active:scale-95 transition-all">导出 PDF 打印版</button>
-                    <button onclick="App.ui.handleAccountMenuAction('logout')" class="px-3 py-2.5 rounded-xl border border-[var(--border)] text-xs font-bold text-[var(--text)] hover:bg-[var(--bg)] active:scale-95 transition-all">退出登录</button>
+                    <button onclick="App.ui.openPasswordModal()" class="px-3 py-2.5 rounded-xl border border-[var(--border)] text-xs font-bold text-[var(--text)] hover:bg-[var(--bg)] active:scale-95 transition-all">${t('修改密码')}</button>
+                    <button onclick="App.ui.exportAllBank()" class="px-3 py-2.5 rounded-xl border border-[var(--border)] text-xs font-bold text-[var(--text)] hover:bg-[var(--bg)] active:scale-95 transition-all">${t('导出备份 JSON')}</button>
+                    <button onclick="App.ui.openPrintExport()" class="px-3 py-2.5 rounded-xl border border-[var(--border)] text-xs font-bold text-[var(--text)] hover:bg-[var(--bg)] active:scale-95 transition-all">${t('导出 PDF 打印版')}</button>
+                    <button onclick="App.ui.handleAccountMenuAction('logout')" class="px-3 py-2.5 rounded-xl border border-[var(--border)] text-xs font-bold text-[var(--text)] hover:bg-[var(--bg)] active:scale-95 transition-all">${t('退出登录')}</button>
                 </div>
-                <button onclick="App.ui._startAccountDeletion()" class="mt-3 w-full px-3 py-2.5 rounded-xl border border-red-200 dark:border-red-900 text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all">注销账号（删除全部数据）</button>
+                <button onclick="App.ui._startAccountDeletion()" class="mt-3 w-full px-3 py-2.5 rounded-xl border border-red-200 dark:border-red-900 text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all">${t('注销账号（删除全部数据）')}</button>
             </div>`;
 
         // 复制 ID

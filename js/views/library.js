@@ -202,13 +202,13 @@
 
                         if (q.type === 'fill') {
                             ansPreview = `<span class="font-bold text-primary-600">答案：${App.utils.highlight(q.a || '', this._searchQuery)}</span>`;
-                            detailsHtml = `<div class="mt-2 text-xs text-[var(--sub)] ${this._expandAll ? '' : 'hidden'} details-panel">此题为填空题，作答时输入答案。</div>`;
+                            detailsHtml = `<div class="mt-2 text-xs text-[var(--sub)] ${this._expandAll ? '' : 'hidden'} details-panel">${App.t('此题为填空题，作答时输入答案。')}</div>`;
                         } else if (q.type === 'tf') {
                             const isTrue = q.a === 'T';
                             ansPreview = isTrue
-                                ? '<span class="status-true">√ (正确/True)</span>'
-                                : '<span class="status-false">× (错误/False)</span>';
-                            detailsHtml = `<div class="mt-2 text-xs text-[var(--sub)] ${this._expandAll ? '' : 'hidden'} details-panel">此题为判断题。</div>`;
+                                ? '<span class="status-true">' + App.t('√ (正确/True)') + '</span>'
+                                : '<span class="status-false">' + App.t('× (错误/False)') + '</span>';
+                            detailsHtml = `<div class="mt-2 text-xs text-[var(--sub)] ${this._expandAll ? '' : 'hidden'} details-panel">${App.t('此题为判断题。')}</div>`;
                         } else {
                             // q.a 可能被同步写入任意字符串（云端不校验），兜底转义防注入
                             let inlineAns = App.utils.escapeHTML(q.a);
@@ -228,7 +228,7 @@
                                 `</div>`;
                         }
 
-                        const typeLabel = q.type === 'mcq' ? '单选' : (q.type === 'multi' ? '多选' : (q.type === 'fill' ? '填空' : '判断'));
+                        const typeLabel = App.t(q.type === 'mcq' ? '单选' : (q.type === 'multi' ? '多选' : (q.type === 'fill' ? '填空' : '判断')));
                         // 含 media 的题干：占位符替换为缩略图/表格标记后仍走高亮管线
                         let highlightedQ;
                         if (Array.isArray(q.media) && q.media.length) {

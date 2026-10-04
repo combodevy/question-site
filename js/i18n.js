@@ -222,6 +222,148 @@ export const i18n = {
         '界面语言': { en: 'Language' },
         '保存': { en: 'Save' },
 
+        // ---- 全量 DOM 扫描补齐（自动清单）----
+        '管理员': { en: 'Admin' },
+        '今日待复习': { en: 'Due today' },
+        '基于遗忘曲线安排的复习计划': { en: 'Review plan based on the forgetting curve' },
+        '智能练习': { en: 'Smart practice' },
+        '可视化数据面板': { en: 'Visual analytics panel' },
+        '高频错题': { en: 'Frequent mistakes' },
+        '收藏 ★': { en: 'Starred ★' },
+        '收藏★': { en: 'Starred ★' },
+        '错题突击 →': { en: 'Mistake drill →' },
+        '总题库': { en: 'Total questions' },
+        '全科目': { en: 'All subjects' },
+        '全题型': { en: 'All types' },
+        '默认': { en: 'Default' },
+        '错率↓': { en: 'Errors ↓' },
+        '答案A-Z': { en: 'Answer A-Z' },
+        '已选': { en: 'Selected' },
+        '删除': { en: 'Delete' },
+        '导出': { en: 'Export' },
+        '键盘 A–D / 1–4 作答 · Enter 提交': { en: 'Keys A–D / 1–4 to answer · Enter to submit' },
+        '多项选择，请选出所有正确选项后提交': { en: 'Multiple select — choose all correct options, then submit' },
+        '提交': { en: 'Submit' },
+        '提前交卷': { en: 'Submit early' },
+        '题型:': { en: 'Type:' },
+        '题型：': { en: 'Type:' },
+        '全部': { en: 'All' },
+        '题数:': { en: 'Count:' },
+        '题数：': { en: 'Count:' },
+        '总览': { en: 'Overview' },
+        '单科分析': { en: 'Single subject' },
+        '总作答次数': { en: 'Total attempts' },
+        '综合正确率': { en: 'Overall accuracy' },
+        '连续学习天数': { en: 'Study streak (days)' },
+        '平均作答时长': { en: 'Avg time per answer' },
+        '科目视图': { en: 'Subject view' },
+        '全部科目': { en: 'All subjects' },
+        '30天学习热力图': { en: '30-day study heatmap' },
+        '少': { en: 'Less' },
+        '多': { en: 'More' },
+        '各科目正确率': { en: 'Accuracy by subject' },
+        '题型正确率对比': { en: 'Accuracy by type' },
+        '作答时长分布': { en: 'Time distribution' },
+        '科目概况': { en: 'Subject overview' },
+        '科目细节分析': { en: 'Subject details' },
+        '当前视图：全部科目': { en: 'Current view: all subjects' },
+        '耗时题目排行（点击题目查看详情）': { en: 'Slowest questions (click for details)' },
+        '遗忘曲线（30 天正确率）': { en: 'Forgetting curve (30-day accuracy)' },
+        '近期作答记录 (Recent Attempts)': { en: 'Recent attempts' },
+        '原密码': { en: 'Current password' },
+        '新密码（至少 6 位，建议字母+数字混合）': { en: 'New password (6+ chars, letters+numbers recommended)' },
+        '确认新密码': { en: 'Confirm new password' },
+        '确认修改': { en: 'Confirm change' },
+        '云同步记录': { en: 'Cloud sync log' },
+        '智能练习配置': { en: 'Smart practice setup' },
+        '选择题型 (Question Type):': { en: 'Question type:' },
+        '题目数量 (Question Limit):': { en: 'Question limit:' },
+        '10 题': { en: '10' },
+        '20 题': { en: '20' },
+        '50 题': { en: '50' },
+        '100 题': { en: '100' },
+        '全部 (Max)': { en: 'All (max)' },
+        '重置刷题记录': { en: 'Reset practice history' },
+        '题库导入中心': { en: 'Import center' },
+        '先在此处预览题库结构和每一道题的归属，再决定是否真正导入到当前题库。': { en: 'Preview the bank structure and where each question goes before importing.' },
+        '选择 JSON 文件…': { en: 'Choose JSON file…' },
+        '下载格式模板': { en: 'Download template' },
+        '尚未选择文件': { en: 'No file chosen' },
+        '想用 AI 整理题库？复制这段提示词，连同你的资料一起发给它': { en: 'Want AI to build your bank? Copy this prompt and send it with your material' },
+        '复制提示词': { en: 'Copy prompt' },
+        '把下面的提示词连同你的资料（笔记 / 大纲 / 文档内容）一起发给任意 AI， 它输出的 JSON 直接选择文件或拖进本窗口即可导入。': { en: 'Send the prompt below with your material (notes / outlines / documents) to any AI, then import the JSON it outputs via file picker or drag-drop.' },
+        '检测到题目': { en: 'Questions detected' },
+        '科目数量': { en: 'Subjects' },
+        '章节数量': { en: 'Chapters' },
+        '判断 + 填空': { en: 'TF + Fill' },
+        '按科目 / 章节分布': { en: 'By subject / chapter' },
+        '请选择 JSON 文件后查看科目和章节分布。': { en: 'Pick a JSON file to see subjects and chapters.' },
+        '题目预览（最多展示前 50 道）': { en: 'Question preview (first 50 shown)' },
+        '暂无预览，请先选择 JSON 文件。': { en: 'Nothing to preview — choose a JSON file first.' },
+        '导入预览中的题目': { en: 'Import previewed questions' },
+        '编辑题目': { en: 'Edit question' },
+        '科目': { en: 'Subject' },
+        '优先使用右侧输入的新科目，否则使用下拉框当前选中项。': { en: 'A new subject typed on the right takes priority over the dropdown.' },
+        '章节': { en: 'Chapter' },
+        '优先使用右侧输入的新章节，否则使用下拉框当前选中项。': { en: 'A new chapter typed on the right takes priority over the dropdown.' },
+        '题型': { en: 'Type' },
+        '题干': { en: 'Question text' },
+        '选项': { en: 'Options' },
+        '+ 新增选项': { en: '+ Add option' },
+        '不要在这里写 A. / B. 前缀，系统会自动加字母。': { en: 'No "A. / B." prefixes here — letters are added automatically.' },
+        '正确答案': { en: 'Correct answer' },
+        '正确答案（多个可接受答案用 | 分隔）': { en: 'Correct answer (separate alternatives with |)' },
+        '删除题目': { en: 'Delete question' },
+        '取消': { en: 'Cancel' },
+        '清空': { en: 'Clear' },
+        '应用当前选择': { en: 'Apply selection' },
+        '√ (正确/True)': { en: '√ (True)' },
+        '× (错误/False)': { en: '× (False)' },
+        '0天': { en: '0d' },
+        '1天': { en: '1d' },
+        '1秒': { en: '1s' },
+        '<5秒': { en: '<5s' },
+        '5-15秒': { en: '5-15s' },
+        '15-30秒': { en: '15-30s' },
+        '30-60秒': { en: '30-60s' },
+        '>60秒': { en: '>60s' },
+        '最强科目': { en: 'Best subject' },
+        '近 30 天作答趋势': { en: 'Last 30 days' },
+        '英语 (English)': { en: 'English' },
+        '次 · 未作答': { en: ' attempts · none' },
+        '秒/题': { en: 's / q' },
+        '秒/次': { en: 's / attempt' },
+        '共': { en: 'Total' },
+        '次': { en: '' },
+        '同步状态': { en: 'Sync status' },
+        '进入个人空间': { en: 'Open profile' },
+        '展开 / 收起全部详情': { en: 'Expand / collapse all details' },
+        '展开或收起全部题目详情': { en: 'Expand or collapse all question details' },
+        '多选模式（批量选择 / 删除 / 导出）': { en: 'Multi-select mode (batch select / delete / export)' },
+        '进入或退出管理模式': { en: 'Enter or exit manage mode' },
+        '搜索题目、选项、章节... (Search)': { en: 'Search questions, options, chapters...' },
+        '清空搜索关键词': { en: 'Clear search' },
+        '回到顶部': { en: 'Back to top' },
+        '在此输入你的答案…': { en: 'Type your answer…' },
+        '关闭题目详情': { en: 'Close question details' },
+        '关闭修改密码弹窗': { en: 'Close change-password dialog' },
+        '显示/隐藏密码': { en: 'Show / hide password' },
+        '关闭同步记录': { en: 'Close sync log' },
+        '返回设置': { en: 'Back to settings' },
+        '关闭题库管理': { en: 'Close bank manager' },
+        '关闭智能练习配置': { en: 'Close smart practice setup' },
+        '关闭设置': { en: 'Close settings' },
+        '关闭导入中心': { en: 'Close import center' },
+        '关闭题目编辑器': { en: 'Close question editor' },
+        '自定义科目': { en: 'Custom subject' },
+        '自定义章节': { en: 'Custom chapter' },
+        '请输入题目内容': { en: 'Enter the question text' },
+        '例如：TCP|传输控制协议': { en: 'e.g. TCP|Transmission Control Protocol' },
+        '关闭回收站': { en: 'Close trash' },
+        '关闭相似题审查': { en: 'Close similar review' },
+        '详情与作答记录': { en: 'Details & attempt history' },
+        '进入或退出收藏模式': { en: 'Enter or exit starred mode' },
+
         // ---- 常见提示（无括注的 alert/confirm）----
         '确定要退出登录吗？': { en: 'Sign out?' },
         '本地缓存会清空，题库和学习记录都保留在云端，下次登录自动恢复。': { en: 'Local cache is cleared; the bank and history stay in the cloud and return on next sign-in.' },
@@ -293,15 +435,28 @@ export const i18n = {
         });
         const nodes = [];
         while (walker.nextNode()) nodes.push(walker.currentNode);
+        // 查字典的兜底顺序：原文 → 空白归一 → 剥装饰尾缀（★ → 等 UI 符号）
+        const look = (t) => {
+            let hit = this.dict[t];
+            if (hit) return { hit, core: t };
+            const norm = t.replace(/\s+/g, ' ').trim();
+            hit = this.dict[norm];
+            if (hit) return { hit, core: norm };
+            const deco = norm.match(/^([\s\S]+?)\s*([★☆→←↑↓✦✧]+)$/);
+            if (deco && this.dict[deco[1].trim()]) {
+                return { hit: this.dict[deco[1].trim()], core: this.dict[deco[1].trim()] && deco[1].trim(), suffix: deco[2] };
+            }
+            return { hit: null, core: t };
+        };
         for (const node of nodes) {
             const raw = node.nodeValue;
             const trimmed = raw.trim();
-            const hit = this.dict[trimmed];
+            const { hit, suffix } = look(trimmed);
             let replacement = null;
             if (hit) {
                 const val = this.lang === 'en' ? hit.en : (hit.zh !== undefined ? hit.zh : trimmed);
                 if (val !== undefined && val !== trimmed) {
-                    replacement = raw.replace(trimmed, val);
+                    replacement = (suffix !== undefined) ? (val ? (val + ' ' + suffix) : suffix) : raw.replace(trimmed, val);
                 }
             } else if (this.lang === 'en') {
                 // 整节点为「中文 (English)」混合形态
@@ -325,7 +480,7 @@ export const i18n = {
         const sel = '[title], [aria-label], [placeholder]';
         const els = (root || document).querySelectorAll(sel);
         for (const el of els) {
-            if (el.closest(this.skipSelector)) continue;
+            // placeholder/title/aria 是 UI 机制属性，不会携带题库内容——不做 skip 豁免
             for (const attr of ['title', 'aria-label', 'placeholder']) {
                 const v = el.getAttribute && el.getAttribute(attr);
                 if (!v) continue;
@@ -362,5 +517,27 @@ export const i18n = {
         window.confirm = (s) => origConfirm(s == null ? s : this.t(s));
         this.walk(document.body);
         this.walkAttrs(document);
+        // 动态渲染兜底：任何 DOM 增删后自动翻译新增部分（轮询 refresh、弹窗、抽屉……）
+        let timer = null;
+        const pending = new Set();
+        const obs = new MutationObserver((muts) => {
+            for (const m of muts) {
+                for (const n of m.addedNodes) {
+                    if (n.nodeType === 1) pending.add(n);
+                }
+            }
+            if (pending.size && !timer) {
+                timer = setTimeout(() => {
+                    timer = null;
+                    for (const el of pending) {
+                        if (!el.isConnected) continue;
+                        this.walk(el);
+                        this.walkAttrs(el);
+                    }
+                    pending.clear();
+                }, 120);
+            }
+        });
+        obs.observe(document.body, { childList: true, subtree: true });
     }
 };
