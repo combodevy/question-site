@@ -43,12 +43,17 @@ export const prefs = {
         const btn = document.getElementById('pref-save-btn');
         if (btn) {
             const t = window.App && App.t ? App.t : (s) => s;
-            btn.textContent = t('偏好已保存，页面即将刷新…');
+            // 目标/题数即时生效，不需要刷新页面——短暂显示「已保存」后恢复按钮，
+            // 旧实现承诺「即将刷新」却从不刷新，按钮永久卡在禁用态（bug）
+            btn.textContent = t('已保存 ✓');
             btn.disabled = true;
+            setTimeout(() => {
+                btn.textContent = t('保存');
+                btn.disabled = false;
+            }, 1200);
         }
-        // 题数立即生效于练习页；目标卡在下次渲染读取。轻刷新不重载（避免打断），
-        // 但语言改变时 pickLang 已负责 reload。
-        setTimeout(() => { if (window.App && App.router) App.router.refresh(); }, 300);
+        // 立即生效：重渲染当前视图（每日目标卡马上反映新目标）
+        setTimeout(() => { if (window.App && App.router) App.router.refresh(); }, 200);
     },
 
     getGoal() {
