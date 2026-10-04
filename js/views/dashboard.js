@@ -68,20 +68,21 @@
                                 });
                             }
                         }
-                        // 七日趋势直接取 getStats 已单遍聚合好的 daily30 后 7 天，
-                        // 不再对整份 history 逐日 filter 7 遍
-                        const h = App.data.getSafeHistory();   // 仅用于「有没有作答」的空态判断
+                        // 七日组合图：答对/答错堆叠柱 + 正确率标注。
+                        // 数据直接取 getStats 已单遍聚合好的 daily30 后 7 天
+                        const h = App.data.getSafeHistory();
                         if (h.length === 0) {
                             App.dom.show('chart-empty');
                         } else {
-                            const pts = s.daily30.slice(-7).map(d => d.acc);
-                            if (pts.every(p => p === null)) {
-                                // 有历史但最近 7 天都没练：画布会是全空，显示「暂无数据」而不是空白
-                                App.dom.show('chart-empty');
-                            } else {
-                                App.dom.hide('chart-empty');
-                                requestAnimationFrame(() => App.chart.draw('dashboardChart', pts));
-                            }
+                            App.dom.hide('chart-empty');
+                            const wd = App.i18n.lang === 'en'
+                                ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+                                : ['日', '一', '二', '三', '四', '五', '六'];
+                            const combo = s.daily30.slice(-7).map(d => {
+                                const dt = new Date(d.date + 'T00:00:00');
+                                return { label: wd[dt.getDay()], attempts: d.attempts, correct: d.correct, acc: d.acc };
+                            });
+                            requestAnimationFrame(() => App.chart.drawCombo('dashboardChart', combo));
                         }
                     },
 

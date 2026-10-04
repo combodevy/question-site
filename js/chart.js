@@ -222,6 +222,119 @@
                     });
                 },
 
+                // ===== 七日趋势组合图：答对/答错堆叠柱 + 每柱正确率标注 =====
+                // dataPoints: [{ label, attempts, correct, acc }]（acc 无作答为 null）
+                drawCombo(canvasId, dataPoints) {
+                    const cvs = App.dom.get(canvasId);
+                    if (!cvs || !cvs.parentElement) return;
+                    if (!Array.isArray(dataPoints) || !dataPoints.length) return;
+
+                    const ctx = cvs.getContext && cvs.getContext('2d');
+                    if (!ctx) return;
+                    const parent = cvs.parentElement;
+                    if (parent.clientWidth === 0 || parent.clientHeight === 0) {
+                        this._retryDraw('drawCombo', canvasId, [dataPoints]);
+                        return;
+                    }
+                    this._resetRetry(cvs);
+                    const { w, h } = this._sizeCanvas(cvs, parent.clientWidth, parent.clientHeight);
+                    const padL = 10, padR = 10, padT = 22, padB = 20;
+                    const plotH = h - padT - padB;
+                    const isDark = document.documentElement.classList.contains('dark');
+                    const labelColor = isDark ? '#94a3b8' : '#64748b';
+                    const gridColor = isDark ? 'rgba(148,163,184,0.14)' : 'rgba(100,116,139,0.12)';
+                    const okColor = '#14b8a6';
+                    const badColor = '#ef4444';
+                    const en = window.App && App.i18n && App.i18n.lang === 'en';
+
+                    ctx.clearRect(0, 0, w, h);
+
+                    const maxV = Math.max(4, ...dataPoints.map(d => d.attempts));
+                    const slot = (w - padL - padR) / dataPoints.length;
+                    const barW = Math.min(34, slot * 0.52);
+
+                    // 横向参考线（0 / 半程 / 满程）
+                    ctx.save();
+                    ctx.strokeStyle = gridColor;
+                    ctx.lineWidth = 1;
+                    for (const r of [0, 0.5, 1]) {
+                        const gy = Math.round(padT + (1 - r) * plotH) + 0.5;
+                        ctx.beginPath();
+                        ctx.moveTo(padL, gy);
+                        ctx.lineTo(w - padR, gy);
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+
+                    dataPoints.forEach((d, i) => {
+                        const cx = padL + slot * i + slot / 2;
+                        const hasData = d.attempts > 0;
+                        if (hasData) {
+                            const okH = (d.correct / maxV) * plotH;
+                            const badH = ((d.attempts - d.correct) / maxV) * plotH;
+                            // 答对（teal 底段）
+                            ctx.fillStyle = okColor;
+                            this._roundRectTop(ctx, cx - barW / 2, padT + plotH - okH, barW, Math.max(2, okH), 3);
+                            // 答错（红 上段）
+                            if (badH > 0) {
+                                ctx.fillStyle = badColor;
+                                ctx.fillRect(cx - barW / 2, padT + plotH - okH - badH, barW, badH);
+                            }
+                            // 柱顶总量标注
+                            ctx.fillStyle = labelColor;
+                            ctx.font = '10.5px Inter, system-ui, sans-serif';
+                            ctx.textAlign = 'center';
+                            ctx.fillText(String(d.attempts), cx, padT + plotH - okH - badH - 5);
+                            // 正确率标注（有作答才标）
+                            if (d.acc !== null && d.acc !== undefined) {
+                                ctx.fillStyle = isDark ? '#5eead4' : '#0f766e';
+                                ctx.fillText(d.acc + '%', cx, padT + plotH + 1 + 11);
+                            }
+                        } else {
+                            // 无作答：底部一个灰色小点占位
+                            ctx.beginPath();
+                            ctx.arc(cx, padT + plotH - 2, 2.4, 0, 2 * Math.PI);
+                            ctx.fillStyle = isDark ? '#475569' : '#cbd5e1';
+                            ctx.fill();
+                        }
+                        // 星期标签
+                        ctx.fillStyle = labelColor;
+                        ctx.font = '10.5px Inter, system-ui, sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(d.label, cx, h - 5);
+                    });
+
+                    // 图例（右上角，随主题）
+                    const legend = en
+                        ? [['Correct', okColor], ['Wrong', badColor]]
+                        : [['答对', okColor], ['答错', badColor]];
+                    let lx = w - padR;
+                    ctx.font = '10px Inter, system-ui, sans-serif';
+                    ctx.textAlign = 'right';
+                    for (let k = legend.length - 1; k >= 0; k--) {
+                        const [name, color] = legend[k];
+                        ctx.fillStyle = color;
+                        ctx.fillRect(lx - 8, padT - 12, 8, 8);
+                        ctx.fillStyle = labelColor;
+                        const tw = ctx.measureText(name).width;
+                        ctx.fillText(name, lx - 12, padT - 4);
+                        lx -= tw + 24;
+                    }
+                },
+
+                _roundRectTop(ctx, x, y, w, h, r) {
+                    r = Math.min(r, w / 2, h);
+                    ctx.beginPath();
+                    ctx.moveTo(x, y + h);
+                    ctx.lineTo(x, y + r);
+                    ctx.arcTo(x, y, x + r, y, r);
+                    ctx.lineTo(x + w - r, y);
+                    ctx.arcTo(x + w, y, x + w, y + r, r);
+                    ctx.lineTo(x + w, y + h);
+                    ctx.closePath();
+                    ctx.fill();
+                },
+
                 // ===== 横向条形图 =====
 
                 drawBar(canvasId, labels, values, colors) {
