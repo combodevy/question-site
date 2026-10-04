@@ -732,9 +732,13 @@
                     const profileEl = document.getElementById('am-profile');
                     if (profileEl) profileEl.classList.remove('hidden');
                     const now = Date.now();
-                    if (!this._meCache || now - this._meCacheAt > 5 * 60 * 1000) {
+                    // 缓存按用户绑定：换号登录后旧缓存立即失效，不得显示上一个账号的资料
+                    const meUid = App.auth && App.auth.getUserId ? App.auth.getUserId() : '';
+                    const meCacheValid = this._meCache && meUid && this._meCacheUid === meUid
+                        && now - this._meCacheAt < 5 * 60 * 1000;
+                    if (!meCacheValid) {
                         this._loadProfileForMenu();
-                    } else if (this._meCache) {
+                    } else {
                         this._applyProfileToMenu(this._meCache);
                     }
                     // 学习数据速览
@@ -773,6 +777,7 @@
                         .then(body => {
                             if (!body || !body.ok || !body.user) return;
                             this._meCache = body.user;
+                            this._meCacheUid = App.auth && App.auth.getUserId ? App.auth.getUserId() : '';
                             this._meCacheAt = Date.now();
                             this._applyProfileToMenu(body.user);
                         })
@@ -820,7 +825,7 @@
                 },
 
                 // ===== 注销账号：三重防呆（警告 → 输入用户名 → 输入密码）=====
-                _startAccountDeletion() {
+                async _startAccountDeletion() {
                     const session = window.App && App.auth && App.auth.session;
                     if (!session) return;
                     const username = (session.user && session.user.username) || '';
@@ -838,7 +843,7 @@
                     if (pw === null) return;
                     if (!pw) { alert('密码不能为空。'); return; }
 
-                    const token = App.auth.getToken();
+                    const token = await App.auth.getToken();
                     if (!token) { alert('登录状态已失效，请刷新页面后重试。'); return; }
                     fetch((App.apiBase || '') + '/api/auth/delete-account', {
                         method: 'POST',

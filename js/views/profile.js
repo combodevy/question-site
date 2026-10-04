@@ -5,6 +5,15 @@ export const profile = {
     render() {
         const root = App.dom.get('profile-root');
         if (!root) return;
+        // 未登录：显示引导卡，绝不渲染账户操作按钮（修改密码/注销等都无意义）
+        if (!App.auth || !App.auth.session) {
+            root.innerHTML = `<div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-10 text-center">
+                <div class="text-3xl mb-3">🔐</div>
+                <div class="text-sm font-bold text-[var(--text)] mb-1">请先登录</div>
+                <div class="text-xs text-[var(--sub)]">登录后即可查看你的学习数据、趋势与成就。</div>
+            </div>`;
+            return;
+        }
         const esc = App.utils.escapeHTML;
         const s = App.data.getStats();
         const hist = App.data.getSafeHistory();
@@ -15,8 +24,9 @@ export const profile = {
         const uid = App.auth && App.auth.getUserId ? App.auth.getUserId() : '';
         const shortId = uid ? uid.slice(0, 8) : '';
 
-        // 注册时间：优先用缓存的 /me 资料，没有先显示占位，异步补上
-        const me = this._me;
+        // 注册时间：优先用缓存的 /me 资料（缓存必须属于当前登录用户——
+        // 否则登出换号登录后 5 分钟内会显示上一个账号的资料），没有先显示占位，异步补上
+        const me = (this._me && this._meUid === uid && uid) ? this._me : null;
         let createdText = '…';
         if (me && me.createdAt) {
             const m = String(me.createdAt).match(/(\d{4})-(\d{2})-(\d{2})/);
@@ -219,7 +229,10 @@ export const profile = {
     _ensureMe() {
         return new Promise(resolve => {
             const now = Date.now();
-            if (this._me && now - this._meAt < 5 * 60 * 1000) return resolve(this._me);
+            const uid = App.auth && App.auth.getUserId ? App.auth.getUserId() : '';
+            // 缓存按用户绑定：换号登录后旧缓存立即失效
+            if (this._me && uid && this._meUid === uid && now - this._meAt < 5 * 60 * 1000) return resolve(this._me);
+            if (!uid) return resolve(null);
             const token = App.auth && App.auth.token;
             if (!token || !App.apiBase) return resolve(null);
             fetch(App.apiBase + '/api/auth/me', { headers: { Authorization: 'Bearer ' + token } })
@@ -227,6 +240,7 @@ export const profile = {
                 .then(b => {
                     if (b && b.ok && b.user) {
                         this._me = b.user;
+                        this._meUid = uid;
                         this._meAt = Date.now();
                         resolve(b.user);
                     } else resolve(null);

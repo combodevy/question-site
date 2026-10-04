@@ -114,7 +114,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     // config.js 没加载成功时 window.API_BASE 会是空的，所有接口都会打到当前站点，
     // 表现为「同步一直失败」但没有任何线索。这里主动给出可见提示。
-    if (!App.apiBase) {
+    if (typeof window.API_BASE === 'undefined') {
+        // 只把「config.js 根本没加载」当异常；同源部署（API_BASE=""）是合法配置
         console.error('[App] window.API_BASE 未定义：config.js 可能未成功加载。');
         showGlobalError('配置缺失（config.js 未加载），云端同步不可用，请刷新页面重试');
     }

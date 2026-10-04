@@ -529,7 +529,7 @@
         class="fixed right-2 top-16 left-2 sm:left-auto sm:right-4 sm:w-72 z-50 bg-[var(--card)] border border-[var(--border)] rounded-2xl shadow-2xl hidden opacity-0 pointer-events-none transition-all duration-200 overflow-hidden">
         <!-- 个人信息区：登录后展示，未登录隐藏。点击进入「个人空间」 -->
         <div id="am-profile" class="hidden px-3 pt-3 pb-2 border-b border-[var(--border)] mb-1 cursor-pointer hover:bg-[var(--bg)] transition-colors"
-            onclick="App.router.go('profile')" title="进入个人空间">
+            onclick="App.ui.closeAccountMenu(); App.router.go('profile')" title="进入个人空间">
             <div class="flex items-center gap-3">
                 <div id="am-avatar" class="w-10 h-10 rounded-full bg-primary-600 text-white flex items-center justify-center text-base font-bold flex-shrink-0">?</div>
                 <div class="flex-1 min-w-0">
@@ -690,6 +690,15 @@
             <!-- Dashboard View -->
             <!-- 个人空间：资料卡 / 核心统计 / 30天趋势 / 科目掌握 / 最近动态 / 成就墙 / 账户操作 -->
     <div id="view-profile" class="view-section hidden flex flex-col gap-6 animate-slide-up pb-8">
+        <div class="flex items-center gap-3">
+            <button onclick="App.router.go('dashboard')"
+                aria-label="返回首页" class="btn w-8 h-8 rounded-full bg-[var(--card)] border border-[var(--border)] text-[var(--sub)] active:scale-95 transition-transform">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+            </button>
+            <h2 class="text-lg font-bold">个人空间</h2>
+        </div>
         <div id="profile-root" class="flex flex-col gap-6"></div>
     </div>
 
@@ -1098,15 +1107,15 @@
                         id="res-score">0%</div>
                     <div class="grid grid-cols-2 gap-3 md:gap-4 text-sm mb-6 md:mb-8">
                         <div class="p-3 md:p-4 bg-green-50 text-green-700 rounded-xl border border-green-100">
-                            <div class="font-bold text-[11px] uppercase opacity-70 mb-1">Correct</div>
+                            <div class="font-bold text-[11px] opacity-70 mb-1">答对 <span class="opacity-70">Correct</span></div>
                             <div class="text-xl md:text-2xl font-bold" id="res-correct">0</div>
                         </div>
                         <div class="p-3 md:p-4 bg-red-50 text-red-700 rounded-xl border border-red-100">
-                            <div class="font-bold text-[11px] uppercase opacity-70 mb-1">Mistakes</div>
+                            <div class="font-bold text-[11px] opacity-70 mb-1">答错 <span class="opacity-70">Mistakes</span></div>
                             <div class="text-xl md:text-2xl font-bold" id="res-wrong">0</div>
                         </div>
                         <div id="res-unanswered-wrap" class="hidden">
-                            <div class="text-[11px] text-[var(--sub)] uppercase">未作答</div>
+                            <div class="text-[11px] text-[var(--sub)]">未作答 <span class="opacity-70">Unanswered</span></div>
                             <div class="text-xl md:text-2xl font-bold text-amber-500" id="res-unanswered">0</div>
                         </div>
                     </div>

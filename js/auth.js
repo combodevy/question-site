@@ -187,6 +187,10 @@
                     this.session = null;
                     localStorage.removeItem('qs-auth-token');
                     this.applyAuthState();
+                    // 登出 = 离开个人上下文：回首页，别把用户留在上一个账号的
+                    // 个人空间/练习结果页上；同步 chip 也要立即变回未登录态
+                    if (window.App && App.router && typeof App.router.go === 'function') App.router.go('dashboard');
+                    if (window.App && App.sync && typeof App.sync.render === 'function') App.sync.render();
                 },
                 applyAuthState() {
                     const btn = document.getElementById("auth-btn");
@@ -240,8 +244,12 @@
                             const uid = this.getUserId();
                             App.realtime.setup(uid, token);
                         }
+                        // 登录后立即把同步 chip 从「未登录」切回正常态（不等第一次同步往返）
+                        if (window.App && App.sync && typeof App.sync.render === 'function') App.sync.render();
                     } else {
                         btn.title = "登录";
+                        // 页面加载即未登录：把同步 chip 从静态「已同步」修正为「未登录」
+                        if (window.App && App.sync && typeof App.sync.render === 'function') App.sync.render();
                         if (overlay) {
                             overlay.classList.remove("hidden", "opacity-0", "pointer-events-none");
                         }

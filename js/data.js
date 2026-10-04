@@ -2356,7 +2356,13 @@ export const sync = {
                     let titleText = '';
                     let statusText = '已同步';
 
-                    if (this._lastStatus === 'error') {
+                    // 未登录时谈不上「已同步」——给出灰色未登录态，避免误导
+                    if (!window.App || !App.auth || !App.auth.session) {
+                        btn.classList.add('border-slate-300', 'dark:border-slate-700', 'bg-slate-100/50', 'dark:bg-slate-900/50');
+                        icon.classList.add('bg-slate-400');
+                        statusText = '未登录';
+                        titleText = '登录后题库与学习数据自动同步';
+                    } else if (this._lastStatus === 'error') {
                         btn.classList.add('border-red-400', 'bg-red-500/5');
                         icon.classList.add('bg-red-500', 'shadow-[0_0_8px_rgba(239,68,68,0.4)]');
                         statusText = '同步失败';
