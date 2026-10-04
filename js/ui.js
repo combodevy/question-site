@@ -1011,8 +1011,8 @@
                                     ? (rec.x ? App.t('≥5分') : (sec < 60 ? `${sec}${en ? 's' : '秒'}` : `${Math.floor(sec / 60)}${en ? 'm ' : '分'}${String(sec % 60).padStart(2, '0')}${en ? 's' : '秒'}`))
                                     : '—';
                                 const status = rec.r
-                                    ? '<span class="text-emerald-600 dark:text-emerald-400 font-bold">✓ ' + App.t('正确') + '</span>'
-                                    : '<span class="text-red-500 font-bold">✕ ' + App.t('错误') + '</span>';
+                                    ? '<span class="text-emerald-600 dark:text-emerald-400 font-bold">' + App.t('✓ 正确') + '</span>'
+                                    : '<span class="text-red-500 font-bold">' + App.t('✕ 错误') + '</span>';
                                 return `
                                     <div class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg bg-[var(--bg)] text-[11px]">
                                         <span class="font-mono text-[var(--sub)] flex-shrink-0">${dateStr} ${timeStr}</span>
@@ -1610,7 +1610,7 @@
                     if (mediaHint) { mediaHint.classList.add('hidden'); mediaHint.textContent = ''; }
 
                     if (!qId) {
-                        if (titleEl) titleEl.textContent = '新增题目';
+                        if (titleEl) titleEl.textContent = App.t('新增题目');
                         if (idInput) idInput.value = '';
                         if (typeSelect) typeSelect.value = 'mcq';
                         if (qText) qText.value = '';
@@ -1628,7 +1628,7 @@
                     } else {
                         const q = App.data.getQuestionById(qId);
                         if (!q) return;
-                        if (titleEl) titleEl.textContent = '编辑题目';
+                        if (titleEl) titleEl.textContent = App.t('编辑题目');
                         if (idInput) idInput.value = q.id;
                         if (qText) qText.value = q.q;
                         // 富媒体提示：media 只能经 JSON 导入/导出维护，编辑弹窗改不了它，但要告知用户它存在
@@ -1728,7 +1728,7 @@
                                placeholder="选项内容" />
                         <label class="flex items-center gap-1 text-[11px] text-[var(--sub)]">
                             <input type="checkbox" class="accent-primary-600" />
-                            <span>正确</span>
+                            <span>${App.t('正确')}</span>
                         </label>
                         <button class="text-[11px] text-[var(--sub)] hover:text-red-500 p-1"
                                 onclick="this.parentElement.remove(); App.ui.renumberQuestionOptions()">
@@ -1870,7 +1870,7 @@
                         App.ui.closeModal('question-editor');
                         return;
                     }
-                    const msg = ['确定删除这道题吗？', (q.q || '').slice(0, 60), '', '题目会进入回收站，可随时恢复。'].join('\n');
+                    const msg = [App.t('确定删除这道题吗？'), (q.q || '').slice(0, 60), '', App.t('题目会进入回收站，可随时恢复。')].join('\n');
                     if (!confirm(msg)) return;
                     App.data.softDeleteByIds(new Set([id]), 'editor-delete');
                     App.ui.closeModal('question-editor');
@@ -2049,8 +2049,8 @@
                     if (!subList || !chapList || !currentLabel) return;
                     const subjects = App.data.getSubjects();
                     if (!subjects.length) {
-                        subList.innerHTML = '<div class="text-[11px] text-[var(--sub)] py-4 text-center">当前没有科目，请先导入或新增题目。</div>';
-                        chapList.innerHTML = '<div class="text-[11px] text-[var(--sub)] py-4 text-center">暂无章节。</div>';
+                        subList.innerHTML = '<div class="text-[11px] text-[var(--sub)] py-4 text-center">' + App.t('当前没有科目，请先导入或新增题目。') + '</div>';
+                        chapList.innerHTML = '<div class="text-[11px] text-[var(--sub)] py-4 text-center">' + App.t('暂无章节。') + '</div>';
                         currentLabel.textContent = '';
                         return;
                     }
@@ -2071,12 +2071,12 @@
                             <div data-action="select-sub" data-sub="${encodeURIComponent(sub)}" class="flex items-center justify-between px-3 py-2 rounded-xl border ${activeClass} cursor-pointer hover:border-primary-400 dark:hover:border-primary-700 transition-colors">
                                 <div class="flex flex-col">
                                     <span class="text-[11px] font-bold text-[var(--text)]">${App.utils.escapeHTML(sub)}</span>
-                                    <span class="text-[11px] text-[var(--sub)]">${chaps.length} 章节 · ${total} 题</span>
+                                    <span class="text-[11px] text-[var(--sub)]">${App.i18n.lang === 'en' ? `${chaps.length} ch · ${total} q` : `${chaps.length} 章节 · ${total} 题`}</span>
                                 </div>
                                 <div class="flex items-center gap-1">
-                                    <button data-action="view-questions" data-sub="${encodeURIComponent(sub)}" class="px-2 py-1 rounded-lg text-[11px] border border-primary-200 text-primary-600 bg-primary-50 hover:bg-primary-100 dark:bg-primary-950/30 dark:text-primary-400 dark:border-primary-900 transition-colors font-bold">查看</button>
-                                    <button data-action="rename-sub" data-sub="${encodeURIComponent(sub)}" class="px-2 py-1 rounded-lg text-[11px] border border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900 transition-colors">重命名</button>
-                                    <button data-action="delete-sub" data-sub="${encodeURIComponent(sub)}" class="px-2 py-1 rounded-lg text-[11px] border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:text-red-400 dark:border-red-900 transition-colors">删除</button>
+                                    <button data-action="view-questions" data-sub="${encodeURIComponent(sub)}" class="px-2 py-1 rounded-lg text-[11px] border border-primary-200 text-primary-600 bg-primary-50 hover:bg-primary-100 dark:bg-primary-950/30 dark:text-primary-400 dark:border-primary-900 transition-colors font-bold">${App.t('查看')}</button>
+                                    <button data-action="rename-sub" data-sub="${encodeURIComponent(sub)}" class="px-2 py-1 rounded-lg text-[11px] border border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900 transition-colors">${App.t('重命名')}</button>
+                                    <button data-action="delete-sub" data-sub="${encodeURIComponent(sub)}" class="px-2 py-1 rounded-lg text-[11px] border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:text-red-400 dark:border-red-900 transition-colors">${App.t('删除')}</button>
                                 </div>
                             </div>
                         `;
@@ -2085,7 +2085,7 @@
 
                     const chapters = App.data.getChapters(current);
                     if (!chapters.length) {
-                        chapList.innerHTML = '<div class="text-[11px] text-[var(--sub)] py-4 text-center">该科目暂无章节。</div>';
+                        chapList.innerHTML = '<div class="text-[11px] text-[var(--sub)] py-4 text-center">' + App.t('该科目暂无章节。') + '</div>';
                         return;
                     }
                     let chapHtml = '';
@@ -2096,11 +2096,11 @@
                             <div class="flex items-center justify-between px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--card)]">
                                 <div class="flex flex-col">
                                     <span class="text-[11px] font-bold text-[var(--text)]">${App.utils.escapeHTML(chap)}</span>
-                                    <span class="text-[11px] text-[var(--sub)]">${count} 题</span>
+                                    <span class="text-[11px] text-[var(--sub)]">${App.i18n.lang === 'en' ? count + ' q' : count + ' 题'}</span>
                                 </div>
                                 <div class="flex items-center gap-1">
-                                    <button data-action="rename-chap" data-sub="${encodeURIComponent(current)}" data-chap="${encodeURIComponent(chap)}" class="px-2 py-1 rounded-lg text-[11px] border border-blue-200 text-blue-600 bg-blue-50">重命名</button>
-                                    <button data-action="delete-chap" data-sub="${encodeURIComponent(current)}" data-chap="${encodeURIComponent(chap)}" class="px-2 py-1 rounded-lg text-[11px] border border-red-200 text-red-600 bg-red-50">删除</button>
+                                    <button data-action="rename-chap" data-sub="${encodeURIComponent(current)}" data-chap="${encodeURIComponent(chap)}" class="px-2 py-1 rounded-lg text-[11px] border border-blue-200 text-blue-600 bg-blue-50">${App.t('重命名')}</button>
+                                    <button data-action="delete-chap" data-sub="${encodeURIComponent(current)}" data-chap="${encodeURIComponent(chap)}" class="px-2 py-1 rounded-lg text-[11px] border border-red-200 text-red-600 bg-red-50">${App.t('删除')}</button>
                                 </div>
                             </div>
                         `;

@@ -454,8 +454,8 @@ export const i18n = {
         '」以继续': { en: '" to continue' },
         '我的题库': { en: 'My bank' },
         '未知': { en: 'Unknown' },
-        '正确': { en: 'True' },
-        '错误': { en: 'False' },
+        '正确': { en: 'Correct' },
+        '错误': { en: 'Wrong' },
         '作答次数': { en: 'Attempts' },
         '正确次数': { en: 'Correct' },
         '错误率': { en: 'Error rate' },
@@ -812,6 +812,9 @@ export const i18n = {
         const obs = new MutationObserver((muts) => {
             for (const m of muts) {
                 for (const n of m.addedNodes) {
+                    // 文本节点变更（textContent 赋值）也要入队——否则动态设置的
+                    // 标题/状态文字永远不会被翻译
+                    if (n.nodeType === 3) { if (n.parentElement) pending.add(n.parentElement); continue; }
                     if (n.nodeType === 1) pending.add(n);
                 }
             }
