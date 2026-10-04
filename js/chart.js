@@ -280,16 +280,14 @@
                                 ctx.fillStyle = badColor;
                                 ctx.fillRect(cx - barW / 2, padT + plotH - okH - badH, barW, badH);
                             }
-                            // 柱顶总量标注
+                            // 柱顶标注：题数 · 正确率（合并一行，避免与底部星期标签重叠）
+                            const topLabel = (d.acc !== null && d.acc !== undefined)
+                                ? `${d.attempts} · ${d.acc}%`
+                                : String(d.attempts);
                             ctx.fillStyle = labelColor;
                             ctx.font = '10.5px Inter, system-ui, sans-serif';
                             ctx.textAlign = 'center';
-                            ctx.fillText(String(d.attempts), cx, padT + plotH - okH - badH - 5);
-                            // 正确率标注（有作答才标）
-                            if (d.acc !== null && d.acc !== undefined) {
-                                ctx.fillStyle = isDark ? '#5eead4' : '#0f766e';
-                                ctx.fillText(d.acc + '%', cx, padT + plotH + 1 + 11);
-                            }
+                            ctx.fillText(topLabel, cx, padT + plotH - okH - badH - 5);
                         } else {
                             // 无作答：底部一个灰色小点占位
                             ctx.beginPath();
