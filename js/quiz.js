@@ -70,10 +70,10 @@ export const quiz = {
                         this.queue = App.utils.shuffle(pool).slice(0, limit);
                     } else if (mode === 'custom') {
                         const chks = document.querySelectorAll('.setup-chk:checked');
-                        if (chks.length > 0) {
-                            const targets = Array.from(chks).map(c => c.value);
-                            pool = pool.filter(q => targets.includes(`${q.sub}\u0001${q.chap}`));
-                        }
+                        // 零勾选 = 用户没选任何章节：提示而不是整库开练（旧逻辑把「全不选」当成「不过滤」）
+                        if (chks.length === 0) { alert("请至少勾选一个章节再开始练习。\n(Please select at least one chapter.)"); return false; }
+                        const targets = Array.from(chks).map(c => c.value);
+                        pool = pool.filter(q => targets.includes(`${q.sub}\u0001${q.chap}`));
                         if (!pool.length) { alert("选中的章节下没有符合的题目。\n(No questions in the selected chapters.)"); return false; }
 
                         pool = App.utils.shuffle(pool);
