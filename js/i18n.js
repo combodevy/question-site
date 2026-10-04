@@ -342,6 +342,16 @@ export const i18n = {
         }
     },
 
+    // 兼容入口：语言切换按钮历史上曾指向 App.i18n.pickLang——代理到 prefs
+    pickLang(lang) {
+        if (window.App && App.prefs && typeof App.prefs.pickLang === 'function') {
+            App.prefs.pickLang(lang);
+        } else {
+            try { localStorage.setItem('qs_lang', lang); } catch (e) { }
+            location.reload();
+        }
+    },
+
     // boot：应用语言（monkey-patch alert/confirm + 全 DOM 翻译）
     apply() {
         this.loadPrefs();
