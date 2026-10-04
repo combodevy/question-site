@@ -68,6 +68,14 @@
                                 });
                             }
                         }
+                        // 图例用 HTML 渲染（canvas 手绘图例在窄分辨率会裁剪/重叠）
+                        const lg = document.getElementById('dash-chart-legend');
+                        if (lg) {
+                            const en2 = App.i18n.lang === 'en';
+                            const items = en2 ? [['Correct', '#14b8a6'], ['Wrong', '#ef4444']] : [['答对', '#14b8a6'], ['答错', '#ef4444']];
+                            lg.innerHTML = items.map(([name, color]) =>
+                                `<span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm" style="background:${color}"></span>${name}</span>`).join('');
+                        }
                         // 七日组合图：答对/答错堆叠柱 + 正确率标注。
                         // 数据直接取 getStats 已单遍聚合好的 daily30 后 7 天
                         const h = App.data.getSafeHistory();
