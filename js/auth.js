@@ -239,11 +239,6 @@
                         if (window.App && App.sync && typeof App.sync.startAutoPull === "function") {
                             App.sync.startAutoPull();
                         }
-                        if (window.App && App.realtime && typeof App.realtime.setup === "function") {
-                            const token = this.session.access_token;
-                            const uid = this.getUserId();
-                            App.realtime.setup(uid, token);
-                        }
                         // 登录后立即把同步 chip 从「未登录」切回正常态（不等第一次同步往返）
                         if (window.App && App.sync && typeof App.sync.render === 'function') App.sync.render();
                     } else {
@@ -262,9 +257,6 @@
                         }
                         if (window.App && App.sync && typeof App.sync.stopAutoPull === "function") {
                             App.sync.stopAutoPull();
-                        }
-                        if (window.App && App.realtime && typeof App.realtime.teardown === "function") {
-                            App.realtime.teardown();
                         }
                     }
                 }

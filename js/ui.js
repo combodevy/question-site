@@ -1,4 +1,8 @@
 ﻿export const ui = {
+                    // JSON 导入预览状态（handleJsonPreviewUpload 写入 / applyJsonPreviewImport 读取）
+                    _jsonImportPreview: null,
+                    _jsonImportPreviewCount: 0,
+                    _jsonImportIdStats: null,
 
                 _importSessionId: 0,
                 _importReader: null,
