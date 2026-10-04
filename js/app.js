@@ -226,13 +226,20 @@ window.addEventListener('DOMContentLoaded', async () => {
             // 账号校验：多标签页可能登录不同账号，别的账号的数据变化与本页无关
             const myUid = App.auth && typeof App.auth.getUserId === 'function' ? App.auth.getUserId() : '';
             if (info.uid && info.uid !== myUid) return;
-            const dataKeys = [App.data && App.data.bankKey, App.data && App.data.historyKey, App.data && App.data.trashKey].filter(Boolean);
+            const dataKeys = [App.data && App.data.bankKey, App.data && App.data.historyKey,
+                App.data && App.data.trashKey, App.data && App.data.starredKey].filter(Boolean);
             if (!info.key || !dataKeys.includes(info.key)) return;
             const d = App.data;
+            const isStarredOnly = info.key === d.starredKey;
             const selfDirty = d._bankDirty || (Array.isArray(d._historyAppendBuffer) && d._historyAppendBuffer.length > 0) || d._isSaving;
             if (selfDirty) {
                 if (typeof showGlobalError === 'function') showGlobalError('其他标签页修改了题库数据；本页也有未保存修改，保存时会自动合并。');
                 if (d.saveToCloudDebounced) d.saveToCloudDebounced();
+                return;
+            }
+            // 纯收藏变化：静默从 IDB 重读，不打断用户（弹确认框对一颗星来说太吵）
+            if (isStarredOnly) {
+                if (typeof d.reloadFromLocalIDB === 'function') d.reloadFromLocalIDB();
                 return;
             }
             const shouldReload = window.confirm(
@@ -335,6 +342,24 @@ window.addEventListener('DOMContentLoaded', async () => {
                 showStatus('请输入用户名和密码');
                 return;
             }
+            // 防连点：重复提交不仅重复请求，还会白吃登录限流与注册限流的配额
+            if (loginBtn.disabled) return;
+            loginBtn.disabled = true;
+            try {
+                await doLogin();
+            } finally {
+                loginBtn.disabled = false;
+            }
+        });
+
+        async function doLogin() {
+            {
+                const loginId = emailInput ? emailInput.value.trim() : '';
+                const password = passwordInput ? passwordInput.value : '';
+                if (!loginId || !password) {
+                    showStatus('请输入用户名和密码');
+                    return;
+                }
             showStatus('登录中...');
             const { error } = await App.auth.login(loginId, password);
             if (error) {
@@ -345,7 +370,8 @@ window.addEventListener('DOMContentLoaded', async () => {
             if (window.App && App.ui && typeof App.ui.closeModal === "function") {
                 App.ui.closeModal('auth');
             }
-        });
+            }
+        }
     }
 
     if (signupBtn) {
@@ -356,6 +382,23 @@ window.addEventListener('DOMContentLoaded', async () => {
                 showStatus('请输入用户名和密码');
                 return;
             }
+            if (signupBtn.disabled) return;
+            signupBtn.disabled = true;
+            try {
+                await doSignup();
+            } finally {
+                signupBtn.disabled = false;
+            }
+        });
+
+        async function doSignup() {
+            {
+                const loginId = emailInput ? emailInput.value.trim() : '';
+                const password = passwordInput ? passwordInput.value : '';
+                if (!loginId || !password) {
+                    showStatus('请输入用户名和密码');
+                    return;
+                }
             showStatus('注册中...');
             const { error } = await App.auth.signup(loginId, password);
             if (error) {
@@ -364,7 +407,8 @@ window.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
             showStatus('注册成功，可以直接使用该用户名登录');
-        });
+            }
+        }
     }
 });
 

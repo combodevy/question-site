@@ -368,11 +368,19 @@ export const utils = {
             return result;
         }
 
-        for (const [sub, chapDict] of Object.entries(obj)) {
+        // 控制字符（ -）会破坏练习配置的「科目章节」记忆键，
+        // 并能造出肉眼无法区分的重复科目——导入时统一剥掉
+        const stripCtrl = (s) => String(s).replace(/[ -]/g, '').trim();
+
+        for (const [rawSub, chapDict] of Object.entries(obj)) {
             if (!chapDict || typeof chapDict !== 'object' || Array.isArray(chapDict)) continue;
+            const sub = stripCtrl(rawSub);
+            if (!sub) { ignored++; continue; }
             const cleanedChaps = {};
-            for (const [chap, arr] of Object.entries(chapDict)) {
+            for (const [rawChap, arr] of Object.entries(chapDict)) {
                 if (!Array.isArray(arr)) continue;
+                const chap = stripCtrl(rawChap);
+                if (!chap) { ignored += arr.length; continue; }
                 const cleanedQs = arr
                     .filter(q => {
                         if (q && allowed.has(q.type)) return true;
@@ -381,6 +389,11 @@ export const utils = {
                     })
                     .map(q => {
                         const copy = { ...q };
+                        // 判断题答案规范化：小写/空白变体会让键盘作答（T/F）永远判错
+                        if (copy.type === 'tf') {
+                            const t = String(copy.a == null ? '' : copy.a).trim().toUpperCase();
+                            copy.a = t === 'T' ? 'T' : (t === 'F' ? 'F' : copy.a);
+                        }
                         if ((copy.type === 'mcq' || copy.type === 'multi') && Array.isArray(copy.o)) {
                             copy.o = copy.o.map(opt => {
                                 // 选项统一归一化为字符串：非字符串（数字 / 布尔 / null）会让

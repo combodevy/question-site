@@ -88,6 +88,7 @@ export const quiz = {
                     //（题库为空 / 筛选无结果 / 无错题 / 章节无题），一旦泄漏这个标志位，
                     // 本次会话内所有题库与记录的改动都不再上传云端，而界面仍显示「已同步」。
                     App.data._suppressCloudSync = true;
+                    this._active = true;   // router 据此拦截练习中途的离开
                     this._ensureKeyboard();
                     App.router.go('quiz');
                     this.render();
@@ -403,6 +404,7 @@ export const quiz = {
                     if (this.idx < this.queue.length - 1) { this.idx++; this.render(); } else this.finish();
                 },
                 finish() {
+                    this._active = false;
                     if (this._pendingNextTimer) {
                         clearTimeout(this._pendingNextTimer);
                         this._pendingNextTimer = null;
@@ -425,16 +427,25 @@ export const quiz = {
                         App.dom.setText('res-unanswered', String(unanswered));
                     }
                 },
-                abort() {
+                isActive() {
+                    return this._active === true;
+                },
+
+                // 练习收尾清理：恢复同步、冲刷未上传记录（不负责跳转）
+                _cleanup() {
+                    this._active = false;
                     if (this._pendingNextTimer) {
                         clearTimeout(this._pendingNextTimer);
                         this._pendingNextTimer = null;
                     }
-                    // 提前退出，恢复云端同步并触发一次保存
                     App.data._suppressCloudSync = false;
                     if (App.data._historyAppendBuffer.length > 0 && App.data.saveToCloudDebounced) {
                         App.data.saveToCloudDebounced();
                     }
+                },
+
+                abort() {
+                    this._cleanup();
                     App.router.go('dashboard');
                 },
 

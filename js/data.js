@@ -203,8 +203,10 @@ export const data = {
                 _persistStarred() {
                     this._editSeq++;
                     this._markUnsynced();
-                    setDBItem(this.starredKey, JSON.stringify(this.starredIds)).catch(() => { });
-                    if (window.App && App._syncBroadcast) App._syncBroadcast(this.starredKey);
+                    // 广播必须等写入提交：否则另一标签页的读取会跑赢落库读到旧值
+                    setDBItem(this.starredKey, JSON.stringify(this.starredIds))
+                        .then(() => { if (window.App && App._syncBroadcast) App._syncBroadcast(this.starredKey); })
+                        .catch(() => { });
                     if (!this._suppressCloudSync && this.saveToCloudDebounced) {
                         this.saveToCloudDebounced();
                     }
@@ -233,6 +235,9 @@ export const data = {
                         const bStr = await getDBItem(this.bankKey);
                         const hStr = await getDBItem(this.historyKey);
                         const tStr = await getDBItem(this.trashKey);
+                        // 收藏也在广播集合里（starredKey 变更会广播）——不重读的话
+                        // 另一标签页的星标永远不同步
+                        const sStr = await getDBItem(this.starredKey);
                         if (bStr) {
                             const parsed = JSON.parse(bStr);
                             if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) this.bank = parsed;
@@ -249,6 +254,10 @@ export const data = {
                         if (tStr) {
                             const parsed = JSON.parse(tStr);
                             if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) this.trash = parsed;
+                        }
+                        if (sStr) {
+                            const parsed = JSON.parse(sStr);
+                            if (Array.isArray(parsed)) this.starredIds = parsed;
                         }
                         this._cachedQuestions = null;
                         this._questionMap = null;
@@ -335,12 +344,12 @@ export const data = {
                     this._editSeq++;
                     this.bumpHistoryRev();
                     this._markUnsynced();
-                    if (window.App && App._syncBroadcast) App._syncBroadcast(this.historyKey);
                     this._safeSetItem(this.historyKey, JSON.stringify({
                         history: this.history,
                         lastPracticeTime: this.lastPracticeTime,
                         hiddenMistakeIds: Array.isArray(this.hiddenMistakeIds) ? this.hiddenMistakeIds : []
-                    }));
+                    }))
+                    .then(() => { if (window.App && App._syncBroadcast) App._syncBroadcast(this.historyKey); });;
                     if (!this._suppressCloudSync && this.saveToCloudDebounced) {
                         this.saveToCloudDebounced();
                     }
@@ -763,7 +772,8 @@ export const data = {
                     this._isHistoryDirty = true;
                     this._bankDirty = true;
                     this._markUnsynced();
-                    if (window.App && App._syncBroadcast) App._syncBroadcast(this.bankKey);
+                    this._safeSetItem(this.bankKey, JSON.stringify(this.bank))
+                        .then(() => { if (window.App && App._syncBroadcast) App._syncBroadcast(this.bankKey); });
                     if (!this._suppressCloudSync && this.saveToCloudDebounced) {
                         this.saveToCloudDebounced();
                     }
@@ -1827,8 +1837,8 @@ this.bumpHistoryRev();
                 // 持久化回收站
                 persistTrash() {
                     this._editSeq++;
-                    this._safeSetItem(this.trashKey, JSON.stringify(this.trash));
-                    if (window.App && App._syncBroadcast) App._syncBroadcast(this.trashKey);
+                    this._safeSetItem(this.trashKey, JSON.stringify(this.trash))
+                        .then(() => { if (window.App && App._syncBroadcast) App._syncBroadcast(this.trashKey); });
                     if (!this._suppressCloudSync && this.saveToCloudDebounced) {
                         this.saveToCloudDebounced();
                     }
