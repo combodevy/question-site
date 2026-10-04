@@ -1273,14 +1273,6 @@
                     const t = (s) => App.t(s);
                     const en = App.i18n && App.i18n.lang === 'en';
                     const typeLabel = { mcq: t('单选题'), multi: t('多选题'), tf: t('判断题'), fill: t('填空题') };
-                    const fmtAnswer = (q) => {
-                        if (q.type === 'tf') return q.a === 'T' ? (en ? '√ (True)' : '√（正确）') : (en ? '× (False)' : '×（错误）');
-                        if (q.type === 'mcq' || q.type === 'multi') {
-                            const idxs = (q.a || '').split('');
-                            return idxs.map(l => (q.o || [])[l.charCodeAt(0) - 65] || l).join('；');
-                        }
-                        return (q.a || '').split('|').join(' / ');
-                    };
 
                     const bySub = {};
                     all.forEach(q => {
@@ -1289,7 +1281,6 @@
 
                     let n = 0;
                     const bodyParts = [];
-                    const ansRows = [];
                     for (const sub of Object.keys(bySub).sort()) {
                         const subCount = Object.values(bySub[sub]).reduce((t2, a2) => t2 + a2.length, 0);
                         bodyParts.push(`<section class="subject"><h2>${esc(sub)}<span class="scnt">${subCount} ${t('题')}</span></h2>`);
@@ -1307,13 +1298,15 @@
                                         `<div class="opt">${String.fromCharCode(65 + i)}、${esc(o)}</div>`).join('');
                                 }
                                 // 参考试卷格式：题号+【题型】+题干同一行；选项 A、xx；尾部「我的答案：」书写线
+                                // 答案直接写在每道题后面：选择/判断写字母或 √×，填空写文本
+                                const ansInline = q.type === 'tf'
+                                    ? (q.a === 'T' ? '√' : '×')
+                                    : (q.type === 'mcq' || q.type === 'multi' ? esc(q.a || '') : esc((q.a || '').split('|').join(' / ')));
                                 bodyParts.push(
                                     `<div class="q"><div class="stem"><span class="no">${n}</span><span class="tag">【${typeLabel[q.type] || esc(q.type)}】</span>${stemHtml}</div>` +
                                     opts +
-                                    `<div class="myans">${t('我的答案：')}<span class="ansline"></span></div></div>`
-                                );
-                                ansRows.push(
-                                    `<tr><td class="ano">${n}</td><td class="aans">${esc(fmtAnswer(q))}</td><td class="aloc">${esc(sub)} / ${esc(chap)}</td></tr>`
+                                    `<div class="myans">${t('我的答案：')}<span class="ansline"></span></div>` +
+                                    `<div class="qans">${t('答案：')}<b>${ansInline}</b></div></div>`
                                 );
                             }
                         }
@@ -1384,13 +1377,6 @@
             <div class="meta">${t('共')} ${n} ${t('题')}${user ? ' · ' + esc(user) : ''} · ${t('导出于')} ${dateStr} · LMS Genesis</div>
         </header>
         ${bodyParts.join('\n')}
-        <section class="answers">
-            <h2>${t('参考答案')}</h2>
-            <table>
-                <thead><tr><th style="width:44px">${t('题号')}</th><th>${t('答案')}</th><th>${t('出处')}</th></tr></thead>
-                <tbody>${ansRows.join('\n')}</tbody>
-            </table>
-        </section>
         <footer>—— LMS Genesis ——</footer>
     </div>
 </body>

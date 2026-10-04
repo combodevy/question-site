@@ -204,10 +204,10 @@
                             const now = Date.now();
                             const buckets = [
                                 { label: App.t('今天'), min: 0, max: 0, attempts: 0, correct: 0 },
-                                { label: '1-3天', min: 1, max: 3, attempts: 0, correct: 0 },
-                                { label: '4-7天', min: 4, max: 7, attempts: 0, correct: 0 },
-                                { label: '8-14天', min: 8, max: 14, attempts: 0, correct: 0 },
-                                { label: '>14天', min: 15, max: Infinity, attempts: 0, correct: 0 }
+                                { label: App.t('1-3天'), min: 1, max: 3, attempts: 0, correct: 0 },
+                                { label: App.t('4-7天'), min: 4, max: 7, attempts: 0, correct: 0 },
+                                { label: App.t('8-14天'), min: 8, max: 14, attempts: 0, correct: 0 },
+                                { label: App.t('>14天'), min: 15, max: Infinity, attempts: 0, correct: 0 }
                             ];
                             filteredHistory.forEach(hEntry => {
                                 // 时钟偏快/多端同步可能产生负天数——钳到今天，别漏出所有桶
@@ -236,15 +236,15 @@
                                     const avgTimeText = avgDurSub != null ? `${avgDurSub}${App.i18n.lang === 'en' ? 's / q' : '秒/题'}` : '--';
                                     subDetail.innerHTML = `
                                         <div>
-                                            <div class="text-[11px] text-[var(--sub)]">当前科目作答次数</div>
+                                            <div class="text-[11px] text-[var(--sub)]">${App.t('当前科目作答次数')}</div>
                                             <div class="text-sm font-bold text-[var(--text)]">${totalAttemptsSub}</div>
                                         </div>
                                         <div>
-                                            <div class="text-[11px] text-[var(--sub)]">当前科目正确率</div>
+                                            <div class="text-[11px] text-[var(--sub)]">${App.t('当前科目正确率')}</div>
                                             <div class="text-sm font-bold text-emerald-600">${accSub}%</div>
                                         </div>
                                         <div>
-                                            <div class="text-[11px] text-[var(--sub)]">累计作答总时长</div>
+                                            <div class="text-[11px] text-[var(--sub)]">${App.t('累计作答总时长')}</div>
                                             <div class="text-sm font-bold text-[var(--text)]">${totalTimeText}</div>
                                         </div>
                                         <div>
@@ -252,11 +252,11 @@
                                             <div class="text-sm font-bold text-blue-500">${avgTimeText}</div>
                                         </div>
                                         <div>
-                                            <div class="text-[11px] text-[var(--sub)]">涉及题目数量</div>
+                                            <div class="text-[11px] text-[var(--sub)]">${App.t('涉及题目数量')}</div>
                                             <div class="text-sm font-bold text-[var(--text)]">${distinctQCount}</div>
                                         </div>
                                         <div>
-                                            <div class="text-[11px] text-[var(--sub)]">最近活跃天数</div>
+                                            <div class="text-[11px] text-[var(--sub)]">${App.t('最近活跃天数')}</div>
                                             <div class="text-sm font-bold text-[var(--text)]">${buckets.filter(b => b.attempts > 0).length}</div>
                                         </div>
                                     `;
@@ -278,11 +278,11 @@
                                             <div class="flex flex-col gap-0.5 border-b border-[var(--border)] pb-1 last:border-b-0 cursor-pointer" data-qtime-idx="${idx}">
                                                 <div class="flex items-center justify-between">
                                                     <span class="text-[11px] text-[var(--sub)]">#${idx + 1}</span>
-                                                    <span class="text-[11px] text-[var(--sub)]">${item.attempts} 次</span>
+                                                    <span class="text-[11px] text-[var(--sub)]">${item.attempts} ${App.i18n.lang === 'en' ? 'attempts' : '次'}</span>
                                                 </div>
                                                 <div class="text-[11px] text-[var(--text)]">${qText}${rawQ.length > 40 ? '…' : ''}</div>
                                                 <div class="flex items-center justify-between text-[11px] text-[var(--sub)]">
-                                                    <span>平均用时约 ${avgSecRounded} 秒，总用时 ${totalSec} 秒</span>
+                                                    <span>${App.i18n.lang === 'en' ? `Avg ~${avgSecRounded}s, total ${totalSec}s` : `平均用时约 ${avgSecRounded} 秒，总用时 ${totalSec} 秒`}</span>
                                                 </div>
                                             </div>
                                         `;
@@ -308,11 +308,11 @@
                                         const acc = b.attempts ? Math.round(b.correct / b.attempts * 100) : 0;
                                         return `
                                             <div class="flex items-center gap-2">
-                                                <div class="w-20 text-[11px] text-[var(--sub)]">${b.label}</div>
+                                                <div class="w-20 text-[11px] text-[var(--sub)]">${App.t(b.label)}</div>
                                                 <div class="flex-1 h-2 rounded-full bg-[var(--border)] overflow-hidden">
                                                     <div class="h-2 bg-emerald-500" style="width:${acc}%;"></div>
                                                 </div>
-                                                <div class="w-16 text-right text-[11px] text-[var(--sub)]">${b.attempts} 次 / ${acc}%</div>
+                                                <div class="w-16 text-right text-[11px] text-[var(--sub)]">${App.i18n.lang === 'en' ? `${b.attempts} / ${acc}%` : `${b.attempts} 次 / ${acc}%`}</div>
                                             </div>
                                         `;
                                     }).join('');

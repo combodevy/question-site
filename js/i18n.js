@@ -234,6 +234,17 @@ export const i18n = {
         '答案': { en: 'Answer' },
         '导出于': { en: 'Exported on' },
 
+        // ---- 第三波（单科面板/遗忘曲线）----
+        '当前科目作答次数': { en: 'Attempts in subject' },
+        '当前科目正确率': { en: 'Subject accuracy' },
+        '累计作答总时长': { en: 'Total time spent' },
+        '涉及题目数量': { en: 'Questions involved' },
+        '最近活跃天数': { en: 'Active days' },
+        '1-3天': { en: '1-3d' },
+        '4-7天': { en: '4-7d' },
+        '8-14天': { en: '8-14d' },
+        '>14天': { en: '>14d' },
+
         // ---- 第二轮补齐（analytics/弹窗/同步状态）----
         '暂无科目作答数据': { en: 'No subject data yet' },
         '暂无作答时长数据': { en: 'No time data yet' },
