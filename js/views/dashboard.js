@@ -81,6 +81,8 @@
                         const h = App.data.getSafeHistory();
                         if (h.length === 0) {
                             App.dom.show('chart-empty');
+                            const sumEl = document.getElementById('dash-week-summary');
+                            if (sumEl) sumEl.innerHTML = '';
                         } else {
                             App.dom.hide('chart-empty');
                             const wd = App.i18n.lang === 'en'
@@ -91,6 +93,16 @@
                                 return { label: wd[dt.getDay()], attempts: d.attempts, correct: d.correct, acc: d.acc };
                             });
                             requestAnimationFrame(() => App.chart.drawCombo('dashboardChart', combo));
+                            // 周合计摘要行
+                            const wkTotal = combo.reduce((t, d) => t + d.attempts, 0);
+                            const wkOk = combo.reduce((t, d) => t + d.correct, 0);
+                            const wkAcc = wkTotal ? Math.round(wkOk / wkTotal * 100) : 0;
+                            const sumEl = document.getElementById('dash-week-summary');
+                            if (sumEl) {
+                                sumEl.innerHTML = App.i18n.lang === 'en'
+                                    ? `<span class="font-bold text-[var(--text)]">${wkTotal}</span> questions · <span class="font-bold text-emerald-600">${wkAcc}%</span> correct this week`
+                                    : `本周 <span class="font-bold text-[var(--text)]">${wkTotal}</span> 题 · 正确率 <span class="font-bold text-emerald-600">${wkAcc}%</span>`;
+                            }
                         }
                     },
 

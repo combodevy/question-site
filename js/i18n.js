@@ -226,6 +226,8 @@ export const i18n = {
         // ---- 打印工具栏 ----
         '在打印对话框的「目标打印机」中选择「另存为 PDF」，即可导出 PDF 文件': { en: 'Choose "Save as PDF" as the destination printer in the print dialog to export a PDF file.' },
 
+        '总学习时长': { en: 'Total study time' },
+
         // ---- 打印 v2 ----
         '我的答案：': { en: 'My answer: ' },
         '打印 / 保存为 PDF': { en: 'Print / Save as PDF' },

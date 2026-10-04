@@ -148,6 +148,9 @@
                         App.dom.setText('an-acc', s.acc + '%');
                         App.dom.setText('an-streak', s.streak + (App.i18n.lang === 'en' ? 'd' : '天'));
                         App.dom.setText('an-avg-dur', s.avgDuration != null ? s.avgDuration + (App.i18n.lang === 'en' ? 's' : '秒') : '--');
+                        const totalMsAll = App.data.getSafeHistory().reduce((t, x) => t + (x.d > 0 ? x.d : 0), 0);
+                        const totalMinAll = Math.round(totalMsAll / 60000);
+                        App.dom.setText('an-total-time', totalMinAll > 0 ? totalMinAll + (App.i18n.lang === 'en' ? ' min' : ' 分钟') : '--');
 
                         const subSelect = App.dom.get('an-subject-select');
                         const subs = Object.keys(s.subjectStats || {});
