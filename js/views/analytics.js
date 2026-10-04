@@ -50,7 +50,7 @@
                         const avgSecReal = durRecords.length ? (totalMs / durRecords.length / 1000) : (avgSec || 0);
                         const totalSecReal = totalMs ? Math.round(totalMs / 1000) : (totalSec || 0);
 
-                        const typeLabel = q.type === 'mcq' ? '单选题' : (q.type === 'multi' ? '多选题' : (q.type === 'fill' ? '填空题' : '判断题'));
+                        const typeLabel = App.t(q.type === 'mcq' ? '单选题' : (q.type === 'multi' ? '多选题' : (q.type === 'fill' ? '填空题' : '判断题')));
                         let bodyHtml = '';
                         if (q.type === 'tf') {
                             const isTrue = q.a === 'T';
@@ -62,8 +62,8 @@
                             const chips = answers.map(a =>
                                 `<span class="inline-block px-2 py-0.5 rounded bg-primary-50 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 font-bold mr-1 mb-0.5">${App.utils.escapeHTML(a)}</span>`
                             ).join('');
-                            bodyHtml = `<div class="mt-1 text-[11px] text-[var(--text)]">标准答案：${chips || '（未设置）'}</div>` +
-                                `<div class="text-[11px] text-[var(--sub)] mt-0.5">判分时忽略大小写与空格${answers.length > 1 ? '；多个可接受答案任一命中即算对' : ''}</div>`;
+                            bodyHtml = `<div class="mt-1 text-[11px] text-[var(--text)]">' + App.t('标准答案：') + '${chips || App.t('（未设置）')}</div>` +
+                                `<div class="text-[11px] text-[var(--sub)] mt-0.5">' + App.t('判分时忽略大小写与空格') + '${answers.length > 1 ? App.t('；多个可接受答案任一命中即算对') : ''}</div>`;
                         } else {
                             const detailHtml = App.utils.getDetailedOptionHTML(q, q.a, '');
                             bodyHtml = `<div class="mt-1">${detailHtml}</div>`;
@@ -147,7 +147,7 @@
                         App.dom.setText('an-total-attempts', s.totalAttempts);
                         App.dom.setText('an-acc', s.acc + '%');
                         App.dom.setText('an-streak', s.streak + (App.i18n.lang === 'en' ? 'd' : '天'));
-                        App.dom.setText('an-avg-dur', s.avgDuration != null ? s.avgDuration + '秒' : '--');
+                        App.dom.setText('an-avg-dur', s.avgDuration != null ? s.avgDuration + (App.i18n.lang === 'en' ? 's' : '秒') : '--');
 
                         const subSelect = App.dom.get('an-subject-select');
                         const subs = Object.keys(s.subjectStats || {});
@@ -172,7 +172,7 @@
 
                         const labelEl = App.dom.get('an-subject-current-label');
                         if (labelEl) {
-                            labelEl.textContent = currentSub === 'all' ? '当前视图：全部科目' : `当前视图：${currentSub}`;
+                            labelEl.textContent = currentSub === 'all' ? App.t('当前视图：全部科目') : (App.i18n.lang === 'en' ? `Current view: ${currentSub}` : `当前视图：${currentSub}`);
                         }
 
                         if (this.currentMode === 'subject') {
@@ -203,7 +203,7 @@
 
                             const now = Date.now();
                             const buckets = [
-                                { label: '今天', min: 0, max: 0, attempts: 0, correct: 0 },
+                                { label: App.t('今天'), min: 0, max: 0, attempts: 0, correct: 0 },
                                 { label: '1-3天', min: 1, max: 3, attempts: 0, correct: 0 },
                                 { label: '4-7天', min: 4, max: 7, attempts: 0, correct: 0 },
                                 { label: '8-14天', min: 8, max: 14, attempts: 0, correct: 0 },
@@ -266,7 +266,7 @@
                             const qTimeEl = App.dom.get('an-sub-qtime');
                             if (qTimeEl) {
                                 if (!qTimeList.length) {
-                                    qTimeEl.innerHTML = '<div class="text-[11px] text-[var(--sub)]">暂无充足数据，建议先多做几题。</div>';
+                                    qTimeEl.innerHTML = '<div class="text-[11px] text-[var(--sub)]">' + App.t('暂无充足的练习数据，建议先多做几题。') + '</div>';
                                 } else {
                                     qTimeEl.innerHTML = qTimeList.map((item, idx) => {
                                         const avgSec = item.avgMs / 1000;
@@ -302,7 +302,7 @@
                             const forgetEl = App.dom.get('an-sub-forget');
                             if (forgetEl) {
                                 if (!filteredHistory.length) {
-                                    forgetEl.innerHTML = '<div class="text-[11px] text-[var(--sub)]">暂无数据，无法估计遗忘趋势。</div>';
+                                    forgetEl.innerHTML = '<div class="text-[11px] text-[var(--sub)]">' + App.t('暂无数据，无法估计遗忘趋势。') + '</div>';
                                 } else {
                                     forgetEl.innerHTML = buckets.map(b => {
                                         const acc = b.attempts ? Math.round(b.correct / b.attempts * 100) : 0;
@@ -359,10 +359,10 @@
                                 requestAnimationFrame(() => App.chart.drawBar('subjectChart', labels, values, colors));
                             } else {
                                 // 没有任何科目有作答时给占位提示，不留空白卡片
-                                requestAnimationFrame(() => App.chart.drawEmpty('subjectChart', '暂无科目作答数据'));
+                                requestAnimationFrame(() => App.chart.drawEmpty('subjectChart', App.t('暂无科目作答数据')));
                             }
 
-                            const typeLabels = ['单选题', '多选题', '判断题', '填空题'];
+                            const typeLabels = ['单选题', '多选题', '判断题', '填空题'].map(x => App.t(x));
                             const typeKeys = ['mcq', 'multi', 'tf', 'fill'];
                             const typeValues = typeKeys.map(k => s.typeStats[k] ? s.typeStats[k].acc : 0);
                             const typeColors = ['#0d9488', '#7c3aed', '#f59e0b', '#0ea5e9'];
@@ -373,7 +373,7 @@
                             if (s.durBuckets.some(v => v > 0)) {
                                 requestAnimationFrame(() => App.chart.drawDonut('durChart', s.durBuckets, durLabels, durColors));
                             } else {
-                                requestAnimationFrame(() => App.chart.drawEmpty('durChart', '暂无作答时长数据'));
+                                requestAnimationFrame(() => App.chart.drawEmpty('durChart', App.t('暂无作答时长数据')));
                             }
 
                             const legend = App.dom.get('dur-legend');

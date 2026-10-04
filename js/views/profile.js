@@ -21,7 +21,7 @@ export const profile = {
         const starred = (App.data.starredIds || []).length;
 
         const session = App.auth && App.auth.session;
-        const username = (session && session.user && session.user.username) || '用户';
+        const username = (session && session.user && session.user.username) || App.t('用户');
         const uid = App.auth && App.auth.getUserId ? App.auth.getUserId() : '';
         const shortId = uid ? uid.slice(0, 8) : '';
 

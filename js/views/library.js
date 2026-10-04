@@ -555,7 +555,7 @@
                                     btn.textContent = starred ? '★' : '☆';
                                     btn.classList.toggle('text-amber-400', starred);
                                     btn.classList.toggle('text-[var(--sub)]', !starred);
-                                    btn.title = starred ? '取消收藏' : '收藏';
+                                    btn.title = App.t(starred ? '取消收藏' : '收藏');
                                     return;
                                 }
                                 if (btn.dataset.role === 'edit') {
