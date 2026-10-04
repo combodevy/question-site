@@ -78,7 +78,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             toast.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 z-[70] pointer-events-none px-4 py-2 rounded-lg bg-red-600 text-white text-xs shadow-lg max-w-[90vw]';
             document.body.appendChild(toast);
         }
-        toast.textContent = '程序异常：' + msg;
+        toast.textContent = App.t('程序异常：') + msg;
         toast.style.display = 'block';
         toast.style.opacity = '1';   // 重置上一次淡出
         clearTimeout(showGlobalError._t);
@@ -125,7 +125,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (typeof window.API_BASE === 'undefined') {
         // 只把「config.js 根本没加载」当异常；同源部署（API_BASE=""）是合法配置
         console.error('[App] window.API_BASE 未定义：config.js 可能未成功加载。');
-        showGlobalError('配置缺失（config.js 未加载），云端同步不可用，请刷新页面重试');
+        showGlobalError(App.t('配置缺失（config.js 未加载），云端同步不可用，请刷新页面重试'));
     }
 
     // ===== 版本检测：部署了新版本后提示用户刷新，避免一直跑旧代码 =====
@@ -161,7 +161,7 @@ window.addEventListener('DOMContentLoaded', async () => {
                 // z-[45]：高于各种遮罩(40)、低于弹窗(50)。
                 // 这样它永远不会盖在弹窗上挡住里面的按钮（曾用 z-[60]，会挡住弹窗底部）。
                 bar.className = 'fixed bottom-14 left-1/2 -translate-x-1/2 z-[45] flex items-center gap-2 px-3 py-2 rounded-full bg-slate-900 text-white text-xs shadow-lg';
-                bar.innerHTML = '<span>应用已更新</span>'
+                bar.innerHTML = '<span>' + App.t('应用已更新') + '</span>'
                     + '<button id="app-version-reload" class="px-3 py-1 rounded-full bg-primary-600 font-bold active:scale-95 transition-transform">立即刷新</button>'
                     + '<button id="app-version-dismiss" class="px-1.5 py-1 rounded-full text-slate-300 hover:text-white leading-none" title="本次不再提示" aria-label="关闭">✕</button>';
                 document.body.appendChild(bar);
@@ -241,7 +241,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             const isStarredOnly = info.key === d.starredKey;
             const selfDirty = d._bankDirty || (Array.isArray(d._historyAppendBuffer) && d._historyAppendBuffer.length > 0) || d._isSaving;
             if (selfDirty) {
-                if (typeof showGlobalError === 'function') showGlobalError('其他标签页修改了题库数据；本页也有未保存修改，保存时会自动合并。');
+                if (typeof showGlobalError === 'function') showGlobalError(App.t('其他标签页修改了题库数据；本页也有未保存修改，保存时会自动合并。'));
                 if (d.saveToCloudDebounced) d.saveToCloudDebounced();
                 return;
             }
@@ -250,9 +250,7 @@ window.addEventListener('DOMContentLoaded', async () => {
                 if (typeof d.reloadFromLocalIDB === 'function') d.reloadFromLocalIDB();
                 return;
             }
-            const shouldReload = window.confirm(
-                '检测到其他标签页修改了题库数据。\n\n点击「确定」重新加载当前标签页的数据，点击「取消」忽略本次变更。'
-            );
+            const shouldReload = window.confirm(App.t('检测到其他标签页修改了题库数据。') + '\n\n' + App.t('点击「确定」重新加载当前标签页的数据，点击「取消」忽略本次变更。'));
             // 关键：另一页的写入是即时落 IndexedDB 的（防抖只影响云端），
             // 所以确定后从共享 IDB 重读，而不是 loadFromCloud——云端可能还没收到
             if (shouldReload && typeof d.reloadFromLocalIDB === 'function') d.reloadFromLocalIDB();

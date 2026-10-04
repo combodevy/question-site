@@ -466,7 +466,7 @@ export const data = {
                             : parsed;
                         const validationResult = this.validateSchema(sanitizedInput);
                         if (validationResult !== true) {
-                            throw new Error(`模式校验失败 (Schema Validation Failed): ${validationResult}`);
+                            throw new Error((App.i18n && App.i18n.lang === 'en' ? 'Schema validation failed: ' : '模式校验失败: ') + validationResult);
                         }
 
                         // 导入统计信息与疑似相似题收集
@@ -665,13 +665,13 @@ export const data = {
                         } catch (rollbackError) {
                             console.error('导入回滚失败', rollbackError);
                         }
-                        alert("导入失败，请检查 JSON 格式。\n(Import failed.)\n\n报错详情: " + e.message);
+                        alert(App.t("导入失败，请检查 JSON 格式。") + "\n\n" + App.t("报错详情: ") + e.message);
                         return null;
                     }
                 },
 
                 clearBank() {
-                    if (confirm("确定清空题库吗？该操作不会清空您的做题记录。\n(Are you sure to clear the question bank? Practice history will be preserved.)")) {
+                    if (confirm(App.t("确定清空题库吗？该操作不会清空您的做题记录。"))) {
                         this.bank = {};
                         this.persistBank();
                         App.ui.closeModal('config');
@@ -680,7 +680,7 @@ export const data = {
                 },
 
                 resetHistory() {
-                    if (confirm("确定清空所有刷题记录吗？\n(Are you sure to reset all practice history?)")) {
+                    if (confirm(App.t("确定清空所有刷题记录吗？"))) {
                         // 清空前自动备份完整记录到下载目录：误删有救
                         try {
                             const backup = { exportedAt: new Date().toISOString(), history: this.history, lastPracticeTime: this.lastPracticeTime };
@@ -915,7 +915,7 @@ export const data = {
                 },
 
                 deleteSubjectInteractive(sub) {
-                    if (!window.confirm(`确定要删除科目「${sub}」及其所有章节和题目吗？\n所有题目会被移入回收站，可在回收站中恢复。`)) return;
+                    if (!window.confirm(`${App.t('确定要删除科目「')}${sub}${App.t('」及其所有章节和题目吗？')}`)) return;
                     this.deleteSubject(sub);
                     if (App && App.ui && typeof App.ui.renderBankManager === 'function') {
                         App.ui.renderBankManager();
@@ -938,7 +938,7 @@ export const data = {
                 },
 
                 deleteChapterInteractive(sub, chap) {
-                    if (!window.confirm(`确定要删除章节「${sub} / ${chap}」及其所有题目吗？\n所有题目会被移入回收站，可在回收站中恢复。`)) return;
+                    if (!window.confirm(`${App.t('确定要删除章节「')}${sub} / ${chap}${App.t('」及其所有题目吗？')}`)) return;
                     this.deleteChapter(sub, chap);
                     if (App && App.ui && typeof App.ui.renderBankManager === 'function') {
                         App.ui.renderBankManager();
@@ -1932,7 +1932,7 @@ this.bumpHistoryRev();
                                 this.persistTrash();
                                 return;
                             }
-                            alert('无法恢复：题库「' + gsub + ' - ' + gchap + '」中已存在相同 ID 的另一道题目。\n\n为避免全局 ID 冲突，本次恢复已取消，题目仍安全保留在回收站中。可先处理那条题目（删除或改 ID）后再来恢复。');
+                            alert(`${App.t('无法恢复：题库「')}${gsub} - ${gchap}${App.t('」中已存在相同 ID 的另一道题目。')}\n\n${App.t('为避免全局 ID 冲突，本次恢复已取消，题目仍安全保留在回收站中。可先处理那条题目（删除或改 ID）后再来恢复。')}`);
                             return;
                         }
                     }
@@ -1997,7 +1997,7 @@ this.bumpHistoryRev();
 
                 // 清空回收站
                 emptyTrash() {
-                    if (!confirm("确定要清空回收站中的所有题目吗？该操作不可恢复。")) return;
+                    if (!confirm(App.t("确定要清空回收站中的所有题目吗？该操作不可恢复。"))) return;
                     this.trash = {};
                     this.persistTrash();
                     if (window.App && App.ui && typeof App.ui.openTrashModal === 'function') {

@@ -10,7 +10,7 @@ export const quiz = {
                     }
                     let pool = App.data.getQuestions();
                     if (!pool.length) {
-                        alert("当前题库为空，请先在设置中导入题库文件。\n(The question bank is empty. Please import a JSON file in settings.)");
+                        alert(App.t("当前题库为空，请先在设置中导入题库文件。"));
                         return false;
                     }
 
@@ -47,7 +47,7 @@ export const quiz = {
                     if (typeConstraint !== 'all') pool = pool.filter(q => q.type === typeConstraint);
 
                     if (pool.length === 0) {
-                        alert("此筛选条件下没有符合的题目。请更改条件后重试。\n(No questions match your filter criteria.)");
+                        alert(App.t("此筛选条件下没有符合的题目。"));
                         return false;
                     }
 
@@ -56,13 +56,13 @@ export const quiz = {
                         pool = pool.filter(q => errIds.has(q.id));
                         // 排除已被用户从错题本「移除」的题，否则移除后练错题还会抽到它
                         pool = pool.filter(q => !App.data.isMistakeHidden(q.id));
-                        if (!pool.length) { alert("太棒了！您的题库中暂无错题。\n(Great job! No mistakes found.)"); return false; }
+                        if (!pool.length) { alert(App.t("太棒了！您的题库中暂无错题。")); return false; }
                         this.queue = App.utils.shuffle(pool);
                     } else if (mode === 'review') {
                         // 间隔复习：只取今日到期（SM-2 计划）的题，按到期时间排序
                         const due = App.data.getReviewQueue();
                         if (!due.length) {
-                            alert("今日没有到期的复习题目。\n先完成一轮练习，复习计划会随后出现。");
+                            alert(App.t("今日没有到期的复习题目。"));
                             return false;
                         }
                         this.queue = due;
@@ -71,10 +71,10 @@ export const quiz = {
                     } else if (mode === 'custom') {
                         const chks = document.querySelectorAll('.setup-chk:checked');
                         // 零勾选 = 用户没选任何章节：提示而不是整库开练（旧逻辑把「全不选」当成「不过滤」）
-                        if (chks.length === 0) { alert("请至少勾选一个章节再开始练习。\n(Please select at least one chapter.)"); return false; }
+                        if (chks.length === 0) { alert(App.t("请至少勾选一个章节再开始练习。")); return false; }
                         const targets = Array.from(chks).map(c => c.value);
                         pool = pool.filter(q => targets.includes(`${q.sub}\u0001${q.chap}`));
-                        if (!pool.length) { alert("选中的章节下没有符合的题目。\n(No questions in the selected chapters.)"); return false; }
+                        if (!pool.length) { alert(App.t("选中的章节下没有符合的题目。")); return false; }
 
                         pool = App.utils.shuffle(pool);
                         const l = App.dom.getValue('setup-limit', '20');

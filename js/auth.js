@@ -99,7 +99,7 @@
                     if (pwEl2) pwEl2.setAttribute('autocomplete', 'new-password');
                     const username = (loginId || '').trim();
                     if (!username) return { error: { message: '用户名不能为空' } };
-                    if (username.includes('@')) return { error: { message: '用户名不能包含 @ 符号' } };
+                    if (username.includes('@')) return { error: { message: App.t('用户名不能包含 @ 符号') } };
                     
                     try {
                         const res = await fetch((App.apiBase || '') + '/api/auth/signup', {
@@ -148,10 +148,10 @@
                         const hasPending = d._bankDirty || (Array.isArray(d._historyAppendBuffer) && d._historyAppendBuffer.length > 0) || d._isSaving;
                         if (hasPending) {
                             const choice = confirm(
-                                '本地还有未同步到云端的修改。\n\n' +
-                                '点击「确定」= 先把修改上传到云端，成功后自动退出；\n' +
-                                '点击「取消」= 留在本页等待同步完成。\n\n' +
-                                '（如需永久备份，请先在账户菜单中「导出全部题库」）'
+                                App.t('本地还有未同步到云端的修改。') + '\n\n' +
+                                App.t('点击「确定」= 先把修改上传到云端，成功后自动退出；') + '\n' +
+                                App.t('点击「取消」= 留在本页等待同步完成。') + '\n\n' +
+                                App.t('（如需永久备份，请先在账户菜单中「导出全部题库」）')
                             );
                             if (!choice) return;
                             if (d.saveToCloudDebounced) d.saveToCloudDebounced();
@@ -173,10 +173,10 @@
                             }
                             if (!settled) {
                                 const force2 = confirm(
-                                    '上传没有在预期时间内完成（可能已离线）。\n\n' +
-                                    '现在退出会丢失未上传的修改。\n\n' +
-                                    '点击「确定」= 仍然退出（丢失未上传的修改）；\n' +
-                                    '点击「取消」= 留在本页。'
+                                    App.t('上传没有在预期时间内完成（可能已离线）。') + '\n\n' +
+                                    App.t('现在退出会丢失未上传的修改。') + '\n\n' +
+                                    App.t('点击「确定」= 仍然退出（丢失未上传的修改）；') + '\n' +
+                                    App.t('点击「取消」= 留在本页。')
                                 );
                                 if (!force2) return;
                                 force = true;   // 用户在知情前提下选择丢弃

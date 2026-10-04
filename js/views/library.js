@@ -123,7 +123,7 @@
 
                     // 单题删除：软删除到回收站
                     deleteSingle(id) {
-                        if (!confirm("确定删除这道题吗？此操作会将题目放入回收站，可在回收站中恢复。")) return;
+                        if (!confirm(App.t("确定删除这道题吗？此操作会将题目放入回收站，可在回收站中恢复。"))) return;
                         App.data.softDeleteByIds(new Set([id]), 'manual-delete');
                         this.render(this.currentMode);
                     },
@@ -131,10 +131,10 @@
                     // 批量删除选中
                     bulkDeleteSelected() {
                         if (!this._selectedIds || this._selectedIds.size === 0) {
-                            alert("请先勾选至少一题再执行批量删除。");
+                            alert(App.t("请先勾选至少一题再执行批量删除。"));
                             return;
                         }
-                        if (!confirm(`确定删除选中的 ${this._selectedIds.size} 道题目吗？这些题将被移入回收站，可在回收站中恢复。`)) return;
+                        if (!confirm(`${App.t('确定删除选中的 ')}${this._selectedIds.size}${App.t(' 道题目吗？这些题将被移入回收站，可在回收站中恢复。')}`)) return;
                         App.data.softDeleteByIds(this._selectedIds, 'manual-delete-bulk');
                         this._selectedIds = new Set();
                         App.dom.setText('lib-selected-count', '0');
@@ -144,18 +144,18 @@
                     // 批量导出选中为 JSON
                     exportSelected() {
                         if (!this._selectedIds || this._selectedIds.size === 0) {
-                            alert("请先勾选至少一题再导出。");
+                            alert(App.t("请先勾选至少一题再导出。"));
                             return;
                         }
                         if (this._selectedIds.size > 500) {
-                            if (!confirm(`您选中了 ${this._selectedIds.size} 道题，导出可能需要较长时间，确认继续吗？`)) {
+                            if (!confirm(`${App.t("您选中了 ")}${this._selectedIds.size}${App.t(" 道题，导出可能需要较长时间，确认继续吗？")}`)) {
                                 return;
                             }
                         }
                         const all = App.data.getQuestions();
                         const selected = all.filter(q => this._selectedIds.has(q.id));
                         if (!selected.length) {
-                            alert("选中的题目在当前题库中已不存在。");
+                            alert(App.t("选中的题目在当前题库中已不存在。"));
                             return;
                         }
                         const out = {};
@@ -189,8 +189,8 @@
                         let delBtn = '';
                         if (this.currentMode === 'mistakes') {
                             const errCount = App.data.getMistakeCount(q.id);
-                            mistakeBadge = `<span class="text-[11px] font-bold text-red-600 bg-red-50 dark:bg-red-950/40 dark:text-red-400 border border-red-200 dark:border-red-900 px-1.5 py-0.5 rounded-full">错 ${errCount} 次</span>`;
-                            delBtn = `<button class="text-[11px] font-bold text-red-500 border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 px-2 py-1 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 active:scale-95 transition-all" data-role="forget">移除</button>`;
+                            mistakeBadge = `<span class="text-[11px] font-bold text-red-600 bg-red-50 dark:bg-red-950/40 dark:text-red-400 border border-red-200 dark:border-red-900 px-1.5 py-0.5 rounded-full">${App.i18n.lang === 'en' ? '×' + errCount : '错 ' + errCount + ' 次'}</span>`;
+                            delBtn = `<button class="text-[11px] font-bold text-red-500 border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 px-2 py-1 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 active:scale-95 transition-all" data-role="forget">${App.t("移除")}</button>`;
                         }
 
                         // 星标按钮：所有模式都显示；已收藏高亮实心星
@@ -222,7 +222,7 @@
                                 }).join(' , ');
                             }
 
-                            ansPreview = `<span class="font-bold text-primary-600">答案：${inlineAns}</span>`;
+                            ansPreview = `<span class="font-bold text-primary-600">${App.t('答案：')}${inlineAns}</span>`;
                             detailsHtml = `<div class="mt-2 ${this._expandAll ? '' : 'hidden'} details-panel bg-slate-50 dark:bg-slate-800 p-2 rounded-lg border border-[var(--border)]">` +
                                 App.utils.getDetailedOptionHTML(q, q.a, this._searchQuery) +
                                 `</div>`;
@@ -304,7 +304,7 @@
                             el.className = 'lib-load-more p-4 text-center text-[11px] text-[var(--sub)]';
                             container.appendChild(el);
                         }
-                        el.textContent = `已显示 ${this._renderedCount} / ${total} 题，继续下滑加载更多…`;
+                        el.textContent = App.i18n.lang === 'en' ? `Showing ${this._renderedCount} / ${total} — scroll for more…` : `已显示 ${this._renderedCount} / ${total} 题，继续下滑加载更多…`;
                     },
 
                     // 滚动到底部附近时自动追加下一批（只绑一次，挂在 document 上捕获冒泡的 scroll）
@@ -497,7 +497,7 @@
 
                         if (qs.length === 0) {
                             if (mode === 'starred') {
-                                c.innerHTML = '<div class="p-8 text-center text-xs text-[var(--sub)] flex flex-col items-center gap-2"><div>还没有收藏的题目。</div><div class="opacity-75">在题库或错题本中点击题目右侧的 ☆ 即可收藏，考前突击复习更方便。</div></div>';
+                                c.innerHTML = '<div class="p-8 text-center text-xs text-[var(--sub)] flex flex-col items-center gap-2"><div>${App.t("还没有收藏的题目。")}</div><div class="opacity-75">${App.t("在题库或错题本中点击题目右侧的 ☆ 即可收藏，考前突击复习更方便。")}</div></div>';
                             } else if (mode === 'mistakes' && Array.isArray(App.data.hiddenMistakeIds) && App.data.hiddenMistakeIds.length) {
                                 // 错题本空但有被「移除」的错题：给一个恢复显示的入口，
                                 // 否则被移除的题如果一直不再答错就永远找不回来
@@ -508,9 +508,9 @@
                                 </div>`;
                             } else if (this._searchQuery) {
                                 const safeQuery = App.utils.escapeHTML(this._searchQuery);
-                                c.innerHTML = `<div class="p-8 text-center text-xs text-[var(--sub)]">未找到与 "<span class="font-bold text-primary-600">${safeQuery}</span>" 相关的题目。(No results found)</div>`;
+                                c.innerHTML = `<div class="p-8 text-center text-xs text-[var(--sub)]">${App.i18n.lang === 'en' ? `No results for "<span class="font-bold text-primary-600">${safeQuery}</span>".` : `未找到与 "<span class="font-bold text-primary-600">${safeQuery}</span>" 相关的题目。`}</div>`;
                             } else {
-                                c.innerHTML = '<div class="p-8 text-center text-xs text-[var(--sub)]">尚未加载题目。请导入题库或更改筛选条件。</div>';
+                                c.innerHTML = '<div class="p-8 text-center text-xs text-[var(--sub)]">${App.t("尚未加载题目。请导入题库或更改筛选条件。")}</div>';
                             }
                             return;
                         }

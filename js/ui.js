@@ -260,13 +260,13 @@
                     if (tfEl) tfEl.textContent = '0';
                     if (structEl) structEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">正在解析文件…</div>';
                     if (listEl) listEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">正在解析文件…</div>';
-                    if (statusEl) statusEl.textContent = `正在读取文件：${file.name}`;
+                    if (statusEl) statusEl.textContent = `${App.t('正在读取文件：')}${file.name}`;
 
                     if (file.size > 5 * 1024 * 1024) {
-                        alert("文件过大，请上传 5MB 以内的题库文件。");
+                        alert(App.t("文件过大，请上传 5MB 以内的题库文件。"));
                         e.target.value = null;
-                        if (statusEl) statusEl.textContent = "文件过大，已取消解析。";
-                        this._setImportBanner('error', '<b>文件过大</b>（' + Math.round(file.size / 1024 / 1024 * 10) / 10 + 'MB）。请上传 5MB 以内的题库文件。');
+                        if (statusEl) statusEl.textContent = App.t("文件过大，已取消解析。");
+                        this._setImportBanner('error', `<b>${App.t('文件过大')}</b>（${Math.round(file.size / 1024 / 1024 * 10) / 10}${App.t('MB）。请上传 5MB 以内的题库文件。')}）`);
                         this._setApplyBtn('ready');
                         { const ab = App.dom.get('import-json-apply-btn'); if (ab) ab.disabled = true; }
                         return;
@@ -279,7 +279,7 @@
                             // AI 生成的题库 JSON 常带 ```json 围栏或前后说明文字，宽容解析
                             let parsed = this._parseLooseJson(text);
                             if (parsed === null) {
-                                if (statusEl) statusEl.textContent = "JSON 解析失败：未找到有效的 JSON 内容。";
+                                if (statusEl) statusEl.textContent = App.t("JSON 解析失败：未找到有效的 JSON 内容。");
                                 if (structEl) structEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">JSON 解析失败，无法预览。</div>';
                                 if (listEl) listEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">JSON 解析失败，无法预览。</div>';
                                 // 清掉旧文件的预览，防止用户误导入上一个文件的内容
@@ -529,21 +529,21 @@
                     const statusEl = App.dom.get('import-json-status');
                     const applyBtn = App.dom.get('import-json-apply-btn');
                     if (!data || !count) {
-                        alert("请先选择 JSON 文件并完成预览解析。");
+                        alert(App.t("请先选择 JSON 文件并完成预览解析。"));
                         return;
                     }
-                    const ok = confirm(`即将根据预览结果导入约 ${count} 道题到当前题库，是否继续？`);
+                    const ok = confirm(`${App.t('即将根据预览结果导入约 ')}${count}${App.t(' 道题到当前题库，是否继续？')}`);
                     if (!ok) {
-                        if (statusEl) statusEl.textContent = "已取消导入操作。";
-                        this._setImportBanner('info', '已取消导入操作。文件预览仍保留，可随时重新点击导入。');
+                        if (statusEl) statusEl.textContent = App.t("已取消导入操作。");
+                        this._setImportBanner('info', App.t('已取消导入操作。文件预览仍保留，可随时重新点击导入。'));
                         return;
                     }
                     // 整个导入流程包在 try/catch 里：任何意外异常都必须落到
                     // 「红色横幅 + 按钮恢复」的出口，绝不能让按钮灰死且无提示。
                     try {
                         // 导入是同步计算，大题库会阻塞界面；先让状态文字和 spinner 渲染出来再执行
-                        if (statusEl) statusEl.textContent = "正在导入题库…";
-                        this._setImportBanner('busy', `正在导入约 <b>${count}</b> 道题到本地题库…<br><span class="opacity-75">题库很大时这一步可能需要几秒，请不要关闭窗口。</span>`);
+                        if (statusEl) statusEl.textContent = App.t("正在导入题库…");
+                        this._setImportBanner('busy', `${App.t('正在导入约 ')}<b>${count}</b>${App.t(' 道题到本地题库…')}<br><span class="opacity-75">${App.t('题库很大时这一步可能需要几秒，请不要关闭窗口。')}</span>`);
                         this._setApplyBtn('busy');
                         await new Promise(r => setTimeout(r, 30));
                         const report = App.data.importBank(JSON.stringify(data));
@@ -839,17 +839,17 @@
                     const username = (session.user && session.user.username) || '';
                     const stats = App.data.getStats();
                     if (!confirm(
-                        '⚠️ 注销账号将永久删除：\n\n· 全部题库（' + stats.total + ' 题）\n· 全部刷题记录与学习数据\n· 收藏、错题本与云端备份\n\n此操作不可恢复！\n\n确定要继续吗？'
+                        `${App.t('⚠️ 注销账号将永久删除：')}\n\n· ${App.t('全部题库（')} ${stats.total} ${App.t('题）')}\n· ${App.t('· 全部刷题记录与学习数据')}\n· ${App.t('· 收藏、错题本与云端备份')}\n\n${App.t('此操作不可恢复！')}\n\n${App.t('确定要继续吗？')}`
                     )) return;
-                    const typed = prompt('防呆确认：请输入你的用户名「' + username + '」以继续');
+                    const typed = prompt(`${App.t('防呆确认：请输入你的用户名「')}${username}${App.t('」以继续')}`);
                     if (typed === null) return;
                     if (typed.trim() !== username) {
-                        alert('用户名不匹配，注销已取消。');
+                        alert(App.t('用户名不匹配，注销已取消。'));
                         return;
                     }
-                    const pw = prompt('最后一步：输入账号密码以确认注销');
+                    const pw = prompt(App.t('最后一步：输入账号密码以确认注销'));
                     if (pw === null) return;
-                    if (!pw) { alert('密码不能为空。'); return; }
+                    if (!pw) { alert(App.t('密码不能为空。')); return; }
 
                     const token = await App.auth.getToken();
                     if (!token) { alert('登录状态已失效，请刷新页面后重试。'); return; }
@@ -860,11 +860,11 @@
                     }).then(r => r.json().then(b => ({ status: r.status, body: b })).catch(() => ({ status: r.status, body: {} })))
                       .then(({ status, body }) => {
                           if (status === 200 && body.ok) {
-                              alert('账号已注销。所有数据已删除，感谢使用。');
+                              alert(App.t('账号已注销。所有数据已删除，感谢使用。'));
                               App.auth.logout();
                               App.data.clearAllForLogout().then(() => location.reload());
                           } else {
-                              alert((body && body.error) || ('注销失败 (HTTP ' + status + ')'));
+                              alert((body && body.error) || (App.t('注销失败 (HTTP ') + status + ')'));
                           }
                       })
                       .catch(() => alert('网络异常，注销未完成。'));
@@ -874,7 +874,7 @@
                 exportAllBank() {
                     const all = App.data.getQuestions();
                     if (!all.length) {
-                        alert('题库为空，没有可导出的内容。');
+                        alert(App.t('题库为空，没有可导出的内容。'));
                         return;
                     }
                     const out = {};
@@ -925,7 +925,7 @@
                     const oldPw = (App.dom.getValue('pw-old') || '').trim();
                     const newPw = (App.dom.getValue('pw-new') || '').trim();
                     const newPw2 = (App.dom.getValue('pw-new2') || '').trim();
-                    const fail = (msg) => { if (statusEl) statusEl.textContent = msg; };
+                    const fail = (msg) => { if (statusEl) statusEl.textContent = (window.App && App.t) ? App.t(msg) : msg; };
                     if (!oldPw || !newPw || !newPw2) return fail('请填写完整三个密码框。');
                     if (newPw.length < 6) return fail('新密码至少需要 6 位。');
                     if (newPw !== newPw2) return fail('两次输入的新密码不一致。');
@@ -933,7 +933,7 @@
                     // 防呆：弱模式密码提前提示（不强制阻断，与后端策略一致）。
                     // 纯数字或纯字母连续 6 位会被 Chrome 泄露检查点名，给出软提醒
                     if (/^\d{6,}$/.test(newPw)) {
-                        if (!confirm('纯数字密码更容易被破解工具猜中，也可能会收到浏览器的安全提醒。\n\n仍要使用这个密码吗？（建议改为字母+数字混合）')) return;
+                        if (!confirm(App.t('纯数字密码更容易被破解工具猜中，也可能会收到浏览器的安全提醒。') + '\n\n' + App.t('仍要使用这个密码吗？（建议改为字母+数字混合）'))) return;
                     }
                     const token = await App.auth.getToken();
                     if (!token) return fail('登录状态已失效，请重新登录后再试。');
@@ -1134,7 +1134,7 @@
                             ]
                         }
                     };
-                    return [
+                    const zhText = [
                         '请把我的资料整理成刷题题库。输出一个完整的 JSON 文件内容，不要加任何解释文字，也不要用 markdown 代码块包裹。',
                         '',
                         '格式要求：',
@@ -1158,7 +1158,46 @@
                         '输出示例（结构与「下载格式模板」完全一致）：',
                         JSON.stringify(example, null, 4)
                     ].join('\n');
+                    const exampleEn = {
+                        "Math": {
+                            "Chapter 1": [
+                                { "id": "q1", "type": "mcq", "q": "What is 1 + 1?", "o": ["1", "2", "3", "4"], "a": "B" },
+                                { "id": "q2", "type": "fill", "q": "The area of a circle is S = π__.", "a": "r²|r^2" },
+                                { "id": "q3", "type": "mcq", "q": "The shape shown is __.[Image1]", "media": [{ "type": "img", "key": "Image1", "src": "https://example.com/shape.png", "alt": "triangle" }], "o": ["Triangle", "Square", "Circle", "Trapezoid"], "a": "A" },
+                                { "id": "q4", "type": "mcq", "q": "Per the table[Table1], the fastest-growing city is __.", "media": [{ "type": "table", "key": "Table1", "html": "<table><tr><th>City</th><th>Growth</th></tr><tr><td>A</td><td>5%</td></tr><tr><td>B</td><td>8%</td></tr></table>" }], "o": ["A", "B", "C", "D"], "a": "B" }
+                            ]
+                        }
+                    };
+                    const enText = [
+                        'Turn my material into a quiz bank. Output one complete JSON file content — no explanations, no markdown code fences.',
+                        '',
+                        'Format requirements:',
+                        '1. Top-level structure: { "Subject": { "Chapter": [question, ...] } }. Split subjects/chapters sensibly from the material.',
+                        '2. Each question is an object with fields:',
+                        '   - "id": unique id like "q1"; may be omitted (auto-generated)',
+                        '   - "type": only "mcq" / "multi" / "tf" / "fill"',
+                        '   - "q": question text; use __ for blanks',
+                        '   - "o": options array (required for mcq/multi), 2-8 items, no "A." prefixes; omit for tf/fill',
+                        '   - "a": answer string:',
+                        '     · mcq: one letter, e.g. "B"',
+                        '     · multi: concatenated letters, e.g. "BD"',
+                        '     · tf: only "T" (true) or "F" (false)',
+                        '     · fill: the answer; multiple accepted forms separated by |',
+                        '   - "media" (optional): for images/tables. Put [图1]/[表1]-style placeholders in the text and provide:',
+                        '     · image: { "type": "img", "key": "Image1", "src": "https://public-url", "alt": "description" }',
+                        '     · table: { "type": "table", "key": "Table1", "html": "<table><tr><td>text</td></tr></table>" } (table tags only)',
+                        '3. Only objectively gradable questions (the four types) — no essays.',
+                        '4. Be thorough; prefer completeness over brevity.',
+                        '',
+                        'Output example (same structure as the downloadable template):',
+                        JSON.stringify(exampleEn, null, 4)
+                    ].join('\n');
+                    return { zh: zhText, en: enText };
                 })(),
+
+                aiPrompt() {
+                    return (App.i18n && App.i18n.lang === 'en') ? this.AI_IMPORT_PROMPT.en : this.AI_IMPORT_PROMPT.zh;
+                },
 
                 toggleAiPrompt() {
                     const box = document.getElementById('ai-prompt-box');
@@ -1168,14 +1207,14 @@
                     box.classList.toggle('hidden', !show);
                     if (caret) caret.style.transform = show ? 'rotate(180deg)' : '';
                     const ta = document.getElementById('ai-prompt-text');
-                    if (show && ta && !ta.value) ta.value = this.AI_IMPORT_PROMPT;
+                    if (show && ta && !ta.value) ta.value = this.aiPrompt();
                 },
 
                 async copyAiPrompt() {
                     const ta = document.getElementById('ai-prompt-text');
                     const btn = document.getElementById('ai-prompt-copy');
                     if (!ta) return;
-                    if (!ta.value) ta.value = this.AI_IMPORT_PROMPT;
+                    if (!ta.value) ta.value = this.aiPrompt();
                     ta.removeAttribute('readonly');
                     ta.select();
                     let ok = false;
@@ -1251,13 +1290,13 @@
                 openPrintExport() {
                     const all = App.data.getQuestions();
                     if (!all.length) {
-                        alert('题库为空，没有可导出的内容。');
+                        alert(App.t('题库为空，没有可导出的内容。'));
                         return;
                     }
                     const html = this._buildPrintDoc();
                     const win = window.open('', '_blank');
                     if (!win) {
-                        alert('打印窗口被浏览器拦截了。\n请允许本站弹出窗口后重试（地址栏右侧一般会有拦截提示）。');
+                        alert(App.t('打印窗口被浏览器拦截了。') + '\n' + App.t('请允许本站弹出窗口后重试（地址栏右侧一般会有拦截提示）。'));
                         return;
                     }
                     win.document.open();
@@ -1402,7 +1441,7 @@
                 openSimilarReview() {
                     const report = App.data._lastImportReport;
                     if (!report || !report.similarPairs || report.similarPairs.length === 0) {
-                        alert("当前没有检测到需要审查的疑似相似题。请先通过导入题库生成。");
+                        alert(App.t("当前没有检测到需要审查的疑似相似题。请先通过导入题库生成。"));
                         return;
                     }
                     if (typeof this.closeModal === 'function') {
@@ -1472,7 +1511,7 @@
                         alert('当前没有待审查的相似题。');
                         return;
                     }
-                    if (!confirm(`确认要应用这 ${report.similarPairs.length} 组审查结果吗？`)) {
+                    if (!confirm(`${App.t('确认要应用这 ')}${report.similarPairs.length}${App.t(' 组审查结果吗？')}`)) {
                         return;
                     }
                     const toDeleteOld = new Set();
@@ -1579,7 +1618,7 @@
                             optionsBlock.classList.remove('hidden');
                             tfBlock && tfBlock.classList.add('hidden');
                             optList.innerHTML = '';
-                            ['选项 A', '选项 B', '选项 C', '选项 D'].forEach(t => App.ui.addQuestionOption(t));
+                            ['选项 A', '选项 B', '选项 C', '选项 D'].forEach(x => App.ui.addQuestionOption(App.t(x)));
                         }
                         if (tfBlock) {
                             const radios = tfBlock.querySelectorAll('input[name="qe-tf"]');
@@ -1595,7 +1634,7 @@
                         if (mediaHint && Array.isArray(q.media) && q.media.length) {
                             const imgs = q.media.filter(m => m && (m.type || 'img') === 'img').length;
                             const tabs = q.media.length - imgs;
-                            mediaHint.textContent = `⚠ 此题含富媒体（图片 ${imgs} 个${tabs ? `、表格 ${tabs} 个` : ''}），题干中以 [图N]/[表N] 占位。编辑保存不会丢失这些内容；修改媒体本身请走「导入题库」。`;
+                            mediaHint.textContent = App.i18n.lang === 'en' ? `⚠ Rich media on this question (${imgs} image(s)${tabs ? `, ${tabs} table(s)` : ''}). Placeholders [图N]/[表N] appear in the text. Editing keeps them; manage media via "Import questions".` : `⚠ 此题含富媒体（图片 ${imgs} 个${tabs ? `、表格 ${tabs} 个` : ''}），题干中以 [图N]/[表N] 占位。编辑保存不会丢失这些内容；修改媒体本身请走「导入题库」。`;
                             mediaHint.classList.remove('hidden');
                         }
                         if (subSelect) subSelect.value = q.sub;
@@ -1726,7 +1765,7 @@
 
                     if (errEl) errEl.textContent = '';
                     if (!sub || !chap || !q) {
-                        if (errEl) errEl.textContent = '科目 / 章节 / 题干 不能为空。';
+                        if (errEl) errEl.textContent = App.t('科目 / 章节 / 题干 不能为空。');
                         return;
                     }
 
@@ -1739,14 +1778,14 @@
                         let val = '';
                         radios.forEach(r => { if (r.checked) val = r.value; });
                         if (!val) {
-                            if (errEl) errEl.textContent = '请为判断题选择正确答案。';
+                            if (errEl) errEl.textContent = App.t('请为判断题选择正确答案。');
                             return;
                         }
                         answer = val;
                     } else if (type === 'fill') {
                         answer = (App.dom.getValue('qe-fill-answer') || '').trim();
                         if (!answer) {
-                            if (errEl) errEl.textContent = '请填写填空题的正确答案。';
+                            if (errEl) errEl.textContent = App.t('请填写填空题的正确答案。');
                             return;
                         }
                     } else {
@@ -1754,7 +1793,7 @@
                         if (!list) return;
                         const rows = list.querySelectorAll('.qe-opt-row');
                         if (rows.length < 2) {
-                            if (errEl) errEl.textContent = '单选 / 多选题至少需要两个选项。';
+                            if (errEl) errEl.textContent = App.t('单选 / 多选题至少需要两个选项。');
                             return;
                         }
                         const ansLetters = [];
@@ -1771,16 +1810,16 @@
                             }
                         });
                         if (!options.length || options.length < 2) {
-                            if (errEl) errEl.textContent = '选项内容不能为空，并且至少两项。';
+                            if (errEl) errEl.textContent = App.t('选项内容不能为空，并且至少两项。');
                             return;
                         }
                         if (!ansLetters.length) {
-                            if (errEl) errEl.textContent = '请至少勾选一个正确选项。';
+                            if (errEl) errEl.textContent = App.t('请至少勾选一个正确选项。');
                             return;
                         }
                         answer = ansLetters.sort().join('');
                         if (type === 'mcq' && answer.length !== 1) {
-                            if (errEl) errEl.textContent = '单选题只能有一个正确选项。';
+                            if (errEl) errEl.textContent = App.t('单选题只能有一个正确选项。');
                             return;
                         }
                     }
