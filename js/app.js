@@ -75,12 +75,16 @@ window.addEventListener('DOMContentLoaded', async () => {
             toast.id = 'global-error-toast';
             // pointer-events-none：这是纯提示、没有任何可点的东西，
             // 不能让它悬在页面上挡住下面的按钮（尤其它 z-[70] 高于所有弹窗）
-            toast.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 z-[70] pointer-events-none px-4 py-2 rounded-lg bg-red-600 text-white text-xs shadow-lg max-w-[90vw]';
+            toast.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 z-[70] pointer-events-none px-4 py-2 rounded-lg bg-red-600 text-white text-xs shadow-lg max-w-[90vw] transition-opacity duration-200';
             document.body.appendChild(toast);
         }
         toast.textContent = App.t('程序异常：') + msg;
+        // 淡入：先归零再过渡到 1，避免直接蹦出（淡出已有 260ms 过渡）
         toast.style.display = 'block';
-        toast.style.opacity = '1';   // 重置上一次淡出
+        toast.style.transition = 'opacity 200ms ease-out';
+        toast.style.opacity = '0';
+        void toast.offsetWidth;
+        toast.style.opacity = '1';
         clearTimeout(showGlobalError._t);
         showGlobalError._t = setTimeout(() => {
             // 先淡出再隐藏，避免硬切消失
