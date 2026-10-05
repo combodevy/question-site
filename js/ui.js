@@ -211,6 +211,7 @@
                 },
 
                 openImportCenter() {
+                    if (typeof this.closeModal === 'function') this.closeModal('config');
                     // 重置上一次的预览状态：否则重开弹窗时状态栏写着「尚未选择文件」，
                     // 下面却还挂着上一次的科目结构与题目预览，文案与内容自相矛盾
                     this._jsonImportPreview = null;
@@ -898,6 +899,7 @@
 
                 // ===== 修改密码 =====
                 openPasswordModal() {
+                    if (typeof this.closeModal === 'function') this.closeModal('config');
                     ['pw-old', 'pw-new', 'pw-new2'].forEach(id => {
                         const el = App.dom.get(id);
                         if (!el) return;
@@ -1289,6 +1291,7 @@
                 // 即可得到 PDF 文件。零第三方依赖；全部 HTML 在主页面生成（escapeHTML /
                 // renderMedia 白名单渲染），打印窗口不含任何可执行脚本。
                 openPrintExport() {
+                    if (typeof this.closeModal === 'function') this.closeModal('config');
                     const all = App.data.getQuestions();
                     if (!all.length) {
                         alert(App.t('题库为空，没有可导出的内容。'));
@@ -1440,6 +1443,7 @@
 
                 // 打开疑似相似题审查弹窗
                 openSimilarReview() {
+                    if (typeof this.closeModal === 'function') this.closeModal('config');
                     const report = App.data._lastImportReport;
                     if (!report || !report.similarPairs || report.similarPairs.length === 0) {
                         alert(App.t("当前没有检测到需要审查的疑似相似题。请先通过导入题库生成。"));
@@ -1880,6 +1884,7 @@
                 },
 
                 openTrashModal() {
+                    if (typeof this.closeModal === 'function') this.closeModal('config');
                     const modal = App.dom.get('modal-trash');
                     const list = App.dom.get('trash-list');
                     if (!modal || !list) return;
