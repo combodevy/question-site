@@ -228,6 +228,12 @@ export const i18n = {
 
         '总学习时长': { en: 'Total study time' },
 
+        // ---- 设置新分区 ----
+        '数据管理': { en: 'Data' },
+        '导出 JSON': { en: 'Export JSON' },
+        '导出 PDF': { en: 'Export PDF' },
+        '账户安全': { en: 'Account' },
+
         // ---- 打印 v2 ----
         '我的答案：': { en: 'My answer: ' },
         '打印 / 保存为 PDF': { en: 'Print / Save as PDF' },
