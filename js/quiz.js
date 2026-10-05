@@ -14,8 +14,6 @@ export const quiz = {
                         return false;
                     }
 
-                    this.lastConfig = { mode, options: { ...config } };
-
                     let typeConstraint = 'all';
                     let limit = 20;
 
@@ -69,10 +67,17 @@ export const quiz = {
                     } else if (mode === 'random') {
                         this.queue = App.utils.shuffle(pool).slice(0, limit);
                     } else if (mode === 'custom') {
+                        // restart 重放时 setup 页 DOM 可能已变化：优先用快照的章节集合
+                        const snapChapters = (config && Array.isArray(config.customChapters)) ? config.customChapters : null;
+                        let targets = null;
+                        if (snapChapters) {
+                            targets = snapChapters;
+                        } else {
                         const chks = document.querySelectorAll('.setup-chk:checked');
                         // 零勾选 = 用户没选任何章节：提示而不是整库开练（旧逻辑把「全不选」当成「不过滤」）
                         if (chks.length === 0) { alert(App.t("请至少勾选一个章节再开始练习。")); return false; }
-                        const targets = Array.from(chks).map(c => c.value);
+                            targets = Array.from(chks).map(c => c.value);
+                        }
                         pool = pool.filter(q => targets.includes(`${q.sub}\u0001${q.chap}`));
                         if (!pool.length) { alert(App.t("选中的章节下没有符合的题目。")); return false; }
 
@@ -81,6 +86,14 @@ export const quiz = {
                         const n = parseInt(l, 10);
                         this.queue = (l === 'all' || !Number.isFinite(n) || n <= 0) ? pool : pool.slice(0, n);
                     }
+
+                    // 快照实际生效的配置（校验通过后），restart「再练一组」据此重放；
+                    // custom 模式记录勾选的章节集合——不再读 setup 页遗留 DOM
+                    this.lastConfig = {
+                        mode,
+                        options: { ...config },
+                        customChapters: mode === 'custom' ? [...document.querySelectorAll('.setup-chk:checked')].map(c2 => c2.value) : null
+                    };
 
                     this.idx = 0; this.stats = { c: 0, w: 0 };
                     // 走到这里说明所有校验都通过了，才暂停云端同步（答题期间攒着，做完一次性上传）。
@@ -176,7 +189,7 @@ export const quiz = {
                             ['T', 'F'].forEach(v => {
                                 const b = document.createElement('div');
                                 b.className = "opt-btn card p-4 cursor-pointer hover:border-primary-500 transition-all text-center font-bold mb-3 rounded-xl text-lg touch-manipulation";
-                                b.innerText = v === 'T' ? '正确 (True)' : '错误 (False)';
+                                b.innerText = v === 'T' ? App.t('正确 (True)') : App.t('错误 (False)');
                                 b.onclick = () => this.sub(v, b);
                                 if (c) c.appendChild(b);
                             });
@@ -203,7 +216,7 @@ export const quiz = {
                     const input = document.getElementById('fill-input');
                     if (!input) return;
                     const userAns = input.value.trim();
-                    if (!userAns) { alert("请先输入你的答案。(Please type your answer)"); return; }
+                    if (!userAns) { alert(App.t("请先输入你的答案。(Please type your answer)")); return; }
 
                     const accepted = String(q.a || '').split('|').map(s => s.trim()).filter(Boolean);
                     // 归一化：忽略大小写 + 忽略全部空白（中英文一视同仁）
@@ -244,7 +257,7 @@ export const quiz = {
                         this.stats.w++;
                         App.dom.setText('fb-icon', '✕');
                         App.dom.setText('fb-title', App.t('回答错误 (Incorrect)'));
-                        App.dom.setHTML('fb-desc', `${App.t('你的答案：')}<span class="font-bold text-red-500">${App.utils.escapeHTML(userAns)}</span><br/>正确答案：<span class="font-bold text-primary-600">${App.utils.escapeHTML(answerText)}</span>`);
+                        App.dom.setHTML('fb-desc', `${App.t('你的答案：')}<span class="font-bold text-red-500">${App.utils.escapeHTML(userAns)}</span><br/>${App.t('正确答案：')}<span class="font-bold text-primary-600">${App.utils.escapeHTML(answerText)}</span>`);
                     }
                 },
 
@@ -307,7 +320,7 @@ export const quiz = {
                     const selectedArr = Array.from(this.currentMultiSelection).sort();
                     const userAns = selectedArr.join('');
 
-                    if (userAns.length === 0) { alert("请至少选择一个选项！(Select at least one option)"); return; }
+                    if (userAns.length === 0) { alert(App.t("请至少选择一个选项！(Select at least one option)")); return; }
 
                     // 修复 1: 在判题时也做一次安全兜底，避免脏数据引发错误 (Normalization Check)
                     const normalizedAnswer = (q.a || '').split('').sort().join('');
@@ -380,7 +393,7 @@ export const quiz = {
                             App.dom.setHTML('fb-desc', `${App.t('正确答案：')}<span class="font-bold text-primary-600">${App.utils.escapeHTML(q.a)}</span><br/>${detailedHTML}`);
                         } else {
                             const ansText = q.a === 'T' ? App.t('正确 (True)') : App.t('错误 (False)');
-                            App.dom.setText('fb-desc', `正确答案：${ansText}`);
+                            App.dom.setText('fb-desc', `${App.t('正确答案：')}${ansText}`);
                         }
 
                         if (q.type === 'mcq' && c) {

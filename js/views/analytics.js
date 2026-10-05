@@ -62,8 +62,8 @@
                             const chips = answers.map(a =>
                                 `<span class="inline-block px-2 py-0.5 rounded bg-primary-50 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 font-bold mr-1 mb-0.5">${App.utils.escapeHTML(a)}</span>`
                             ).join('');
-                            bodyHtml = `<div class="mt-1 text-[11px] text-[var(--text)]">' + App.t('标准答案：') + '${chips || App.t('（未设置）')}</div>` +
-                                `<div class="text-[11px] text-[var(--sub)] mt-0.5">' + App.t('判分时忽略大小写与空格') + '${answers.length > 1 ? App.t('；多个可接受答案任一命中即算对') : ''}</div>`;
+                            bodyHtml = `<div class="mt-1 text-[11px] text-[var(--text)]">${App.t('标准答案：')}${chips || App.t('（未设置）')}</div>` +
+                                `<div class="text-[11px] text-[var(--sub)] mt-0.5">${App.t('判分时忽略大小写与空格')}${answers.length > 1 ? App.t('；多个可接受答案任一命中即算对') : ''}</div>`;
                         } else {
                             const detailHtml = App.utils.getDetailedOptionHTML(q, q.a, '');
                             bodyHtml = `<div class="mt-1">${detailHtml}</div>`;

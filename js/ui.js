@@ -61,6 +61,16 @@
                             this.closeModal(top.id.slice('modal-'.length));
                             return;
                         }
+                        // 分析页题目详情浮层（非 modal- 前缀，需单独处理）
+                        const popoverOv = document.getElementById('an-q-popover-overlay');
+                        if (popoverOv && !popoverOv.classList.contains('hidden')) {
+                            if (App.views && App.views.analytics && typeof App.views.analytics.hideQuestionPopover === 'function') {
+                                App.views.analytics.hideQuestionPopover();
+                            } else {
+                                popoverOv.classList.add('hidden');
+                            }
+                            return;
+                        }
                         const drawer = App.dom.get('insight-drawer');
                         if (drawer && !drawer.classList.contains('translate-x-full')) {
                             this.closeDrawer();
@@ -261,7 +271,7 @@
                     if (tfEl) tfEl.textContent = '0';
                     if (structEl) structEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">' + App.t('正在解析文件…') + '</div>';
                     if (listEl) listEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">' + App.t('正在解析文件…') + '</div>';
-                    if (statusEl) statusEl.textContent = `${App.t('正在读取文件：')}${file.name}`;
+                    if (statusEl) statusEl.textContent = App.t('正在读取文件：') + file.name;
 
                     if (file.size > 5 * 1024 * 1024) {
                         alert(App.t("文件过大，请上传 5MB 以内的题库文件。"));
@@ -323,7 +333,7 @@
                                     ? `，已自动改写 ${App.ui._jsonImportIdStats.fixedIds} 个重复或缺失的题目 ID`
                                     : '';
                                 statusEl.textContent = r.total
-                                    ? `解析成功：检测到 ${r.total} 道题（科目 ${r.subjCount} 个，章节 ${r.chapCount} 个${fixNote}）。`
+                                    ? (App.i18n.lang === 'en' ? `Parsed: ${r.total} question(s) (${r.subjCount} subject(s), ${r.chapCount} chapter(s)${fixNote}).` : `解析成功：检测到 ${r.total} 道题（科目 ${r.subjCount} 个，章节 ${r.chapCount} 个${fixNote}）。`)
                                     : "解析完成，但未检测到任何符合条件的题目。";
                             }
                             // 解析结果反馈到横幅，并明确下一步动作
@@ -533,7 +543,7 @@
                         alert(App.t("请先选择 JSON 文件并完成预览解析。"));
                         return;
                     }
-                    const ok = confirm(`${App.t('即将根据预览结果导入约 ')}${count}${App.t(' 道题到当前题库，是否继续？')}`);
+                    const ok = confirm(App.t('即将根据预览结果导入约 ') + count + App.t(' 道题到当前题库，是否继续？'));
                     if (!ok) {
                         if (statusEl) statusEl.textContent = App.t("已取消导入操作。");
                         this._setImportBanner('info', App.t('已取消导入操作。文件预览仍保留，可随时重新点击导入。'));
@@ -555,10 +565,12 @@
                             if (statusEl) statusEl.textContent = "导入失败";
                             return;
                         }
-                        this._importSummary = `导入完成：新增 <b>${report.added}</b> 道、更新 <b>${report.updated}</b> 道`
-                            + (report.moved ? `、移动到新章节 <b>${report.moved}</b> 道` : '')
+                        this._importSummary = (App.i18n.lang === 'en'
+                            ? `Import finished: added <b>${report.added}</b>, updated <b>${report.updated}</b>`
+                            : `导入完成：新增 <b>${report.added}</b> 道、更新 <b>${report.updated}</b> 道`)
+                            + (report.moved ? (App.i18n.lang === 'en' ? `, moved to new chapter: <b>${report.moved}</b>` : `、移动到新章节 <b>${report.moved}</b> 道`) : '')
                             + `、内容相同跳过 <b>${report.skippedSame}</b> 道。`
-                            + (report.fixedIds ? `<br>已自动改写 <b>${report.fixedIds}</b> 个重复/缺失的题目 ID。` : '');
+                            + (report.fixedIds ? (App.i18n.lang === 'en' ? `<br>Auto-fixed <b>${report.fixedIds}</b> duplicate/missing question ID(s).` : `<br>已自动改写 <b>${report.fixedIds}</b> 个重复/缺失的题目 ID。`) : '');
                         this._setImportBanner('busy', this._importSummary
                             + '<br><span class="opacity-75">正在同步到云端…</span>');
                         this._setApplyBtn('done');
@@ -689,6 +701,9 @@
                     const menu = App.dom.get('account-menu');
                     const backdrop = App.dom.get('account-menu-backdrop');
                     if (!menu || !backdrop) return;
+                    // 关闭后 200ms 内重开：先清掉未完成的关闭计时器，否则 toggle 会误判为「关闭」
+                    if (menu._closeTimer) { clearTimeout(menu._closeTimer); menu._closeTimer = null; }
+                    if (backdrop._closeTimer) { clearTimeout(backdrop._closeTimer); backdrop._closeTimer = null; }
                     if (menu.classList.contains('hidden')) {
                         this._renderAccountMenu();
                         menu.classList.remove('hidden');
@@ -798,7 +813,7 @@
                     if (createdEl) {
                         // created_at 是 D1 的 UTC 时间串，转本地展示
                         const m = user.createdAt ? String(user.createdAt).match(/(\d{4})-(\d{2})-(\d{2})/) : null;
-                        createdEl.textContent = m ? `注册于 ${m[1]} 年 ${parseInt(m[2], 10)} 月 ${parseInt(m[3], 10)} 日` : '…';
+                        createdEl.textContent = m ? (App.i18n.lang === 'en' ? `Joined ${m[1]}-${m[2]}-${m[3]}` : `注册于 ${m[1]} 年 ${m[2]} 月 ${m[3]} 日`) : '…';
                     }
                     const badge = document.getElementById('am-admin-badge');
                     if (badge) badge.classList.toggle('hidden', !user.isAdmin);
@@ -840,9 +855,9 @@
                     const username = (session.user && session.user.username) || '';
                     const stats = App.data.getStats();
                     if (!confirm(
-                        `${App.t('⚠️ 注销账号将永久删除：')}\n\n· ${App.t('全部题库（')} ${stats.total} ${App.t('题）')}\n· ${App.t('· 全部刷题记录与学习数据')}\n· ${App.t('· 收藏、错题本与云端备份')}\n\n${App.t('此操作不可恢复！')}\n\n${App.t('确定要继续吗？')}`
+                        App.t('⚠️ 注销账号将永久删除：') + '\n\n· ' + App.t('全部题库（') + stats.total + App.t('题）') + '\n· ' + App.t('· 全部刷题记录与学习数据') + '\n· ' + App.t('· 收藏、错题本与云端备份') + '\n\n' + App.t('此操作不可恢复！') + '\n\n' + App.t('确定要继续吗？')
                     )) return;
-                    const typed = prompt(`${App.t('防呆确认：请输入你的用户名「')}${username}${App.t('」以继续')}`);
+                    const typed = prompt(App.t('防呆确认：请输入你的用户名「') + username + App.t('」以继续'));
                     if (typed === null) return;
                     if (typed.trim() !== username) {
                         alert(App.t('用户名不匹配，注销已取消。'));
@@ -1234,7 +1249,7 @@
                     ta.setAttribute('readonly', '');
                     if (btn) {
                         const old = btn.textContent;
-                        btn.textContent = ok ? '已复制 ✓' : '复制失败，请长按手动复制';
+                        btn.textContent = ok ? App.t('已复制 ✓') : App.t('复制失败，请长按手动复制');
                         setTimeout(() => { btn.textContent = old; }, 2000);
                     }
                 },
@@ -1473,19 +1488,19 @@
                         item.innerHTML = `
                             <div class="flex items-center justify-between mb-2">
                                 <div class="text-[11px] text-[var(--sub)]">
-                                    #${idx + 1} [${subEsc} / ${chapEsc}] 相似度：<span class="font-bold text-amber-600">${(pair.score * 100).toFixed(0)}%</span>
+                                    #${idx + 1} [${subEsc} / ${chapEsc}] ${App.t('相似度：')}<span class="font-bold text-amber-600">${(pair.score * 100).toFixed(0)}%</span>
                                 </div>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
                                 <div class="rounded-lg border border-[var(--border)] bg-[var(--bg)] p-2">
-                                    <div class="text-[11px] text-[var(--sub)] mb-1">现有题（题库中已有） • ID: ${existId}</div>
+                                    <div class="text-[11px] text-[var(--sub)] mb-1">${App.t('现有题（题库中已有） • ID:')} ${existId}</div>
                                     <div class="text-[11px] font-medium text-[var(--text)] mb-1">${existQ}</div>
-                                    <div class="text-[11px] text-[var(--sub)]">答案：${existA}</div>
+                                    <div class="text-[11px] text-[var(--sub)]">${App.t('答案：')}${existA}</div>
                                 </div>
                                 <div class="rounded-lg border border-[var(--border)] bg-[var(--bg)] p-2">
-                                    <div class="text-[11px] text-[var(--sub)] mb-1">新导入题 • ID: ${incomingId}</div>
+                                    <div class="text-[11px] text-[var(--sub)] mb-1">${App.t('新导入题 • ID:')} ${incomingId}</div>
                                     <div class="text-[11px] font-medium text-[var(--text)] mb-1">${incomingQ}</div>
-                                    <div class="text-[11px] text-[var(--sub)]">答案：${incomingA}</div>
+                                    <div class="text-[11px] text-[var(--sub)]">${App.t('答案：')}${incomingA}</div>
                                 </div>
                             </div>
                             <div class="mt-2 flex flex-wrap gap-3 text-[11px]">
@@ -1516,7 +1531,7 @@
                         alert('当前没有待审查的相似题。');
                         return;
                     }
-                    if (!confirm(`${App.t('确认要应用这 ')}${report.similarPairs.length}${App.t(' 组审查结果吗？')}`)) {
+                    if (!confirm(App.t('确认要应用这 ') + report.similarPairs.length + App.t(' 组审查结果吗？'))) {
                         return;
                     }
                     const toDeleteOld = new Set();
@@ -1770,7 +1785,7 @@
 
                     if (errEl) errEl.textContent = '';
                     if (!sub || !chap || !q) {
-                        if (errEl) errEl.textContent = App.t('科目 / 章节 / 题干 不能为空。');
+                        if (errEl) { errEl.textContent = App.t('科目 / 章节 / 题干 不能为空。'); errEl.scrollIntoView({ block: 'nearest' }); }
                         return;
                     }
 
@@ -1783,14 +1798,14 @@
                         let val = '';
                         radios.forEach(r => { if (r.checked) val = r.value; });
                         if (!val) {
-                            if (errEl) errEl.textContent = App.t('请为判断题选择正确答案。');
+                            if (errEl) { errEl.textContent = App.t('请为判断题选择正确答案。'); errEl.scrollIntoView({ block: 'nearest' }); }
                             return;
                         }
                         answer = val;
                     } else if (type === 'fill') {
                         answer = (App.dom.getValue('qe-fill-answer') || '').trim();
                         if (!answer) {
-                            if (errEl) errEl.textContent = App.t('请填写填空题的正确答案。');
+                            if (errEl) { errEl.textContent = App.t('请填写填空题的正确答案。'); errEl.scrollIntoView({ block: 'nearest' }); }
                             return;
                         }
                     } else {
@@ -1798,7 +1813,7 @@
                         if (!list) return;
                         const rows = list.querySelectorAll('.qe-opt-row');
                         if (rows.length < 2) {
-                            if (errEl) errEl.textContent = App.t('单选 / 多选题至少需要两个选项。');
+                            if (errEl) { errEl.textContent = App.t('单选 / 多选题至少需要两个选项。'); errEl.scrollIntoView({ block: 'nearest' }); }
                             return;
                         }
                         const ansLetters = [];
@@ -1815,16 +1830,16 @@
                             }
                         });
                         if (!options.length || options.length < 2) {
-                            if (errEl) errEl.textContent = App.t('选项内容不能为空，并且至少两项。');
+                            if (errEl) { errEl.textContent = App.t('选项内容不能为空，并且至少两项。'); errEl.scrollIntoView({ block: 'nearest' }); }
                             return;
                         }
                         if (!ansLetters.length) {
-                            if (errEl) errEl.textContent = App.t('请至少勾选一个正确选项。');
+                            if (errEl) { errEl.textContent = App.t('请至少勾选一个正确选项。'); errEl.scrollIntoView({ block: 'nearest' }); }
                             return;
                         }
                         answer = ansLetters.sort().join('');
                         if (type === 'mcq' && answer.length !== 1) {
-                            if (errEl) errEl.textContent = App.t('单选题只能有一个正确选项。');
+                            if (errEl) { errEl.textContent = App.t('单选题只能有一个正确选项。'); errEl.scrollIntoView({ block: 'nearest' }); }
                             return;
                         }
                     }
@@ -1921,7 +1936,7 @@
                         const subs = Object.keys(trash);
 
                         if (!subs.length) {
-                            list.innerHTML = '<div class="text-center text-[var(--sub)] py-8">回收站为空。</div>';
+                            list.innerHTML = '<div class="text-center text-[var(--sub)] py-8">' + App.t('回收站为空。') + '</div>';
                         } else {
                             subs.forEach(sub => {
                                 const chapDict = trash[sub] || {};
@@ -1963,12 +1978,12 @@
                                                     </button>
                                                     <button class="px-2 py-0.5 rounded border border-red-200 bg-red-50 text-red-600 text-[11px] font-bold"
                                                         data-action="destroy" data-sub="${subKey}" data-chap="${chapKey}" data-id="${idKey}">
-                                                        彻底删除
+                                                        ' + (App.i18n.lang === 'en' ? 'Delete forever' : '彻底删除') + '
                                                     </button>
                                                 </div>
                                             </div>
                                             <div class="text-[11px] font-medium text-[var(--text)] mb-1">${safeQuestion}</div>
-                                            <div class="text-[11px] text-[var(--sub)]">删除原因：${safeReason} / 路径：${safePathSub} - ${safePathChap}</div>
+                                            <div class="text-[11px] text-[var(--sub)]">' + (App.i18n.lang === 'en' ? 'Reason: ' : '删除原因：') + '${safeReason} / 路径：${safePathSub} - ${safePathChap}</div>
                                         `;
                                         block.appendChild(item);
                                     });
@@ -1979,7 +1994,67 @@
                     } catch (e) {
                         // 渲染异常也不能无声无息：弹窗保持打开并显示错误
                         console.error('回收站渲染失败', e);
-                        list.innerHTML = '<div class="text-center text-red-500 py-8">回收站内容渲染失败：' + App.utils.escapeHTML(e.message || String(e)) + '</div>';
+                        list.innerHTML = '<div class="text-center text-red-500 py-8">' + (App.i18n.lang === 'en' ? 'Failed to render trash: ' : '回收站内容渲染失败：') + '' + App.utils.escapeHTML(e.message || String(e)) + '</div>';
+                    }
+                },
+
+                async openCloudBackups() {
+                    if (typeof this.closeModal === 'function') this.closeModal('config');
+                    const modal = App.dom.get('modal-cloud-backups');
+                    if (!modal) return;
+                    this._showModalEl(modal);
+                    const list = App.dom.get('cloud-backups-list');
+                    list.innerHTML = '<div class="text-[var(--sub)] italic text-center py-4">Loading…</div>';
+                    try {
+                        const token = await App.auth.getToken();
+                        const res = await fetch(App.apiBase + '/api/user-backups', { headers: { Authorization: 'Bearer ' + token } });
+                        const body = await res.json().catch(() => ({}));
+                        if (!res.ok || !body.ok) {
+                            list.innerHTML = '<div class="text-red-500 text-center py-4">' + App.utils.escapeHTML(body.error || 'Failed to load') + '</div>';
+                            return;
+                        }
+                        const typeLabel = { history: App.t('刷题记录'), bank: App.t('题库') };
+                        if (!body.backups.length) {
+                            list.innerHTML = '<div class="text-[var(--sub)] italic text-center py-4">' + App.t('暂无云端备份。') + '</div>';
+                            return;
+                        }
+                        list.innerHTML = body.backups.map(b => {
+                            const kb = Math.max(1, Math.round((b.size || 0) / 1024));
+                            const d = new Date(String(b.created_at).replace(' ', 'T') + 'Z');
+                            const pad = (n) => String(n).padStart(2, '0');
+                            const dt = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                            const typeTxt = typeLabel[b.type] || b.type;
+                            return `<div class="flex items-center justify-between px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)]">
+                                <div class="flex flex-col min-w-0">
+                                    <span class="font-bold text-[var(--text)]">${App.utils.escapeHTML(typeTxt)}</span>
+                                    <span class="text-[10px] text-[var(--sub)]">${dt} · ${kb} KB</span>
+                                </div>
+                                <button onclick="App.ui.downloadCloudBackup(${b.id})" class="px-3 py-1.5 rounded-lg border border-primary-200 text-primary-600 text-[11px] font-bold hover:bg-primary-50 dark:hover:bg-primary-950/30 transition-colors flex-shrink-0">${App.t('下载')}</button>
+                            </div>`;
+                        }).join('');
+                    } catch (e) {
+                        list.innerHTML = '<div class="text-red-500 text-center py-4">' + App.utils.escapeHTML(String(e)) + '</div>';
+                    }
+                },
+
+                async downloadCloudBackup(id) {
+                    try {
+                        const token = await App.auth.getToken();
+                        const res = await fetch(App.apiBase + '/api/user-backups?id=' + id, { headers: { Authorization: 'Bearer ' + token } });
+                        const body = await res.json().catch(() => ({}));
+                        if (!res.ok || !body.ok) { alert(App.t('下载失败。')); return; }
+                        const name = (body.type === 'bank' ? App.t('题库') : App.t('刷题记录')) + '_' + String(body.id) + '.json';
+                        const blob = new Blob([JSON.stringify(body.payload, null, 2)], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = name;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    } catch (e) {
+                        alert(App.t('下载失败。'));
                     }
                 },
 

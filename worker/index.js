@@ -901,6 +901,54 @@ export default {
             }
 
             // 5. GET SYNC LOGS
+            // ===== 云端备份：清空题库/记录时自动存入，设置 → 数据管理 可查看/下载 =====
+            if (path === "/api/user-backups" && request.method === "POST") {
+                const body = await readJson(request);
+                if (!body) return badJson(headers);
+                const type = body.type === "bank" ? "bank" : (body.type === "history" ? "history" : null);
+                if (!type) return jsonResponse({ error: "type must be bank or history" }, 400, headers);
+                if (typeof body.payload !== "object" || body.payload === null) {
+                    return jsonResponse({ error: "payload is required" }, 400, headers);
+                }
+                const payload = JSON.stringify(body.payload);
+                if (payload.length > MAX_JSON_BYTES) {
+                    return jsonResponse({ error: "payload too large" }, 413, headers);
+                }
+                await env.DB.prepare(
+                    "INSERT INTO user_backups (user_id, type, payload) VALUES (?, ?, ?)"
+                ).bind(userId, type, payload).run();
+                // 每用户每类型只保留最近 5 份
+                await env.DB.prepare(
+                    "DELETE FROM user_backups WHERE user_id = ? AND type = ? AND id NOT IN " +
+                    "(SELECT id FROM user_backups WHERE user_id = ? AND type = ? ORDER BY id DESC LIMIT 5)"
+                ).bind(userId, type, userId, type).run();
+                return jsonResponse({ ok: true }, 200, headers);
+            }
+
+            if (path === "/api/user-backups" && request.method === "GET") {
+                const urlObj2 = new URL(request.url);
+                // ?id=N → 返回单个完整备份；否则返回列表（不含 payload）
+                const backupId = parseInt(urlObj2.searchParams.get("id") || "", 10);
+                if (Number.isFinite(backupId) && backupId > 0) {
+                    const row = await env.DB.prepare(
+                        "SELECT id, type, payload, created_at FROM user_backups WHERE user_id = ? AND id = ?"
+                    ).bind(userId, backupId).first();
+                    if (!row) return jsonResponse({ error: "backup not found" }, 404, headers);
+                    let parsed = null;
+                    try { parsed = JSON.parse(row.payload); } catch (e) { parsed = null; }
+                    return jsonResponse({ ok: true, id: row.id, type: row.type, createdAt: row.created_at, payload: parsed }, 200, headers);
+                }
+                const typeFilter = urlObj2.searchParams.get("type");
+                const q = typeFilter === "bank" || typeFilter === "history"
+                    ? "SELECT id, type, created_at, LENGTH(payload) AS size FROM user_backups WHERE user_id = ? AND type = ? ORDER BY id DESC LIMIT 20"
+                    : "SELECT id, type, created_at, LENGTH(payload) AS size FROM user_backups WHERE user_id = ? ORDER BY id DESC LIMIT 20";
+                const stmt = typeFilter === "bank" || typeFilter === "history"
+                    ? env.DB.prepare(q).bind(userId, typeFilter)
+                    : env.DB.prepare(q).bind(userId);
+                const { results: bkRows } = await stmt.all();
+                return jsonResponse({ ok: true, backups: bkRows }, 200, headers);
+            }
+
             if (path === "/api/sync-logs" && request.method === "GET") {
                 const { results } = await env.DB.prepare("SELECT id, delta, status, error, created_at FROM sync_logs WHERE user_id = ? ORDER BY id DESC LIMIT 50")
                     .bind(userId)

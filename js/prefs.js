@@ -27,6 +27,15 @@ export const prefs = {
 
     pickLang(lang) {
         try { localStorage.setItem('qs_lang', lang); } catch (e) { }
+        // reload 前把同面板里未保存的目标/题数一并写盘——切语言不该丢用户已填的偏好
+        try {
+            const goalEl = document.getElementById('pref-goal');
+            const limitEl = document.getElementById('pref-limit');
+            if (goalEl && goalEl.value !== '') {
+                localStorage.setItem('qs_daily_goal', String(Math.max(0, Math.min(9999, parseInt(goalEl.value, 10) || 0))));
+            }
+            if (limitEl && limitEl.value) localStorage.setItem('qs_default_limit', limitEl.value);
+        } catch (e) { }
         // 语言立即生效需要翻译全部已渲染文本：整页刷新最干净
         location.reload();
     },

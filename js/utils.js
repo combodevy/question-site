@@ -207,6 +207,78 @@ export const utils = {
         return escapedText.replace(reg, '<mark class="bg-yellow-200 dark:bg-yellow-700/50 rounded px-0.5 text-inherit">$1</mark>');
     },
 
+    // 导入清洗：剥控制字符、规范 tf 答案、改写重复/缺失 ID、剔除非法题型。
+    // 返回与输入同构的 bank；stats 接收 { fixedIds, ignored }。
+    sanitizeImportedBank(obj, stats) {
+        const allowed = new Set(['mcq', 'multi', 'tf', 'fill']);
+        const result = {};
+        const seenIds = new Set();
+        let fixedIds = 0;
+        let ignored = 0;
+        const hashId = (s) => {
+            let h = 5381;
+            for (let i = 0; i < s.length; i++) { h = ((h << 5) + h + s.charCodeAt(i)) | 0; }
+            return 'auto-' + (h >>> 0).toString(36);
+        };
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+            if (stats) { stats.fixedIds = 0; stats.ignored = 0; }
+            return result;
+        }
+        const stripCtrl = (s) => String(s).replace(/[\u0000-\u001F\u007F]/g, '').trim();
+        for (const [rawSub, chapDict] of Object.entries(obj)) {
+            if (!chapDict || typeof chapDict !== 'object' || Array.isArray(chapDict)) continue;
+            const sub = stripCtrl(rawSub);
+            if (!sub) { ignored++; continue; }
+            const cleanedChaps = {};
+            for (const [rawChap, arr] of Object.entries(chapDict)) {
+                if (!Array.isArray(arr)) continue;
+                const chap = stripCtrl(rawChap);
+                if (!chap) { ignored += arr.length; continue; }
+                const cleanedQs = arr
+                    .filter(q => {
+                        if (q && typeof q === 'object' && allowed.has(q.type)) return true;
+                        ignored++;
+                        return false;
+                    })
+                    .map(q => {
+                        const copy = { ...q };
+                        if ((copy.type === 'mcq' || copy.type === 'multi') && Array.isArray(copy.o)) {
+                            copy.o = copy.o.map(opt => {
+                                if (opt == null) return '';
+                                const str = typeof opt === 'string' ? opt : String(opt);
+                                return str.replace(/^\s*[A-ZＡ-Ｚ][\.．、，\)\）]\s*/, '');
+                            });
+                        }
+                        if (copy.type === 'tf') {
+                            const tv = String(copy.a == null ? '' : copy.a).trim().toUpperCase();
+                            copy.a = tv === 'T' ? 'T' : (tv === 'F' ? 'F' : copy.a);
+                        }
+                        if (typeof copy.id !== 'string' || !copy.id.trim()) {
+                            copy.id = hashId(JSON.stringify([sub, chap, copy.type, copy.q, copy.a, Array.isArray(copy.o) ? copy.o : []]));
+                            fixedIds++;
+                        } else if (seenIds.has(copy.id)) {
+                            const base = copy.id;
+                            let n = 2;
+                            while (seenIds.has(base + '-d' + n)) n++;
+                            copy.id = base + '-d' + n;
+                            fixedIds++;
+                        }
+                        seenIds.add(copy.id);
+                        return copy;
+                    });
+                if (cleanedQs.length > 0) {
+                    if (!cleanedChaps[chap]) cleanedChaps[chap] = [];
+                    cleanedChaps[chap] = cleanedChaps[chap].concat(cleanedQs);
+                } else {
+                    ignored += arr.filter(q => q && typeof q === 'object' && allowed.has(q.type)).length - cleanedQs.length;
+                }
+            }
+            if (Object.keys(cleanedChaps).length > 0) result[sub] = cleanedChaps;
+        }
+        if (stats) { stats.fixedIds = fixedIds; stats.ignored = ignored; }
+        return result;
+    },
+
     // 对【已含白名单标签】的 HTML（renderMedia 输出）做关键词高亮。
     // 不能走 highlight()：它会把整段 escapeHTML，把 <img>/<table> 变成可见文字；
     // 这里标签段原样保留，只在文本段插 <mark>。文本段已是转义后内容，不再二次转义。

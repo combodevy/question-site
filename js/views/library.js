@@ -201,7 +201,7 @@
                         let detailsHtml = '';
 
                         if (q.type === 'fill') {
-                            ansPreview = `<span class="font-bold text-primary-600">答案：${App.utils.highlight(q.a || '', this._searchQuery)}</span>`;
+                            ansPreview = `<span class="font-bold text-primary-600">${App.t('答案：')}${App.utils.highlight(q.a || '', this._searchQuery)}</span>`;
                             detailsHtml = `<div class="mt-2 text-xs text-[var(--sub)] ${this._expandAll ? '' : 'hidden'} details-panel">${App.t('此题为填空题，作答时输入答案。')}</div>`;
                         } else if (q.type === 'tf') {
                             const isTrue = q.a === 'T';
@@ -363,10 +363,13 @@
                         if (mode) this.currentMode = mode;
                         mode = this.currentMode;
 
-                        // 任何一次重新渲染，都重置管理模式下的选中状态，避免状态遗留
-                        if (this._manageMode) {
-                            this._selectedIds = new Set();
-                            App.dom.setText('lib-selected-count', '0');
+                        // 重渲染时保留仍存在于当前列表的选中项——
+                        // 后台轮询会触发 refresh，把用户勾到一半的批量选择清空非常恶心
+                        if (this._manageMode && this._selectedIds.size) {
+                            const alive = new Set(App.data.getQuestions().map(q => q.id));
+                            const kept = [...this._selectedIds].filter(id => alive.has(id));
+                            if (kept.length !== this._selectedIds.size) this._selectedIds = new Set(kept);
+                            App.dom.setText('lib-selected-count', String(this._selectedIds.size));
                         }
 
                         App.dom.setText('lib-title', mode === 'mistakes' ? '错题本' : (mode === 'starred' ? '收藏' : '总题库'));
@@ -497,20 +500,20 @@
 
                         if (qs.length === 0) {
                             if (mode === 'starred') {
-                                c.innerHTML = '<div class="p-8 text-center text-xs text-[var(--sub)] flex flex-col items-center gap-2"><div>${App.t("还没有收藏的题目。")}</div><div class="opacity-75">${App.t("在题库或错题本中点击题目右侧的 ☆ 即可收藏，考前突击复习更方便。")}</div></div>';
+                                c.innerHTML = `<div class="p-8 text-center text-xs text-[var(--sub)] flex flex-col items-center gap-2"><div>${App.t("还没有收藏的题目。")}</div><div class="opacity-75">${App.t("在题库或错题本中点击题目右侧的 ☆ 即可收藏，考前突击复习更方便。")}</div></div>`;
                             } else if (mode === 'mistakes' && Array.isArray(App.data.hiddenMistakeIds) && App.data.hiddenMistakeIds.length) {
                                 // 错题本空但有被「移除」的错题：给一个恢复显示的入口，
                                 // 否则被移除的题如果一直不再答错就永远找不回来
                                 const hiddenCount = App.data.hiddenMistakeIds.length;
                                 c.innerHTML = `<div class="p-8 text-center text-xs text-[var(--sub)] flex flex-col items-center gap-3">
-                                    <div>错题本已清空。有 <span class="font-bold text-[var(--text)]">${hiddenCount}</span> 道题曾被移出错题本。</div>
-                                    <button onclick="App.data.restoreHiddenMistakes()" class="px-4 py-1.5 rounded-full bg-primary-600 text-white text-[11px] font-bold active:scale-95 transition-transform">全部恢复显示</button>
+                                    <div>${App.t('错题本已清空。')} <span class="font-bold text-[var(--text)]">${hiddenCount}</span> ${App.t(' 道题曾被移出错题本。')}</div>
+                                    <button onclick="App.data.restoreHiddenMistakes()" class="px-4 py-1.5 rounded-full bg-primary-600 text-white text-[11px] font-bold active:scale-95 transition-transform">${App.t('全部恢复显示')}</button>
                                 </div>`;
                             } else if (this._searchQuery) {
                                 const safeQuery = App.utils.escapeHTML(this._searchQuery);
                                 c.innerHTML = `<div class="p-8 text-center text-xs text-[var(--sub)]">${App.i18n.lang === 'en' ? `No results for "<span class="font-bold text-primary-600">${safeQuery}</span>".` : `未找到与 "<span class="font-bold text-primary-600">${safeQuery}</span>" 相关的题目。`}</div>`;
                             } else {
-                                c.innerHTML = '<div class="p-8 text-center text-xs text-[var(--sub)]">${App.t("尚未加载题目。请导入题库或更改筛选条件。")}</div>';
+                                c.innerHTML = `<div class="p-8 text-center text-xs text-[var(--sub)]">${App.t("尚未加载题目。请导入题库或更改筛选条件。")}</div>`;
                             }
                             return;
                         }

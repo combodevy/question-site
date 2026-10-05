@@ -250,7 +250,19 @@ window.addEventListener('DOMContentLoaded', async () => {
                 if (typeof d.reloadFromLocalIDB === 'function') d.reloadFromLocalIDB();
                 return;
             }
-            const shouldReload = window.confirm(App.t('检测到其他标签页修改了题库数据。') + '\n\n' + App.t('点击「确定」重新加载当前标签页的数据，点击「取消」忽略本次变更。'));
+            // 非阻塞提示条替代 confirm：后台事件不该打断正在做题/操作的用户
+            if (typeof showGlobalError === 'function') {
+                showGlobalError(App.t('检测到其他标签页修改了题库数据。'));
+                const bar = document.getElementById('global-error');
+                if (bar && !document.getElementById('tab-sync-reload')) {
+                    const btn = document.createElement('button');
+                    btn.id = 'tab-sync-reload';
+                    btn.className = 'ml-2 underline font-bold';
+                    btn.textContent = App.t('立即刷新');
+                    btn.onclick = () => { if (window.App && App.data && App.data.reloadFromLocalIDB) App.data.reloadFromLocalIDB(); if (bar) bar.remove(); };
+                    bar.appendChild(btn);
+                }
+            }
             // 关键：另一页的写入是即时落 IndexedDB 的（防抖只影响云端），
             // 所以确定后从共享 IDB 重读，而不是 loadFromCloud——云端可能还没收到
             if (shouldReload && typeof d.reloadFromLocalIDB === 'function') d.reloadFromLocalIDB();
@@ -412,7 +424,7 @@ window.addEventListener('DOMContentLoaded', async () => {
                 showStatus(msg);
                 return;
             }
-            showStatus('注册成功，可以直接使用该用户名登录');
+            showStatus(App.t('注册成功，已自动登录'));
             }
         }
     }

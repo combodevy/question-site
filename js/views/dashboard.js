@@ -46,9 +46,9 @@
                                                 return (q.o && q.o[idx]) ? `${App.utils.escapeHTML(c)}. ${App.utils.escapeHTML(q.o[idx])}` : App.utils.escapeHTML(c);
                                             }).join(' , ');
                                         }
-                                        fullAnswer = `<div class="font-bold text-emerald-600 mb-1">答案：${inlineAns}</div>` + App.utils.getDetailedOptionHTML(q, q.a);
+                                        fullAnswer = `<div class="font-bold text-emerald-600 mb-1">${App.t('答案：')}${inlineAns}</div>` + App.utils.getDetailedOptionHTML(q, q.a);
                                     } else if (q.type === 'fill') {
-                                        fullAnswer = '<div class="font-bold text-emerald-600 mb-1">答案：' + App.utils.escapeHTML(q.a || '') + '</div>';
+                                        fullAnswer = '<div class="font-bold text-emerald-600 mb-1">' + App.t('答案：') + App.utils.escapeHTML(q.a || '') + '</div>';
                                     } else {
                                         fullAnswer = q.a === 'T' ? '<span class="font-bold text-emerald-600">正确 (True)</span>' : '<span class="font-bold text-red-500">错误 (False)</span>';
                                     }
@@ -63,7 +63,7 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="text-xs font-bold text-red-500 flex-shrink-0 self-center bg-red-50 px-2 py-1 rounded ml-1">${q.count}次</div>`;
+                                        <div class="text-xs font-bold text-red-500 flex-shrink-0 self-center bg-red-50 px-2 py-1 rounded ml-1">${q.count}${App.i18n.lang === 'en' ? '×' : '次'}</div>`;
                                     ml.appendChild(d);
                                 });
                             }
@@ -130,7 +130,7 @@
                                 <span class="text-[11px] ${reached ? 'text-emerald-500 font-bold' : 'text-[var(--sub)]'}">${reached ? t('已达成') : `${done} / ${goal}`}</span>
                             </div>
                             <div class="h-2.5 rounded-full bg-[var(--bg)] overflow-hidden">
-                                <div class="h-full rounded-full ${reached ? 'bg-emerald-500' : 'bg-primary-500'} transition-all duration-500" style="width:${Math.max(3, pct)}%"></div>
+                                <div class="h-full rounded-full ${reached ? 'bg-emerald-500' : 'bg-primary-500'} transition-all duration-500" style="width:${pct}%"></div>
                             </div>
                             <div class="text-[10px] text-[var(--sub)] mt-1.5">${t('今日已练')} ${done} / ${goal} ${t('题')}</div>
                         </div>`;

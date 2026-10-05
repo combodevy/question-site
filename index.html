@@ -499,6 +499,10 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 3h6m-7 4h8m-9 0h10l-1 13H7L6 7z" />
                 </svg>
             </button>
+                        <button onclick="App.ui.openCloudBackups()"
+                            class="col-span-2 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--card)] text-[11px] font-bold text-[var(--text)] hover:bg-[var(--bg)] active:scale-95 transition-all">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg> <span data-i18n>云端备份</span>
+                        </button>
             
             <!-- Settings Modal -->
             <button onclick="App.ui.toggleModal('config')"
@@ -622,15 +626,17 @@
                 </div>
                 <div class="flex flex-col gap-2">
                     <label class="text-[11px] text-[var(--sub)]">用户名</label>
-                    <input id="auth-email" type="text" name="username" autocomplete="username"
+                    <input onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('auth-login-btn').click();}" id="auth-email" type="text" name="username" autocomplete="username"
                         class="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none"
                         placeholder="your_username">
                 </div>
                 <div class="flex flex-col gap-2">
                     <label class="text-[11px] text-[var(--sub)]">密码</label>
-                    <input id="auth-password" type="password" name="password" autocomplete="current-password"
+                    <input onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('auth-login-btn').click();}" id="auth-password" type="password" name="password" autocomplete="current-password"
                         class="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none"
                         placeholder="••••••••">
+                        <button type="button" data-pw-toggle="auth-password" tabindex="-1"
+                            class="text-[var(--sub)] hover:text-[var(--text)] p-1 text-xs" aria-label="显示/隐藏密码">👁</button>
                 </div>
                 <div class="flex items-center gap-2">
                     <button id="auth-login-btn"
@@ -1334,7 +1340,7 @@
     </div>
 
     <!-- 系统设置弹窗 -->
-    <div id="sync-log-modal"
+    <div id="modal-sync-log"
         class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm opacity-0 pointer-events-none hidden">
         <div class="card w-full max-w-md rounded-2xl shadow-2xl p-0 flex flex-col max-h-[80vh] bg-[var(--card)]">
             <div class="p-4 border-b border-[var(--border)] flex justify-between items-center">
@@ -1611,6 +1617,25 @@
                         </svg>
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 云端备份列表 -->
+    <div id="modal-cloud-backups"
+        class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm hidden opacity-0 pointer-events-none">
+        <div class="card w-full max-w-md rounded-2xl shadow-2xl p-0 flex flex-col max-h-[85vh]">
+            <div class="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-hover)] rounded-t-2xl">
+                <h3 class="font-bold text-base" data-i18n>云端备份</h3>
+                <button onclick="App.ui.closeModal('cloud-backups')" aria-label="关闭"
+                    class="text-[var(--sub)] hover:text-[var(--text)] p-1"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            </div>
+            <div class="p-4 space-y-2 overflow-y-auto custom-scroll flex-grow text-xs" id="cloud-backups-list">
+                <div class="text-[var(--sub)] italic text-center py-4">加载中…</div>
+            </div>
+            <div class="p-3 border-t border-[var(--border)] text-[10px] text-[var(--sub)]" data-i18n>
+                清空题库/记录时会自动在此保留备份；每类最多保留最近 5 份。
             </div>
         </div>
     </div>

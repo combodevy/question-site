@@ -228,6 +228,31 @@ export const i18n = {
 
         '总学习时长': { en: 'Total study time' },
 
+        // ---- 审查补 ----
+        '恢复': { en: 'Restore' },
+        '相似度：': { en: 'Similarity: ' },
+        '现有题（题库中已有） • ID:': { en: 'Existing (in bank) • ID: ' },
+        '新导入题 • ID:': { en: 'New import • ID: ' },
+        '都保留（默认）': { en: 'Keep both (default)' },
+        '保留现有题，删除新题': { en: 'Keep existing, delete new' },
+        '保留新题，删除旧题': { en: 'Keep new, delete old' },
+
+        // ---- 打磨批 ----
+        '从未练习': { en: 'Never practiced' },
+        '已复制 ✓': { en: 'Copied ✓' },
+        '错题本已清空。有 ': { en: 'Mistake book cleared. ' },
+        ' 道题曾被移出错题本。': { en: ' question(s) were removed from it.' },
+        '全部恢复显示': { en: 'Restore all' },
+
+        // ---- 云端备份 ----
+        '云端备份': { en: 'Cloud backups' },
+        '暂无云端备份。': { en: 'No cloud backups yet.' },
+        '下载': { en: 'Download' },
+        '下载失败。': { en: 'Download failed.' },
+        '刷题记录': { en: 'Practice history' },
+        '清空题库/记录时会自动在此保留备份；每类最多保留最近 5 份。': { en: 'Emptying the bank/history automatically keeps a backup here; up to 5 recent per type.' },
+        '云端备份失败，已取消清空。请检查网络后重试，或先在账户菜单「导出全部题库」手动备份。': { en: 'Cloud backup failed — clearing cancelled. Check your network and retry, or export a backup manually first.' },
+
         // ---- 设置新分区 ----
         '数据管理': { en: 'Data' },
         '导出 JSON': { en: 'Export JSON' },
@@ -477,8 +502,16 @@ export const i18n = {
         '输出示例（结构与「下载格式模板」完全一致）：': { en: 'Output example (same structure as the downloadable template):' },
         '点击右上角同步状态按钮可查看详情并重试。': { en: 'Click the sync status button (top right) for details and retry.' },
         '登录后题库与学习数据自动同步': { en: 'Sign in to sync your bank and study data' },
-        '失败': { en: 'failed' },
-        '成功': { en: 'success' },
+        '失败': { en: 'Failed' },
+        '错误：': { en: 'Error: ' },
+        '查看': { en: 'View' },
+        '正确 (True)': { en: 'True' },
+        '错误 (False)': { en: 'False' },
+        '重命名': { en: 'Rename' },
+        '同步诊断': { en: 'Sync Diagnostics' },
+        '时间：': { en: 'Time: ' },
+        '题库：': { en: 'Bank: ' },
+        '成功': { en: 'Success' },
         '未知错误': { en: 'Unknown error' },
         '登录已过期': { en: 'Session expired' },
         '登录已过期，请重新登录。': { en: 'Session expired. Sign in again.' },

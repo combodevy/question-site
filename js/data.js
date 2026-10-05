@@ -148,6 +148,23 @@ export const data = {
                     }
                 },
 
+                // 云端备份：存入 user_backups（每用户每类型云端保留最近 5 份）
+                async _uploadCloudBackup(type, payload) {
+                    try {
+                        const token = await App.auth.getToken();
+                        if (!token) return false;
+                        const res = await fetch(App.apiBase + '/api/user-backups', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                            body: JSON.stringify({ type, payload })
+                        });
+                        return res.ok;
+                    } catch (e) {
+                        console.error('cloud backup failed', e);
+                        return false;
+                    }
+                },
+
                 async _safeSetItem(key, value) {
                     try {
                         await setDBItem(key, value);
@@ -670,30 +687,52 @@ export const data = {
                     }
                 },
 
-                clearBank() {
+                async clearBank() {
                     if (confirm(App.t("确定清空题库吗？该操作不会清空您的做题记录。"))) {
+                        // 清空前自动备份完整题库到云端（与 exportAllBank 同格式，可直接再导入）
+                        try {
+                            const bankOut = {};
+                            this.getQuestions().forEach(q => {
+                                const { _pinyin, _aiAnalysis, sub, chap, _editedAt, ...rest } = q;
+                                (bankOut[sub] = bankOut[sub] || {})[chap] = (bankOut[sub][chap] || []).concat(rest);
+                            });
+                            const okBk = await this._uploadCloudBackup('bank', bankOut);
+                            if (!okBk) {
+                                alert(App.t('云端备份失败，已取消清空。请检查网络后重试，或先在账户菜单「导出全部题库」手动备份。'));
+                                return;
+                            }
+                        } catch (bkErr) {
+                            console.error('云端备份失败（已取消清空）', bkErr);
+                            alert(App.t('云端备份失败，已取消清空。请检查网络后重试，或先在账户菜单「导出全部题库」手动备份。'));
+                            return;
+                        }
                         this.bank = {};
+                        this.starredIds = [];   // 收藏不指向不存在的题
                         this.persistBank();
                         App.ui.closeModal('config');
                         App.router.go('dashboard');
                     }
                 },
 
-                resetHistory() {
+                async resetHistory() {
                     if (confirm(App.t("确定清空所有刷题记录吗？"))) {
-                        // 清空前自动备份完整记录到下载目录：误删有救
+                        // 清空前自动备份完整记录到云端（设置 → 数据管理 → 云端备份 可查看/下载）：
+                        // 备份失败则阻断清空——误删必须有救，不能静默丢数据
                         try {
-                            const backup = { exportedAt: new Date().toISOString(), history: this.history, lastPracticeTime: this.lastPracticeTime };
-                            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = '刷题记录备份_' + new Date().toISOString().slice(0, 10) + '.json';
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            URL.revokeObjectURL(url);
-                        } catch (bkErr) { console.error('自动备份失败（继续清空）', bkErr); }
+                            const okBk = await this._uploadCloudBackup('history', {
+                                exportedAt: new Date().toISOString(),
+                                history: this.history,
+                                lastPracticeTime: this.lastPracticeTime
+                            });
+                            if (!okBk) {
+                                alert(App.t('云端备份失败，已取消清空。请检查网络后重试，或先在账户菜单「导出全部题库」手动备份。'));
+                                return;
+                            }
+                        } catch (bkErr) {
+                            console.error('云端备份失败（已取消清空）', bkErr);
+                            alert(App.t('云端备份失败，已取消清空。请检查网络后重试，或先在账户菜单「导出全部题库」手动备份。'));
+                            return;
+                        }
                         this.history = [];
                         this.lastPracticeTime = null;
                         // 三件套必须一起做，否则刚答完题留在增量缓冲里的记录会在随后的
@@ -787,6 +826,11 @@ export const data = {
                         // 目标科目可能已存在同名章节，按 id 合并去重
                         this.bank[trimmed][chap] = this._mergeById(this.bank[trimmed][chap], this.bank[oldSub][chap]);
                     }
+                    const removedSubQids = new Set();
+                    for (const chapKey in this.bank[oldSub]) {
+                        (this.bank[oldSub][chapKey] || []).forEach(q => { if (q && q.id) removedSubQids.add(q.id); });
+                    }
+                    this.starredIds = (this.starredIds || []).filter(sid => !removedSubQids.has(sid));
                     delete this.bank[oldSub];
                     if (this.trash && this.trash[oldSub]) {
                         if (!this.trash[trimmed]) this.trash[trimmed] = {};
@@ -877,6 +921,8 @@ export const data = {
                         // 软删除：题目进回收站、可恢复
                         this._moveToTrash(sub, chap, arr, 'delete-chapter');
                     }
+                    const removedChapQids = new Set((this.bank[sub][chap] || []).map(q => q && q.id).filter(Boolean));
+                    this.starredIds = (this.starredIds || []).filter(sid => !removedChapQids.has(sid));
                     delete this.bank[sub][chap];
                     if (!Object.keys(this.bank[sub] || {}).length) delete this.bank[sub];
                     // 注意：不再顺手删掉 this.trash[sub][chap]——回收站里原有的内容也应保留
@@ -1972,6 +2018,11 @@ this.bumpHistoryRev();
                     const idx = arr.findIndex(q => q.id === id);
                     if (idx === -1) return;
 
+                    // 彻底删除的题同步移出收藏
+                    const destroyed = arr[idx];
+                    if (destroyed && destroyed.id) {
+                        this.starredIds = (this.starredIds || []).filter(sid => sid !== destroyed.id);
+                    }
                     arr.splice(idx, 1);
                     if (!arr.length) delete this.trash[sub][chap];
                     if (!Object.keys(this.trash[sub] || {}).length) delete this.trash[sub];
@@ -2454,7 +2505,7 @@ export const sync = {
                         return;
                     }
                     const list = document.getElementById('sync-log-list');
-                    const modal = document.getElementById('sync-log-modal');
+                    const modal = document.getElementById('modal-sync-log');
                     const debugPanel = document.getElementById('sync-debug-panel');
                     if (!list || !modal) return;
                     if (debugPanel) {
@@ -2465,9 +2516,9 @@ export const sync = {
                             const time = dbg.time ? new Date(dbg.time).toLocaleString() : '';
                             debugPanel.innerHTML = `
                                 <div class="flex flex-col gap-1">
-                                    <div class="text-[11px] uppercase tracking-wider text-[var(--sub)]">同步诊断</div>
-                                    <div>时间：${App.utils.escapeHTML(time)}</div>
-                                    <div>题库：${App.utils.escapeHTML(dbg.name || '')}</div>
+                                    <div class="text-[11px] uppercase tracking-wider text-[var(--sub)]">${App.t('同步诊断')}</div>
+                                    <div>${App.t('时间：')}${App.utils.escapeHTML(time)}</div>
+                                    <div>${App.t('题库：')}${App.utils.escapeHTML(dbg.name || '')}</div>
                                     <div>questions=${dbg.questionsCount} / history=${dbg.historyCount} / trash=${dbg.trashCount}</div>
                                     <div>skipQuestionsUpdate=${dbg.skipQuestionsUpdate ? 'true' : 'false'} / version=${dbg.version}</div>
                                 </div>
@@ -2488,17 +2539,18 @@ export const sync = {
                             const qd = delta.questions || 0;
                             const hd = delta.history || 0;
                             const td = delta.trash || 0;
-                            const statusText = status === 'success' ? '成功' : status === 'error' ? '失败' : status;
+                            const statusText = status === 'success' ? App.t('成功') : status === 'error' ? App.t('失败') : status;
                             const statusColor = status === 'success' ? 'text-emerald-500' : status === 'error' ? 'text-red-500' : 'text-[var(--sub)]';
                             line.innerHTML = `
                                 <div class="flex justify-between items-center text-xs">
                                     <span class="text-[var(--sub)]">${time}</span>
                                     <span class="${statusColor} font-bold">${statusText}</span>
                                 </div>
-                                <div class="text-[11px] text-[var(--sub)]">
-                                    题库变化 ${qd >= 0 ? '+' : ''}${qd}，记录变化 ${hd >= 0 ? '+' : ''}${hd}${td ? `，回收站变化 ${td >= 0 ? '+' : ''}${td}` : ''}
+                                <div class="text-[11px] text-[var(--sub)]">${App.i18n.lang === 'en'
+                                    ? `Bank ${qd >= 0 ? '+' : ''}${qd}, Records ${hd >= 0 ? '+' : ''}${hd}${td ? `, Trash ${td >= 0 ? '+' : ''}${td}` : ''}`
+                                    : `题库变化 ${qd >= 0 ? '+' : ''}${qd}，记录变化 ${hd >= 0 ? '+' : ''}${hd}${td ? `，回收站变化 ${td >= 0 ? '+' : ''}${td}` : ''}`}
                                 </div>
-                                ${l.error ? `<div class="text-[11px] text-red-500">错误：${App.utils.escapeHTML(l.error)}</div>` : ''}
+                                ${l.error ? `<div class="text-[11px] text-red-500">${App.t('错误：')}${App.utils.escapeHTML(l.error)}</div>` : ''}
                             `;
                             list.appendChild(line);
                         });
@@ -2517,7 +2569,7 @@ export const sync = {
                     }
                 },
                 closeLogPanel() {
-                    const modal = document.getElementById('sync-log-modal');
+                    const modal = document.getElementById('modal-sync-log');
                     if (!modal) return;
                     modal.classList.add('opacity-0', 'pointer-events-none');
                     modal._closeTimer = setTimeout(() => {
