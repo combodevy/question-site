@@ -124,7 +124,7 @@
                         <div class="bg-[var(--card)] border ${reached ? 'border-emerald-300 dark:border-emerald-700' : 'border-[var(--border)]'} rounded-2xl p-4">
                             <div class="flex items-center justify-between mb-2">
                                 <div class="flex items-center gap-2">
-                                    <span class="text-base">${reached ? '🎉' : '🎯'}</span>
+                                    <svg class="w-5 h-5 ${reached ? 'text-emerald-500' : 'text-primary-600'}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
                                     <span class="text-xs font-bold text-[var(--text)]">${t('今日目标')}</span>
                                 </div>
                                 <span class="text-[11px] ${reached ? 'text-emerald-500 font-bold' : 'text-[var(--sub)]'}">${reached ? t('已达成') : `${done} / ${goal}`}</span>
