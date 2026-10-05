@@ -562,49 +562,7 @@
                 </svg>
                 <span>学习分析报告</span>
             </button>
-            <button data-act="import"
-                class="account-menu-item flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[var(--text)] hover:bg-[var(--bg)] active:bg-[var(--bg)] transition-colors text-left">
-                <svg class="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0 0l-4-4m4 4l4-4" />
-                </svg>
-                <span>导入题库</span>
-            </button>
-            <button data-act="export"
-                class="account-menu-item flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[var(--text)] hover:bg-[var(--bg)] active:bg-[var(--bg)] transition-colors text-left">
-                <svg class="w-4 h-4 text-cyan-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5m0 0l5 5m-5-5v12" />
-                </svg>
-                <span>导出全部题库</span>
-            </button>
-            <button data-act="export-print"
-                class="account-menu-item flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[var(--text)] hover:bg-[var(--bg)] active:bg-[var(--bg)] transition-colors text-left">
-                <svg class="w-4 h-4 text-teal-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                </svg>
-                <span>导出 PDF（打印版题库）</span>
-            </button>
-            <button data-act="sync"
-                class="account-menu-item flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[var(--text)] hover:bg-[var(--bg)] active:bg-[var(--bg)] transition-colors text-left">
-                <svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                <span>同步记录</span>
-            </button>
-            <button data-act="trash"
-                class="account-menu-item flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[var(--text)] hover:bg-[var(--bg)] active:bg-[var(--bg)] transition-colors text-left">
-                <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 3h6m-7 4h8m-9 0h10l-1 13H7L6 7z" />
-                </svg>
-                <span class="flex-1">回收站</span>
-                <span id="am-trash-count" class="text-[11px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded hidden"></span>
-            </button>
-            <button data-act="password"
-                class="account-menu-item flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[var(--text)] hover:bg-[var(--bg)] active:bg-[var(--bg)] transition-colors text-left">
-                <svg class="w-4 h-4 text-slate-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 2a8 8 0 11-16 0 8 8 0 0116 0zm-9 4h2m-2 0a2 2 0 114 0 2 2 0 01-4 0zm0 0V9" />
-                </svg>
-                <span>修改密码</span>
-            </button>
+
             <div class="h-px bg-[var(--border)] my-1.5"></div>
             <button data-act="logout"
                 class="account-menu-item flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 active:bg-red-50 dark:active:bg-red-950/30 transition-colors text-left">
@@ -1598,6 +1556,48 @@
                             <span>重置刷题记录</span>
                         </div>
                         <svg class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- 数据管理 -->
+                <div class="space-y-2">
+                    <div class="text-xs font-bold text-[var(--sub)] uppercase tracking-wider mb-2" data-i18n>数据管理</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="App.ui.exportAllBank()"
+                            class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--card)] text-[11px] font-bold text-[var(--text)] hover:bg-[var(--bg)] active:scale-95 transition-all">
+                            💾 <span data-i18n>导出 JSON</span>
+                        </button>
+                        <button onclick="App.ui.openPrintExport()"
+                            class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--card)] text-[11px] font-bold text-[var(--text)] hover:bg-[var(--bg)] active:scale-95 transition-all">
+                            🖨 <span data-i18n>导出 PDF</span>
+                        </button>
+                        <button onclick="App.sync.openLogPanel()"
+                            class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--card)] text-[11px] font-bold text-[var(--text)] hover:bg-[var(--bg)] active:scale-95 transition-all">
+                            🔄 <span data-i18n>同步记录</span>
+                        </button>
+                        <button onclick="App.ui.openTrashModal()"
+                            class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--card)] text-[11px] font-bold text-[var(--text)] hover:bg-[var(--bg)] active:scale-95 transition-all">
+                            🗑 <span data-i18n>回收站</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 账户安全 -->
+                <div class="space-y-2">
+                    <div class="text-xs font-bold text-[var(--sub)] uppercase tracking-wider mb-2" data-i18n>账户安全</div>
+                    <button onclick="App.ui.openPasswordModal()"
+                        class="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-[var(--border)] bg-[var(--card)] text-xs font-bold text-[var(--text)] hover:bg-[var(--bg)] active:scale-[0.99] transition-all">
+                        <div class="flex items-center gap-3">
+                            <div class="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                            </div>
+                            <span data-i18n>修改密码</span>
+                        </div>
+                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                         </svg>
                     </button>
