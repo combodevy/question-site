@@ -397,7 +397,7 @@
                                 summary.innerHTML += `
                                     <div class="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-900/30 rounded-xl">
                                         <div class="flex items-center gap-3">
-                                            <span class="text-xl">🏆</span>
+                                            <svg class="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
                                             <div><div class="text-[11px] font-bold text-green-700 dark:text-green-500 uppercase tracking-wide">最强科目</div><div class="text-xs text-[var(--text)] font-medium">${s.bestSub}</div></div>
                                         </div>
                                         <span class="font-bold text-lg text-green-600 dark:text-green-400">${s.subjectStats[s.bestSub].acc}%</span>
