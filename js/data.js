@@ -2495,7 +2495,24 @@ export const sync = {
                     }
                 },
                 async openLogPanel() {
+                    // list/modal 先声明：后面的未登录提示和 loading 占位都要用（TDZ）
+                    const list = document.getElementById('sync-log-list');
+                    const modal = document.getElementById('modal-sync-log');
                     if (window.App && App.ui && typeof App.ui.closeModal === 'function') App.ui.closeModal('config');
+                    if (!list || !modal) return;
+                    // 弹窗立即打开：未登录/加载中/失败三种状态都有可见内容，不再点 chip 无反应
+                    if (modal._closeTimer) { clearTimeout(modal._closeTimer); modal._closeTimer = null; }
+                    modal.classList.remove('hidden');
+                    void modal.offsetWidth;
+                    modal.classList.remove('opacity-0', 'pointer-events-none');
+                    if (!modal.dataset.bound) {
+                        modal.addEventListener('click', (e) => {
+                            if (e.target === modal) {
+                                App.sync.closeLogPanel();
+                            }
+                        });
+                        modal.dataset.bound = '1';
+                    }
                     if (!App.auth || typeof App.auth.getToken !== 'function') return;
                     const token = await App.auth.getToken();
                     if (!token) {
@@ -2514,10 +2531,12 @@ export const sync = {
                         });
                     } catch (e) {
                         console.error('获取同步记录失败', e);
+                        if (list) list.innerHTML = '<div class="text-red-500 text-xs py-4 text-center">' + App.t('同步记录加载失败，请稍后重试。') + '</div>';
                         return;
                     }
                     if (!res.ok) {
                         console.error('获取同步记录失败', res.status);
+                        if (list) list.innerHTML = '<div class="text-red-500 text-xs py-4 text-center">' + App.t('同步记录加载失败，请稍后重试。') + '</div>';
                         return;
                     }
                     let data;
@@ -2527,8 +2546,6 @@ export const sync = {
                         console.error('解析同步记录失败', e);
                         return;
                     }
-                    const list = document.getElementById('sync-log-list');
-                    const modal = document.getElementById('modal-sync-log');
                     const debugPanel = document.getElementById('sync-debug-panel');
                     if (!list || !modal) return;
                     if (debugPanel) {
@@ -2578,10 +2595,6 @@ export const sync = {
                             list.appendChild(line);
                         });
                     }
-                    if (modal._closeTimer) { clearTimeout(modal._closeTimer); modal._closeTimer = null; }
-                    modal.classList.remove('hidden');
-                    void modal.offsetWidth;
-                    modal.classList.remove('opacity-0', 'pointer-events-none');
                     if (!modal.dataset.bound) {
                         modal.addEventListener('click', (e) => {
                             if (e.target === modal) {
