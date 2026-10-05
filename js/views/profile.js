@@ -225,7 +225,9 @@ export const profile = {
             const el = document.getElementById('pf-copy-id');
             if (m && el) {
                 const line = el.parentElement;
-                if (line) line.firstChild.textContent = `注册于 ${m[1]} 年 ${parseInt(m[2], 10)} 月 ${parseInt(m[3], 10)} 日 · ID `;
+                if (line) line.firstChild.textContent = App.i18n.lang === 'en'
+                    ? `Joined ${m[1]}-${m[2]}-${m[3]} · ID `
+                    : `注册于 ${m[1]} 年 ${parseInt(m[2], 10)} 月 ${parseInt(m[3], 10)} 日 · ID `;
             }
         });
     },

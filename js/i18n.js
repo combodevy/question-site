@@ -505,6 +505,19 @@ export const i18n = {
         '失败': { en: 'Failed' },
         '错误：': { en: 'Error: ' },
         '查看': { en: 'View' },
+        '注册成功，已自动登录': { en: 'Account created — you are now signed in.' },
+        '此筛选条件下没有符合的题目。': { en: 'No questions match your filter.' },
+        '错题本已清空。': { en: 'Mistake book cleared.' },
+        '练习还在进行中，确定要退出吗？\n已作答的题目会保留并同步，未作答的部分将丢弃。': { en: 'Practice is still in progress. Exit anyway?\nAnswered questions are kept and synced; unanswered ones will be discarded.' },
+        '确定要退出登录吗？\n本地缓存会清空，题库和学习记录都保留在云端，下次登录自动恢复。': { en: 'Log out?\nLocal cache will be cleared. Your bank and learning history stay in the cloud and return on your next login.' },
+        '删除原因：': { en: 'Reason: ' },
+        '彻底删除': { en: 'Delete forever' },
+        '正在加载同步记录…': { en: 'Loading sync logs…' },
+        '登录后可查看云同步记录。': { en: 'Log in to view cloud sync logs.' },
+        '请输入新的章节名称（{s}）': { en: 'Enter the new chapter name for "{s}"' },
+        '路径：': { en: 'Path: ' },
+        '导入题目': { en: 'Imported' },
+        '未分类': { en: 'Uncategorized' },
         '正确 (True)': { en: 'True' },
         '错误 (False)': { en: 'False' },
         '重命名': { en: 'Rename' },
@@ -845,6 +858,8 @@ export const i18n = {
         const origConfirm = window.confirm.bind(window);
         window.alert = (s) => origAlert(s == null ? s : this.t(s));
         window.confirm = (s) => origConfirm(s == null ? s : this.t(s));
+        const origPrompt = window.prompt.bind(window);
+        window.prompt = (s, d) => origPrompt(s == null ? s : this.t(s), d);
         this.walk(document.body);
         this.walkAttrs(document);
         // 动态渲染兜底：任何 DOM 增删后自动翻译新增部分（轮询 refresh、弹窗、抽屉……）

@@ -656,7 +656,8 @@ export default {
                     history: historyList,
                     lastPracticeTime: baseState && typeof baseState.lastPracticeTime === "number" ? baseState.lastPracticeTime : null,
                     trash: baseState && typeof baseState.trash === "object" && !Array.isArray(baseState.trash) ? baseState.trash : {},
-                    hiddenMistakeIds: baseState && Array.isArray(baseState.hiddenMistakeIds) ? baseState.hiddenMistakeIds : []
+                    hiddenMistakeIds: baseState && Array.isArray(baseState.hiddenMistakeIds) ? baseState.hiddenMistakeIds : [],
+                    starred: baseState && Array.isArray(baseState.starred) ? baseState.starred : []
                 };
 
                 const responseBody = JSON.stringify({ ok: true, setId, name: set.name, state, version, historyPartial });

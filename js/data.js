@@ -219,6 +219,7 @@ export const data = {
                 },
                 _persistStarred() {
                     this._editSeq++;
+                    this._bankDirty = true;   // 收藏走全量保存：增量分支的 payload 不含 starred
                     this._markUnsynced();
                     // 广播必须等写入提交：否则另一标签页的读取会跑赢落库读到旧值
                     setDBItem(this.starredKey, JSON.stringify(this.starredIds))
@@ -801,7 +802,6 @@ export const data = {
                 // 持久化题库
                 persistBank() {
                     this._editSeq++;
-                    this._safeSetItem(this.bankKey, JSON.stringify(this.bank));
                     if (this.bankName) {
                         this._safeSetItem(this.bankNameKey, this.bankName);
                     }
@@ -826,11 +826,7 @@ export const data = {
                         // 目标科目可能已存在同名章节，按 id 合并去重
                         this.bank[trimmed][chap] = this._mergeById(this.bank[trimmed][chap], this.bank[oldSub][chap]);
                     }
-                    const removedSubQids = new Set();
-                    for (const chapKey in this.bank[oldSub]) {
-                        (this.bank[oldSub][chapKey] || []).forEach(q => { if (q && q.id) removedSubQids.add(q.id); });
-                    }
-                    this.starredIds = (this.starredIds || []).filter(sid => !removedSubQids.has(sid));
+                    // 收藏按 id 记录：重命名只是搬家，id 不变，星标保持有效（不要误清）
                     delete this.bank[oldSub];
                     if (this.trash && this.trash[oldSub]) {
                         if (!this.trash[trimmed]) this.trash[trimmed] = {};
@@ -866,7 +862,8 @@ export const data = {
                             deletedAt: now,
                             deletedBy: 'user',
                             reason,
-                            originalPath: { sub, chap }
+                            originalPath: { sub, chap },
+                            wasStarred: (this.starredIds || []).includes(q.id)
                         });
                     }
                 },
@@ -877,13 +874,20 @@ export const data = {
                 deleteSubject(sub) {
                     if (!this.bank[sub]) return;
                     const chapDict = this.bank[sub] || {};
+                    const removedIds = new Set();
                     for (const chap in chapDict) {
                         const arr = chapDict[chap];
                         if (!Array.isArray(arr)) continue;
+                        arr.forEach(q => { if (q && q.id) removedIds.add(q.id); });
                         // 软删除：题目进回收站、可恢复（与单题删除保持一致的行为）
                         this._moveToTrash(sub, chap, arr, 'delete-subject');
                     }
                     delete this.bank[sub];
+                    // 与删章节/删单题对齐：删除时摘星（trash 副本带 wasStarred，恢复时还原）
+                    if (removedIds.size) {
+                        this.starredIds = (this.starredIds || []).filter(sid => !removedIds.has(sid));
+                        this._persistStarred();
+                    }
                     // 注意：不再顺手删掉 this.trash[sub]——回收站里原有的内容也应保留
                     // 历史记录同样保留：恢复科目时学习状态一并恢复
                     this.persistBank();
@@ -923,6 +927,7 @@ export const data = {
                     }
                     const removedChapQids = new Set((this.bank[sub][chap] || []).map(q => q && q.id).filter(Boolean));
                     this.starredIds = (this.starredIds || []).filter(sid => !removedChapQids.has(sid));
+                    this._persistStarred();
                     delete this.bank[sub][chap];
                     if (!Object.keys(this.bank[sub] || {}).length) delete this.bank[sub];
                     // 注意：不再顺手删掉 this.trash[sub][chap]——回收站里原有的内容也应保留
@@ -949,7 +954,7 @@ export const data = {
                 },
 
                 renameSubjectInteractive(sub) {
-                    const next = window.prompt('请输入新的科目名称', sub);
+                    const next = window.prompt(App.t('请输入新的科目名称'), sub);
                     if (!next || next.trim() === sub) return;
                     this.renameSubject(sub, next.trim());
                     if (App && App.ui && typeof App.ui.renderBankManager === 'function') {
@@ -972,7 +977,7 @@ export const data = {
                 },
 
                 renameChapterInteractive(sub, chap) {
-                    const next = window.prompt(`请输入新的章节名称（${sub}）`, chap);
+                    const next = window.prompt(App.t('请输入新的章节名称（{s}）').replace('{s}', sub), chap);
                     if (!next || next.trim() === chap) return;
                     this.renameChapter(sub, chap, next.trim());
                     if (App && App.ui && typeof App.ui.renderBankManager === 'function') {
@@ -1216,7 +1221,7 @@ export const data = {
                                     const reason = (data && data.error) || '登录已过期';
                                     if (window.App && App.auth && typeof App.auth.logout === 'function') {
                                         App.auth.logout();
-                                        alert(reason + '，请重新登录。');
+                                        alert(reason + App.t('，请重新登录。'));
                                     }
                                     return;
                                 }
@@ -1457,8 +1462,12 @@ export const data = {
                                                 this._suppressCloudSync = false;
                                                 if (window.App && App.sync && typeof App.sync.showSyncStatus === 'function') {
                                                     App.sync.showSyncStatus('pending', null, editConflicts > 0
-                                                        ? `检测到多设备修改，已合并双方数据（${editConflicts} 道题两端都有修改，你的版本已存入回收站）…`
-                                                        : '检测到多设备修改，正在合并双方数据…');
+                                                        ? (App.i18n.lang === 'en'
+                                                            ? `Merged changes from another device (${editConflicts} question(s) edited on both sides; your version moved to trash)…`
+                                                            : `检测到多设备修改，已合并双方数据（${editConflicts} 道题两端都有修改，你的版本已存入回收站）…`)
+                                                        : (App.i18n.lang === 'en'
+                                                            ? 'Merging changes from multiple devices…'
+                                                            : '检测到多设备修改，正在合并双方数据…'));
                                                 }
                                             }
                                             // 重试：此时 _bankDirty=true，只上传双方合并后的差异
@@ -1901,6 +1910,8 @@ this.bumpHistoryRev();
                             for (const q of (sub || [])) { if (q && idSet.has(q.id)) removed.push(q.id); }
                         }
                     }
+                    // 星标快照：必须在摘星前取，进站副本用它记录 wasStarred（恢复时还原）
+                    const starredSnapshot = new Set(this.starredIds || []);
                     if (removed.length) {
                         this.starredIds = (this.starredIds || []).filter(sid => !idSet.has(sid));
                         this._persistStarred();   // 同步落 IndexedDB，否则重载后陈旧收藏复活
@@ -1925,7 +1936,8 @@ this.bumpHistoryRev();
                                         deletedAt: now,
                                         deletedBy: 'user',
                                         reason,
-                                        originalPath: { sub, chap }
+                                        originalPath: { sub, chap },
+                                        wasStarred: starredSnapshot.has(q.id)
                                     });
                                     changed = true;
                                 }
@@ -1955,7 +1967,7 @@ this.bumpHistoryRev();
                     const q = arr[idx];
                     const targetSub = q.originalPath?.sub || sub;
                     const targetChap = q.originalPath?.chap || chap;
-                    const { deletedAt, deletedBy, reason, originalPath, ...cleanQ } = q;
+                    const { deletedAt, deletedBy, reason, originalPath, wasStarred, ...cleanQ } = q;
                     // 归位路径字段：originalPath 可能来自重命名前的旧路径，结构字段必须一致
                     cleanQ.sub = targetSub;
                     cleanQ.chap = targetChap;
@@ -1983,6 +1995,11 @@ this.bumpHistoryRev();
                         }
                     }
 
+                    // 还原删除前的星标（wasStarred 由进站时快照写入）
+                    if (wasStarred && !(this.starredIds || []).includes(id)) {
+                        this.starredIds.push(id);
+                        this._persistStarred();
+                    }
                     if (!this.bank[targetSub]) this.bank[targetSub] = {};
                     if (!Array.isArray(this.bank[targetSub][targetChap])) this.bank[targetSub][targetChap] = [];
                     // 同 ID 冲突处理：内容相同 → 跳过恢复；内容不同 → 旧题让位进回收站，恢复的题入列
@@ -2020,8 +2037,9 @@ this.bumpHistoryRev();
 
                     // 彻底删除的题同步移出收藏
                     const destroyed = arr[idx];
-                    if (destroyed && destroyed.id) {
-                        this.starredIds = (this.starredIds || []).filter(sid => sid !== destroyed.id);
+                    if (destroyed && destroyed.id && (this.starredIds || []).includes(destroyed.id)) {
+                        this.starredIds = this.starredIds.filter(sid => sid !== destroyed.id);
+                        this._persistStarred();   // 只改内存不落库，重载后收藏会复活
                     }
                     arr.splice(idx, 1);
                     if (!arr.length) delete this.trash[sub][chap];
@@ -2480,7 +2498,12 @@ export const sync = {
                     if (window.App && App.ui && typeof App.ui.closeModal === 'function') App.ui.closeModal('config');
                     if (!App.auth || typeof App.auth.getToken !== 'function') return;
                     const token = await App.auth.getToken();
-                    if (!token) return;
+                    if (!token) {
+                        // 未登录时给出可见反馈，而不是静默 return 让用户以为按钮坏了
+                        if (list) list.innerHTML = '<div class="text-[var(--sub)] text-xs py-4 text-center">' + App.t('登录后可查看云同步记录。') + '</div>';
+                        return;
+                    }
+                    if (list) list.innerHTML = '<div class="text-[var(--sub)] text-xs py-4 text-center">' + App.t('正在加载同步记录…') + '</div>';
                     let res;
                     try {
                         res = await fetch((App.apiBase || '') + '/api/sync-logs', {

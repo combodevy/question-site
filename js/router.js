@@ -14,7 +14,7 @@ export const router = {
         // 练习进行中想离开：确认并清理（否则 _suppressCloudSync 卡死、计时器悬挂）
         if (this.currentView === 'quiz' && targetId !== 'quiz' && targetId !== 'result'
             && window.App && App.quiz && typeof App.quiz.isActive === 'function' && App.quiz.isActive()) {
-            const ok = window.confirm('练习还在进行中，确定要退出吗？\n已作答的题目会保留并同步，未作答的部分将丢弃。');
+            const ok = window.confirm(App.t('练习还在进行中，确定要退出吗？\n已作答的题目会保留并同步，未作答的部分将丢弃。'));
             if (!ok) return;
             App.quiz._cleanup();
         }

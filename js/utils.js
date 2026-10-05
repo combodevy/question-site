@@ -21,8 +21,10 @@ export const utils = {
         // 阶段1：占位符替换为带哨兵的占位 token（防止后续 escapeHTML 破坏生成的标签）
         const tokens = [];
         let out = esc(String(text == null ? '' : text));
-        out = out.replace(/\[(图|表|fig|table)\s*(\d+)\]/gi, (raw, kind, num) => {
-            const key = (kind.toLowerCase() === '图' ? '图' : (kind.toLowerCase() === '表' ? '表' : kind.toLowerCase())) + num;
+        out = out.replace(/\[(图|表|fig|figure|table|image|img)\s*(\d+)\]/gi, (raw, kind, num) => {
+            const kl = kind.toLowerCase();
+            const kk = (kl === '图' || kl === 'image' || kl === 'img' || kl === 'fig' || kl === 'figure') ? '图' : ((kl === '表' || kl === 'table') ? '表' : kl);
+            const key = kk + num;
             const m = map.get(key);
             if (!m) return raw;   // 无对应 media → 占位符原样保留（用户能看到缺图标记）
             const idx = tokens.length;
@@ -225,7 +227,26 @@ export const utils = {
             return result;
         }
         const stripCtrl = (s) => String(s).replace(/[\u0000-\u001F\u007F]/g, '').trim();
-        for (const [rawSub, chapDict] of Object.entries(obj)) {
+        // 形状归一化：顶层数组与 { questions: [...] } 是常见的外部格式，
+        // 归一成 { 科目: { 章节: [题] } } 后再统一清洗，避免被静默丢成空库
+        let bank = obj;
+        const defSub = (window.App && typeof App.t === 'function') ? App.t('导入题目') : '导入题目';
+        const defChap = (window.App && typeof App.t === 'function') ? App.t('未分类') : '未分类';
+        if (Array.isArray(bank)) {
+            bank = { [defSub]: { [defChap]: bank } };
+        } else if (bank && typeof bank === 'object' && Array.isArray(bank.questions)) {
+            const grouped = {};
+            for (const q of bank.questions) {
+                if (!q || typeof q !== 'object') continue;
+                const s = (typeof q.subject === 'string' && q.subject.trim()) ? q.subject.trim() : defSub;
+                const c = (typeof q.chapter === 'string' && q.chapter.trim()) ? q.chapter.trim() : defChap;
+                if (!grouped[s]) grouped[s] = {};
+                if (!grouped[s][c]) grouped[s][c] = [];
+                grouped[s][c].push(q);
+            }
+            bank = grouped;
+        }
+        for (const [rawSub, chapDict] of Object.entries(bank)) {
             if (!chapDict || typeof chapDict !== 'object' || Array.isArray(chapDict)) continue;
             const sub = stripCtrl(rawSub);
             if (!sub) { ignored++; continue; }
@@ -235,13 +256,29 @@ export const utils = {
                 const chap = stripCtrl(rawChap);
                 if (!chap) { ignored += arr.length; continue; }
                 const cleanedQs = arr
-                    .filter(q => {
-                        if (q && typeof q === 'object' && allowed.has(q.type)) return true;
-                        ignored++;
-                        return false;
-                    })
                     .map(q => {
+                        if (!q || typeof q !== 'object') { ignored++; return null; }
                         const copy = { ...q };
+                        // 字段别名归一：AI 输出常用 question/answer/options/stem/choices 等写法
+                        if (copy.q == null && copy.question != null) copy.q = copy.question;
+                        if (copy.q == null && copy.stem != null) copy.q = copy.stem;
+                        if (copy.a == null && copy.answer != null) copy.a = copy.answer;
+                        if (copy.a == null && copy.correct != null) copy.a = copy.correct;
+                        if (!Array.isArray(copy.o)) {
+                            if (Array.isArray(copy.options)) copy.o = copy.options;
+                            else if (Array.isArray(copy.choices)) copy.o = copy.choices;
+                        }
+                        // 题型别名归一：single/multiple/judge/blank 等
+                        if (typeof copy.type === 'string') {
+                            const alias = { mcq: 'mcq', single: 'mcq', singlechoice: 'mcq', multi: 'multi', multiple: 'multi', multiplechoice: 'multi', tf: 'tf', judge: 'tf', boolean: 'tf', truefalse: 'tf', fill: 'fill', blank: 'fill', completion: 'fill' };
+                            const tl = copy.type.trim().toLowerCase();
+                            if (alias[tl]) copy.type = alias[tl];
+                        }
+                        if (!allowed.has(copy.type)) { ignored++; return null; }
+                        return copy;
+                    })
+                    .filter(Boolean)
+                    .map(copy => {
                         if ((copy.type === 'mcq' || copy.type === 'multi') && Array.isArray(copy.o)) {
                             copy.o = copy.o.map(opt => {
                                 if (opt == null) return '';
@@ -250,8 +287,10 @@ export const utils = {
                             });
                         }
                         if (copy.type === 'tf') {
-                            const tv = String(copy.a == null ? '' : copy.a).trim().toUpperCase();
-                            copy.a = tv === 'T' ? 'T' : (tv === 'F' ? 'F' : copy.a);
+                            // 宽容归一：true/false、对/错、√/×、是/否、y/n 等常见写法统一成 T/F
+                            const raw = String(copy.a == null ? '' : copy.a).trim().toLowerCase();
+                            if (['t', 'true', '√', '✓', '✔', 'y', 'yes', '对', '正确', '是'].indexOf(raw) >= 0) copy.a = 'T';
+                            else if (['f', 'false', '×', '✕', '✖', 'n', 'no', '错', '错误', '否'].indexOf(raw) >= 0) copy.a = 'F';
                         }
                         if (typeof copy.id !== 'string' || !copy.id.trim()) {
                             copy.id = hashId(JSON.stringify([sub, chap, copy.type, copy.q, copy.a, Array.isArray(copy.o) ? copy.o : []]));
@@ -420,83 +459,4 @@ export const utils = {
             return null;
         }
     },
-    // 导入清洗：只保留单选/多选/判断/填空题，去掉选项前多余的字母前缀，
-    // 并规范化题目 ID——缺失/非字符串的 id 自动生成确定性 id，
-    // 重复的 id 追加确定性后缀（-d2、-d3…），保证预览数量与实际导入数量一致、不丢题。
-    // 可选的 stats 对象用于回填改写统计（fixedIds：被改写的 id 数，ignored：被忽略的非客观题数）。
-    sanitizeImportedBank(obj, stats) {
-        const allowed = new Set(['mcq', 'multi', 'tf', 'fill']);
-        const result = {};
-        const seenIds = new Set();
-        let fixedIds = 0;
-        let ignored = 0;
-        const hashId = (s) => {
-            let h = 5381;
-            for (let i = 0; i < s.length; i++) { h = ((h << 5) + h + s.charCodeAt(i)) | 0; }
-            return 'auto-' + (h >>> 0).toString(36);
-        };
-        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
-            if (stats) { stats.fixedIds = 0; stats.ignored = 0; }
-            return result;
-        }
-
-        // 控制字符（ -）会破坏练习配置的「科目章节」记忆键，
-        // 并能造出肉眼无法区分的重复科目——导入时统一剥掉
-        const stripCtrl = (s) => String(s).replace(/[ -]/g, '').trim();
-
-        for (const [rawSub, chapDict] of Object.entries(obj)) {
-            if (!chapDict || typeof chapDict !== 'object' || Array.isArray(chapDict)) continue;
-            const sub = stripCtrl(rawSub);
-            if (!sub) { ignored++; continue; }
-            const cleanedChaps = {};
-            for (const [rawChap, arr] of Object.entries(chapDict)) {
-                if (!Array.isArray(arr)) continue;
-                const chap = stripCtrl(rawChap);
-                if (!chap) { ignored += arr.length; continue; }
-                const cleanedQs = arr
-                    .filter(q => {
-                        if (q && allowed.has(q.type)) return true;
-                        ignored++;
-                        return false;
-                    })
-                    .map(q => {
-                        const copy = { ...q };
-                        // 判断题答案规范化：小写/空白变体会让键盘作答（T/F）永远判错
-                        if (copy.type === 'tf') {
-                            const t = String(copy.a == null ? '' : copy.a).trim().toUpperCase();
-                            copy.a = t === 'T' ? 'T' : (t === 'F' ? 'F' : copy.a);
-                        }
-                        if ((copy.type === 'mcq' || copy.type === 'multi') && Array.isArray(copy.o)) {
-                            copy.o = copy.o.map(opt => {
-                                // 选项统一归一化为字符串：非字符串（数字 / 布尔 / null）会让
-                                // 题目编辑器里的 initialText.replace(...) 抛 TypeError
-                                if (opt == null) return '';
-                                const str = typeof opt === 'string' ? opt : String(opt);
-                                return str.replace(/^\s*[A-ZＡ-Ｚ][\.\．、，\)\）]\s*/, '');
-                            });
-                        }
-                        // ID 规范化
-                        if (typeof copy.id !== 'string' || !copy.id.trim()) {
-                            copy.id = hashId(JSON.stringify([sub, chap, copy.type, copy.q, copy.a, Array.isArray(copy.o) ? copy.o : []]));
-                            fixedIds++;
-                        } else if (copy.id !== q.id) {
-                            fixedIds++;
-                        }
-                        if (seenIds.has(copy.id)) {
-                            const base = copy.id;
-                            let n = 2;
-                            while (seenIds.has(base + '-d' + n)) n++;
-                            copy.id = base + '-d' + n;
-                            fixedIds++;
-                        }
-                        seenIds.add(copy.id);
-                        return copy;
-                    });
-                if (cleanedQs.length > 0) cleanedChaps[chap] = cleanedQs;
-            }
-            if (Object.keys(cleanedChaps).length > 0) result[sub] = cleanedChaps;
-        }
-        if (stats) { stats.fixedIds = fixedIds; stats.ignored = ignored; }
-        return result;
-    }
 };

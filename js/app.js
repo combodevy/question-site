@@ -253,7 +253,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             // 非阻塞提示条替代 confirm：后台事件不该打断正在做题/操作的用户
             if (typeof showGlobalError === 'function') {
                 showGlobalError(App.t('检测到其他标签页修改了题库数据。'));
-                const bar = document.getElementById('global-error');
+                const bar = document.getElementById('global-error-toast');
                 if (bar && !document.getElementById('tab-sync-reload')) {
                     const btn = document.createElement('button');
                     btn.id = 'tab-sync-reload';
@@ -265,8 +265,8 @@ window.addEventListener('DOMContentLoaded', async () => {
             }
             // 关键：另一页的写入是即时落 IndexedDB 的（防抖只影响云端），
             // 所以确定后从共享 IDB 重读，而不是 loadFromCloud——云端可能还没收到
-            if (shouldReload && typeof d.reloadFromLocalIDB === 'function') d.reloadFromLocalIDB();
-            else if (shouldReload && d.loadFromCloud) d.loadFromCloud();
+            if (typeof d.reloadFromLocalIDB === 'function') d.reloadFromLocalIDB();
+            else if (d.loadFromCloud) d.loadFromCloud();
         };
         App._syncBroadcast = (key) => {
             try {

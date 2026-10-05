@@ -109,7 +109,7 @@ export const quiz = {
                 },
 
                 restart() {
-                    if (this.lastConfig) this.init(this.lastConfig.mode, this.lastConfig.options);
+                    if (this.lastConfig) this.init(this.lastConfig.mode, Object.assign({}, this.lastConfig.options, { customChapters: this.lastConfig.customChapters }));
                     else this.init('random');
                 },
 
@@ -215,6 +215,8 @@ export const quiz = {
                     const q = this.queue[this.idx];
                     const input = document.getElementById('fill-input');
                     if (!input) return;
+                    // 防重入：提交后 input 已禁用，700ms 自动跳题窗口内的再次点击直接忽略
+                    if (input.disabled) return;
                     const userAns = input.value.trim();
                     if (!userAns) { alert(App.t("请先输入你的答案。(Please type your answer)")); return; }
 

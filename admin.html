@@ -747,6 +747,12 @@
                     this.token = localStorage.getItem('qs-admin-auth-token') || null;
                     if (this.token) {
                         const payload = parseJwt(this.token);
+                        // 本地预检：过期 token 先踢回登录页（服务端 403/401 仍是权威）
+                        if (payload && payload.exp && payload.exp * 1000 < Date.now()) {
+                            this.token = null;
+                            localStorage.removeItem('qs-admin-auth-token');
+                            payload = null;
+                        }
                         if (payload) {
                             document.getElementById('login-overlay').classList.add('hidden');
                             document.getElementById('admin-app').classList.remove('hidden');

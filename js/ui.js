@@ -106,7 +106,7 @@
                             if (!file) return;
                             // AI 输出的题库常被存成 .txt，同样放行（解析时会剥掉 markdown 围栏）
                             if (!/\.(json|txt)$/i.test(file.name) && file.type !== 'application/json' && file.type !== 'text/plain') {
-                                alert('请拖入 .json 或 .txt 题库文件。');
+                                alert(App.t('请拖入 .json 或 .txt 题库文件。'));
                                 return;
                             }
                             // handleJsonPreviewUpload 只读取 e.target.files[0] 并在结尾清空 e.target.value，
@@ -312,13 +312,16 @@
 
                             const check = App.data.validateSchema(sanitized);
                             if (check !== true) {
-                                if (statusEl) statusEl.textContent = "结构校验失败：" + check;
+                                if (statusEl) statusEl.textContent = App.i18n.lang === 'en' ? ("Schema validation failed: " + check) : ("结构校验失败：" + check);
                                 if (structEl) structEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">' + App.t('结构校验失败，请根据模板调整 JSON。') + '</div>';
                                 if (listEl) listEl.innerHTML = '<div class="text-[11px] text-[var(--sub)] italic">' + App.t('结构校验失败，无法生成预览。') + '</div>';
                                 this._jsonImportPreview = null;
                                 this._jsonImportPreviewCount = 0;
-                                this._setImportBanner('error', '<b>结构校验失败：</b>' + App.utils.escapeHTML(String(check))
-                                    + '<br>请对照「下载格式模板」调整 JSON 后重新选择文件。');
+                                this._setImportBanner('error', App.i18n.lang === 'en'
+                                    ? ('<b>Schema validation failed:</b>' + App.utils.escapeHTML(String(check))
+                                        + '<br>Compare your JSON with the "Download template" file and retry.')
+                                    : ('<b>结构校验失败：</b>' + App.utils.escapeHTML(String(check))
+                                        + '<br>请对照「下载格式模板」调整 JSON 后重新选择文件。'));
                                 this._setApplyBtn('ready');
                                 { const ab = App.dom.get('import-json-apply-btn'); if (ab) ab.disabled = true; }
                                 return;
@@ -329,8 +332,10 @@
                             App.ui._jsonImportPreview = sanitized;
 
                             if (statusEl) {
-                                const fixNote = (App.ui._jsonImportIdStats && App.ui._jsonImportIdStats.fixedIds)
-                                    ? `，已自动改写 ${App.ui._jsonImportIdStats.fixedIds} 个重复或缺失的题目 ID`
+                                const _fn = (App.ui._jsonImportIdStats && App.ui._jsonImportIdStats.fixedIds) || 0;
+                                const fixNote = _fn ? (App.i18n.lang === 'en'
+                                    ? `, ${_fn} duplicate/missing ID(s) auto-rewritten`
+                                    : `，已自动改写 ${_fn} 个重复或缺失的题目 ID`)
                                     : '';
                                 statusEl.textContent = r.total
                                     ? (App.i18n.lang === 'en' ? `Parsed: ${r.total} question(s) (${r.subjCount} subject(s), ${r.chapCount} chapter(s)${fixNote}).` : `解析成功：检测到 ${r.total} 道题（科目 ${r.subjCount} 个，章节 ${r.chapCount} 个${fixNote}）。`)
@@ -342,8 +347,10 @@
                                     + '<br>请在下方预览确认科目/章节归属，然后点击右下角「导入预览中的题目」。');
                                 this._setApplyBtn('ready');
                             } else {
-                                this._setImportBanner('error', '解析完成，但<b>未检测到任何符合条件的题目</b>（单选/多选/判断/填空）。'
-                                    + '<br>请检查 JSON 内容——问答题等主观题会被自动忽略。');
+                                this._setImportBanner('error', App.i18n.lang === 'en'
+                                    ? 'Parsed, but <b>no eligible questions found</b> (MCQ/multi/TF/fill).<br>Check the JSON — essay/subjective questions are skipped automatically.'
+                                    : '解析完成，但<b>未检测到任何符合条件的题目</b>（单选/多选/判断/填空）。'
+                                        + '<br>请检查 JSON 内容——问答题等主观题会被自动忽略。');
                                 this._setApplyBtn('ready');
                                 { const ab = App.dom.get('import-json-apply-btn'); if (ab) ab.disabled = true; }
                             }
@@ -560,9 +567,11 @@
                         const report = App.data.importBank(JSON.stringify(data));
                         if (!report) {
                             // importBank 内部已 alert 具体原因；横幅给出失败状态
-                            this._setImportBanner('error', '<b>导入失败。</b>具体原因见弹窗提示，修正 JSON 后可直接点击「重试导入」。本地题库未受影响。');
+                            this._setImportBanner('error', App.i18n.lang === 'en'
+                                ? '<b>Import failed.</b> See the dialog for the reason. Fix the JSON and click "Retry import" — your local bank is untouched.'
+                                : '<b>导入失败。</b>具体原因见弹窗提示，修正 JSON 后可直接点击「重试导入」。本地题库未受影响。');
                             this._setApplyBtn('ready');
-                            if (statusEl) statusEl.textContent = "导入失败";
+                            if (statusEl) statusEl.textContent = App.i18n.lang === 'en' ? "Import failed" : "导入失败";
                             return;
                         }
                         this._importSummary = (App.i18n.lang === 'en'
@@ -585,10 +594,13 @@
                         }
                     } catch (e) {
                         console.error('导入流程异常', e);
-                        this._setImportBanner('error', '<b>导入过程出现异常：</b>' + App.utils.escapeHTML(String(e && e.message || e))
-                            + '<br>本地题库已回滚到导入前状态。请检查 JSON 后重试，或先「导出全部题库」备份。');
+                        this._setImportBanner('error', App.i18n.lang === 'en'
+                            ? ('<b>Import error:</b>' + App.utils.escapeHTML(String(e && e.message || e))
+                                + '<br>The local bank has been rolled back. Check the JSON and retry, or "Export full bank" first as a backup.')
+                            : ('<b>导入过程出现异常：</b>' + App.utils.escapeHTML(String(e && e.message || e))
+                                + '<br>本地题库已回滚到导入前状态。请检查 JSON 后重试，或先「导出全部题库」备份。'));
                         this._setApplyBtn('ready');
-                        if (statusEl) statusEl.textContent = "导入异常";
+                        if (statusEl) statusEl.textContent = App.i18n.lang === 'en' ? "Import error" : "导入异常";
                     }
                 },
 
@@ -602,26 +614,35 @@
                         const status = sync ? sync._lastStatus : 'success';
                         elapsed += 500;
                         if (status === 'error') {
-                            this._setImportBanner('error', (this._importSummary || '导入完成。')
-                                + '<br><b>云端同步失败</b>——数据已安全保存在本机，不会丢失。'
-                                + '点击右上角同步状态按钮可查看详情并重试。');
+                            const _doneTxt = this._importSummary || (App.i18n.lang === 'en' ? 'Import finished.' : '导入完成。');
+                            this._setImportBanner('error', _doneTxt
+                                + (App.i18n.lang === 'en'
+                                    ? '<br><b>Cloud sync failed</b> — data is safe on this device. Click the sync status icon (top right) for details and retry.'
+                                    : '<br><b>云端同步失败</b>——数据已安全保存在本机，不会丢失。点击右上角同步状态按钮可查看详情并重试。'));
                             this._importSaveWatch = null;
                             return;
                         }
                         if (status === 'pending' && elapsed < 20000) {
                             if (elapsed % 2000 === 0) {
                                 this._setImportBanner('busy', (this._importSummary || '导入完成。')
-                                    + `<br><span class="opacity-75">正在同步到云端… ${Math.round(elapsed / 1000)}s</span>`);
+                                    + (App.i18n.lang === 'en'
+                                        ? `<br><span class="opacity-75">Syncing to cloud… ${Math.round(elapsed / 1000)}s</span>`
+                                        : `<br><span class="opacity-75">正在同步到云端… ${Math.round(elapsed / 1000)}s</span>`));
                             }
                             this._importSaveWatch = setTimeout(tick, 500);
                             return;
                         }
                         if (status === 'success' && !App.data._bankDirty) {
-                            this._setImportBanner('success', (this._importSummary || '导入完成。')
-                                + '<br><b>已同步到云端 ✓</b> 本地与云端的题库现在完全一致，可以关闭此窗口开始刷题了。');
+                            const _d2 = this._importSummary || (App.i18n.lang === 'en' ? 'Import finished.' : '导入完成。');
+                            this._setImportBanner('success', _d2
+                                + (App.i18n.lang === 'en'
+                                    ? '<br><b>Synced to cloud ✓</b> Local and cloud banks are identical — you can close this window and start practicing.'
+                                    : '<br><b>已同步到云端 ✓</b> 本地与云端的题库现在完全一致，可以关闭此窗口开始刷题了。'));
                         } else {
-                            this._setImportBanner('success', (this._importSummary || '导入完成。')
-                                + '<br>数据已保存在本机；云端将在下次联网时自动同步。');
+                            this._setImportBanner('success', _d2
+                                + (App.i18n.lang === 'en'
+                                    ? '<br>Data saved on this device; it will sync to the cloud next time you are online.'
+                                    : '<br>数据已保存在本机；云端将在下次联网时自动同步。'));
                         }
                         this._importSaveWatch = null;
                     };
@@ -841,7 +862,7 @@
                     } else if (act === 'delete-account') {
                         this._startAccountDeletion();
                     } else if (act === 'logout') {
-                        if (confirm('确定要退出登录吗？\n本地缓存会清空，题库和学习记录都保留在云端，下次登录自动恢复。')) {
+                        if (confirm(App.t('确定要退出登录吗？\n本地缓存会清空，题库和学习记录都保留在云端，下次登录自动恢复。'))) {
                             this._meCache = null;
                             App.auth.logout();
                         }
@@ -980,7 +1001,7 @@
                 toggleTheme() {
                     const isDark = !document.documentElement.classList.contains('dark');
                     document.documentElement.classList.toggle('dark');
-                    localStorage.setItem('dark', isDark ? '1' : '0');
+                    try { localStorage.setItem('dark', isDark ? '1' : '0'); } catch (e) { }
 
                     const currentView = document.querySelector('[id^="view-"]:not(.hidden)');
                     if (currentView) {
@@ -1974,16 +1995,16 @@
                                                     <span class="text-[11px] text-[var(--sub)]">${timeStr}</span>
                                                     <button class="px-2 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-600 text-[11px] font-bold"
                                                         data-action="restore" data-sub="${subKey}" data-chap="${chapKey}" data-id="${idKey}">
-                                                        恢复
+                                                        ${App.t('恢复')}
                                                     </button>
                                                     <button class="px-2 py-0.5 rounded border border-red-200 bg-red-50 text-red-600 text-[11px] font-bold"
                                                         data-action="destroy" data-sub="${subKey}" data-chap="${chapKey}" data-id="${idKey}">
-                                                        ' + (App.i18n.lang === 'en' ? 'Delete forever' : '彻底删除') + '
+                                                        ${App.t('彻底删除')}
                                                     </button>
                                                 </div>
                                             </div>
                                             <div class="text-[11px] font-medium text-[var(--text)] mb-1">${safeQuestion}</div>
-                                            <div class="text-[11px] text-[var(--sub)]">' + (App.i18n.lang === 'en' ? 'Reason: ' : '删除原因：') + '${safeReason} / 路径：${safePathSub} - ${safePathChap}</div>
+                                            <div class="text-[11px] text-[var(--sub)]">${App.t('删除原因：')}${safeReason} / ${App.t('路径：')}${safePathSub} - ${safePathChap}</div>
                                         `;
                                         block.appendChild(item);
                                     });
