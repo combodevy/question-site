@@ -1420,7 +1420,7 @@
 </head>
 <body>
     <div class="toolbar no-print">
-        <button onclick="window.print()">🖨 ${t('打印 / 保存为 PDF')}</button>
+        <button onclick="window.print()">${t('打印 / 保存为 PDF')}</button>
         <button class="ghost" onclick="window.close()">${t('关闭')}</button>
         <span class="tip">${t('在打印对话框的「目标打印机」中选择「另存为 PDF」，即可导出 PDF 文件')}</span>
     </div>
