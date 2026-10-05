@@ -49,6 +49,7 @@ const App = {
             ['auth.init', () => this.auth.init()],
             ['router.init', () => this.router.init()],
             ['ui._initGlobalBackTop', () => this.ui._initGlobalBackTop()],
+            ['ui._initPwToggles', () => this.ui._initPwToggles()],
         ];
         for (const [name, fn] of steps) {
             try {

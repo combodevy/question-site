@@ -181,6 +181,25 @@
                     }
                 },
 
+                // 密码显隐按钮（登录框 + 改密弹窗共用）：document 级委托，启动时注册
+                _initPwToggles() {
+                    if (document.body.dataset.pwToggleBound) return;
+                    document.body.dataset.pwToggleBound = '1';
+                    document.addEventListener('click', (e) => {
+                        const t = e.target.closest('[data-pw-toggle]');
+                        if (!t) return;
+                        const input = document.getElementById(t.dataset.pwToggle);
+                        if (!input) return;
+                        const show = input.type === 'password';
+                        input.type = show ? 'text' : 'password';
+                        // eye=隐藏态（点我显示），eye-off=显示态（点我隐藏）
+                        const eye = t.querySelector('[data-eye]');
+                        const eyeOff = t.querySelector('[data-eye-off]');
+                        if (eye) eye.classList.toggle('hidden', show);
+                        if (eyeOff) eyeOff.classList.toggle('hidden', !show);
+                    });
+                },
+
                 _initGlobalBackTop() {
                     const btn = App.dom.get('global-back-top');
                     if (!btn) return;
@@ -948,15 +967,6 @@
                         el.type = 'password';   // 每次打开重置为隐藏态
                     });
                     const modal = App.dom.get('modal-password');
-                    if (modal && !modal.dataset.pwToggleBound) {
-                        modal.dataset.pwToggleBound = '1';
-                        modal.addEventListener('click', (e) => {
-                            const t = e.target.closest('[data-pw-toggle]');
-                            if (!t) return;
-                            const input = document.getElementById(t.dataset.pwToggle);
-                            if (input) input.type = input.type === 'password' ? 'text' : 'password';
-                        });
-                    }
                     const statusEl = App.dom.get('pw-status');
                     if (statusEl) statusEl.textContent = '';
                     this.toggleModal('password');
@@ -1768,7 +1778,7 @@
                     const safeValue = App.utils.escapeHTML(String(initialText == null ? '' : initialText));
                     row.innerHTML = `
                         <span class="w-5 text-[11px] font-bold text-[var(--sub)]">${letter}.</span>
-                        <input class="flex-1 bg-[var(--card)] border border-[var(--border)] rounded-lg px-2 py-1.5 outline-none text-xs"
+                        <input class="flex-1 bg-[var(--card)] border border-[var(--border)] rounded-lg px-2 py-1.5 outline-none text-base sm:text-xs"
                                value="${safeValue}"
                                placeholder="选项内容" />
                         <label class="flex items-center gap-1 text-[11px] text-[var(--sub)]">

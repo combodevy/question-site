@@ -623,16 +623,16 @@
                 <div class="flex flex-col gap-2">
                     <label class="text-[11px] text-[var(--sub)]">用户名</label>
                     <input onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('auth-login-btn').click();}" id="auth-email" type="text" name="username" autocomplete="username"
-                        class="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none"
+                        class="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-base sm:text-xs outline-none"
                         placeholder="your_username">
                 </div>
                 <div class="flex flex-col gap-2">
                     <label class="text-[11px] text-[var(--sub)]">密码</label>
                     <input onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('auth-login-btn').click();}" id="auth-password" type="password" name="password" autocomplete="current-password"
-                        class="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none"
+                        class="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-base sm:text-xs outline-none"
                         placeholder="••••••••">
                         <button type="button" data-pw-toggle="auth-password" tabindex="-1"
-                            class="text-[var(--sub)] hover:text-[var(--text)] p-1 text-xs" aria-label="显示/隐藏密码">👁</button>
+                            class="text-[var(--sub)] hover:text-[var(--text)] p-1" aria-label="显示/隐藏密码"><svg data-eye class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 5-1.274 2.057-5.064 5-9.542 5-4.477 0-8.268-2.943-9.542-5z"/></svg><svg data-eye-off class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-5a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"/></svg></button>
                 </div>
                 <div class="flex items-center gap-2">
                     <button id="auth-login-btn"
@@ -912,7 +912,7 @@
                             </svg>
                             <input id="lib-search" type="search" placeholder="搜索题目、选项、章节... (Search)"
                                 oninput="App.views.library.handleSearch(this.value)"
-                                class="w-full text-xs bg-[var(--card)] border border-[var(--border)] rounded-lg pl-8 pr-8 py-2 outline-none focus:border-primary-500 transition-colors placeholder:text-[var(--sub)]">
+                                class="w-full text-base sm:text-xs bg-[var(--card)] border border-[var(--border)] rounded-lg pl-8 pr-8 py-2 outline-none focus:border-primary-500 transition-colors placeholder:text-[var(--sub)]">
                             <button id="lib-search-clear" onclick="App.views.library.clearSearch()"
                                 aria-label="清空搜索关键词" class="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--sub)] hover:text-red-400 hidden p-1">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -975,7 +975,7 @@
                     <div id="fill-actions" class="hidden mt-4 flex gap-2">
                         <input id="fill-input" type="text" placeholder="在此输入你的答案…"
                             onkeydown="if(event.key==='Enter')App.quiz.submitFill()"
-                            class="flex-grow px-4 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--card)] text-sm outline-none focus:border-primary-500 transition-colors">
+                            class="flex-grow px-4 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--card)] text-base sm:text-sm outline-none focus:border-primary-500 transition-colors">
                         <button onclick="App.quiz.submitFill()"
                             class="btn px-6 py-2.5 bg-primary-600 text-white rounded-xl shadow-lg shadow-primary-500/30 hover:bg-primary-700 font-bold text-sm tracking-wide active:scale-95 transition-all flex-shrink-0">提交</button>
                     </div>
@@ -1312,21 +1312,21 @@
                     <input id="pw-old" type="password" autocomplete="current-password" minlength="6"
                         class="w-full px-3 py-2 pr-9 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none focus:border-primary-500">
                     <button type="button" data-pw-toggle="pw-old" title="显示/隐藏密码"
-                        class="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--sub)] hover:text-[var(--text)] text-xs">👁</button>
+                        class="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--sub)] hover:text-[var(--text)]"><svg data-eye class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 5-1.274 2.057-5.064 5-9.542 5-4.477 0-8.268-2.943-9.542-5z"/></svg><svg data-eye-off class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-5a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"/></svg></button>
                 </div>
                 <label for="pw-new" class="text-[11px] text-[var(--sub)]">新密码（至少 6 位，建议字母+数字混合）</label>
                 <div class="relative">
                     <input id="pw-new" type="password" autocomplete="new-password" minlength="6"
                         class="w-full px-3 py-2 pr-9 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none focus:border-primary-500">
                     <button type="button" data-pw-toggle="pw-new" title="显示/隐藏密码"
-                        class="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--sub)] hover:text-[var(--text)] text-xs">👁</button>
+                        class="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--sub)] hover:text-[var(--text)]"><svg data-eye class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 5-1.274 2.057-5.064 5-9.542 5-4.477 0-8.268-2.943-9.542-5z"/></svg><svg data-eye-off class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-5a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"/></svg></button>
                 </div>
                 <label for="pw-new2" class="text-[11px] text-[var(--sub)]">确认新密码</label>
                 <div class="relative">
                     <input id="pw-new2" type="password" autocomplete="new-password" minlength="6"
                         class="w-full px-3 py-2 pr-9 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none focus:border-primary-500">
                     <button type="button" data-pw-toggle="pw-new2" title="显示/隐藏密码"
-                        class="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--sub)] hover:text-[var(--text)] text-xs">👁</button>
+                        class="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--sub)] hover:text-[var(--text)]"><svg data-eye class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 5-1.274 2.057-5.064 5-9.542 5-4.477 0-8.268-2.943-9.542-5z"/></svg><svg data-eye-off class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-5a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"/></svg></button>
                 </div>
             </div>
             <div id="pw-status" class="text-[11px] text-[var(--sub)] min-h-[1rem]"></div>
