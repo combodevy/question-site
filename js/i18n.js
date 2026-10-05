@@ -505,6 +505,7 @@ export const i18n = {
         '失败': { en: 'Failed' },
         '错误：': { en: 'Error: ' },
         '查看': { en: 'View' },
+        '未检测到题库，请点击右上角头像，通过「导入题库」导入 JSON 文件。': { en: 'No question bank detected. Click the avatar (top right) and import a JSON file via "Import questions".' },
         '注册成功，已自动登录': { en: 'Account created — you are now signed in.' },
         '此筛选条件下没有符合的题目。': { en: 'No questions match your filter.' },
         '错题本已清空。': { en: 'Mistake book cleared.' },

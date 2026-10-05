@@ -54,7 +54,7 @@
                         let bodyHtml = '';
                         if (q.type === 'tf') {
                             const isTrue = q.a === 'T';
-                            const tfLabel = isTrue ? '√ (正确/True)' : '× (错误/False)';
+                            const tfLabel = isTrue ? ('√ ' + App.t('正确 (True)')) : ('× ' + App.t('错误 (False)'));
                             bodyHtml = `<div class="text-[11px] text-[var(--sub)] mb-1">${tfLabel}</div>`;
                         } else if (q.type === 'fill') {
                             // 填空题没有选项数组，之前落进通用选项渲染器只会显示「选项数据缺失」
@@ -69,24 +69,24 @@
                             bodyHtml = `<div class="mt-1">${detailHtml}</div>`;
                         }
 
-                        const avgText = attemptsReal ? `${Math.round(avgSecReal * 10) / 10} 秒/次` : '--';
-                        const totalText = totalSecReal ? `${totalSecReal} 秒` : '--';
+                        const avgText = attemptsReal ? (App.i18n.lang === 'en' ? `${Math.round(avgSecReal * 10) / 10}s / attempt` : `${Math.round(avgSecReal * 10) / 10} 秒/次`) : '--';
+                        const totalText = totalSecReal ? (App.i18n.lang === 'en' ? `${totalSecReal}s total` : `${totalSecReal} 秒`) : '--';
 
                         // 规范头部：meta 信息与关闭按钮同一行；不再使用位置不固定的箭头装饰
                         pop.innerHTML = `
                             <div class="flex items-center justify-between gap-2 mb-1.5">
                                 <div class="text-[11px] text-[var(--sub)] truncate">${App.utils.escapeHTML(q.sub || '')} • ${App.utils.escapeHTML(q.chap || '')} • ${typeLabel}</div>
-                                <button type="button" class="an-pop-close flex-shrink-0 w-6 h-6 rounded-lg text-[var(--sub)] hover:text-[var(--text)] hover:bg-[var(--bg)] active:scale-90 transition-all flex items-center justify-center leading-none" aria-label="关闭详情">✕</button>
+                                <button type="button" class="an-pop-close flex-shrink-0 w-6 h-6 rounded-lg text-[var(--sub)] hover:text-[var(--text)] hover:bg-[var(--bg)] active:scale-90 transition-all flex items-center justify-center leading-none" aria-label="${App.t('关闭详情')}">✕</button>
                             </div>
                             <div class="text-[12px] font-medium text-[var(--text)] mb-1 leading-snug whitespace-pre-line">${App.utils.escapeHTML(q.q || '')}</div>
                             ${bodyHtml}
                             <div class="mt-2 pt-1.5 border-t border-[var(--border)] text-[11px] text-[var(--sub)] grid grid-cols-2 gap-y-0.5 gap-x-2">
-                                <div>作答次数：<span class="font-bold text-[var(--text)]">${attemptsReal}</span></div>
-                                <div>正确次数：<span class="font-bold text-[var(--text)]">${correct}</span></div>
-                                <div>错误次数：<span class="font-bold text-[var(--text)]">${wrong}</span></div>
-                                <div>错误率：<span class="font-bold text-[var(--text)]">${errRate}%</span></div>
-                                <div>平均用时：<span class="font-bold text-[var(--text)]">${avgText}</span></div>
-                                <div>总用时：<span class="font-bold text-[var(--text)]">${totalText}</span></div>
+                                <div>${App.t('作答次数')}：<span class="font-bold text-[var(--text)]">${attemptsReal}</span></div>
+                                <div>${App.t('正确次数')}：<span class="font-bold text-[var(--text)]">${correct}</span></div>
+                                <div>${App.t('错误次数')}：<span class="font-bold text-[var(--text)]">${wrong}</span></div>
+                                <div>${App.t('错误率')}：<span class="font-bold text-[var(--text)]">${errRate}%</span></div>
+                                <div>${App.t('平均用时')}：<span class="font-bold text-[var(--text)]">${avgText}</span></div>
+                                <div>${App.t('总用时')}：<span class="font-bold text-[var(--text)]">${totalText}</span></div>
                             </div>
                         `;
                         const closeBtn = pop.querySelector('.an-pop-close');
@@ -157,7 +157,7 @@
                         let currentSub = 'all';
                         if (subSelect) {
                             const prev = subSelect.value || 'all';
-                            subSelect.innerHTML = '<option value="all">全部科目</option>' + subs.map(sub => {
+                            subSelect.innerHTML = '<option value="all">' + App.t('全部科目') + '</option>' + subs.map(sub => {
                                 const esc = App.utils.escapeHTML(sub);
                                 return `<option value="${esc}">${esc}</option>`;
                             }).join('');
@@ -229,7 +229,7 @@
                             const subDetail = App.dom.get('an-subject-detail');
                             if (subDetail) {
                                 if (!filteredHistory.length) {
-                                    subDetail.innerHTML = `<div class="col-span-2 md:col-span-4 text-[11px] text-[var(--sub)]">当前科目暂无练习数据。</div>`;
+                                    subDetail.innerHTML = `<div class="col-span-2 md:col-span-4 text-[11px] text-[var(--sub)]">${App.t('当前科目暂无练习数据。')}</div>`;
                                 } else {
                                     const totalSec = Math.round(totalDurMs / 1000);
                                     const totalMin = Math.floor(totalSec / 60);
@@ -251,7 +251,7 @@
                                             <div class="text-sm font-bold text-[var(--text)]">${totalTimeText}</div>
                                         </div>
                                         <div>
-                                            <div class="text-[11px] text-[var(--sub)]">平均单题用时</div>
+                                            <div class="text-[11px] text-[var(--sub)]">${App.t('平均单题用时')}</div>
                                             <div class="text-sm font-bold text-blue-500">${avgTimeText}</div>
                                         </div>
                                         <div>
@@ -371,7 +371,7 @@
                             const typeColors = ['#0d9488', '#7c3aed', '#f59e0b', '#0ea5e9'];
                             requestAnimationFrame(() => App.chart.drawBar('typeChart', typeLabels, typeValues, typeColors));
 
-                            const durLabels = ['<5秒', '5-15秒', '15-30秒', '30-60秒', '>60秒'];
+                            const durLabels = App.i18n.lang === 'en' ? ['<5s', '5-15s', '15-30s', '30-60s', '>60s'] : ['<5秒', '5-15秒', '15-30秒', '30-60秒', '>60秒'];
                             const durColors = ['#10b981', '#0d9488', '#0891b2', '#7c3aed', '#ef4444'];
                             if (s.durBuckets.some(v => v > 0)) {
                                 requestAnimationFrame(() => App.chart.drawDonut('durChart', s.durBuckets, durLabels, durColors));
@@ -398,7 +398,7 @@
                                     <div class="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-900/30 rounded-xl">
                                         <div class="flex items-center gap-3">
                                             <svg class="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                                            <div><div class="text-[11px] font-bold text-green-700 dark:text-green-500 uppercase tracking-wide">最强科目</div><div class="text-xs text-[var(--text)] font-medium">${s.bestSub}</div></div>
+                                            <div><div class="text-[11px] font-bold text-green-700 dark:text-green-500 uppercase tracking-wide">${App.t('最强科目')}</div><div class="text-xs text-[var(--text)] font-medium">${s.bestSub}</div></div>
                                         </div>
                                         <span class="font-bold text-lg text-green-600 dark:text-green-400">${s.subjectStats[s.bestSub].acc}%</span>
                                     </div>`;
@@ -408,13 +408,13 @@
                                     <div class="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 rounded-xl mt-3">
                                         <div class="flex items-center gap-3">
                                             <span class="text-xl">📌</span>
-                                            <div><div class="text-[11px] font-bold text-red-600 dark:text-red-500 uppercase tracking-wide">需加强</div><div class="text-xs text-[var(--text)] font-medium">${s.worstSub}</div></div>
+                                            <div><div class="text-[11px] font-bold text-red-600 dark:text-red-500 uppercase tracking-wide">${App.t('需加强')}</div><div class="text-xs text-[var(--text)] font-medium">${s.worstSub}</div></div>
                                         </div>
                                         <span class="font-bold text-lg text-red-500 dark:text-red-400">${s.subjectStats[s.worstSub].acc}%</span>
                                     </div>`;
                             }
                             if (!s.bestSub && !s.worstSub) {
-                                summary.innerHTML = `<div class="text-xs text-[var(--sub)] p-4 text-center border border-dashed border-[var(--border)] rounded-xl">暂无足够的练习数据进行分析</div>`;
+                                summary.innerHTML = `<div class="text-xs text-[var(--sub)] p-4 text-center border border-dashed border-[var(--border)] rounded-xl">${App.t('暂无足够的练习数据进行分析')}</div>`;
                             }
                         }
                     }

@@ -296,8 +296,11 @@
                                 // 清掉旧文件的预览，防止用户误导入上一个文件的内容
                                 this._jsonImportPreview = null;
                                 this._jsonImportPreviewCount = 0;
-                                this._setImportBanner('error', '<b>JSON 解析失败：</b>文件里没有找到有效的 JSON 内容。'
-                                    + '<br>如果是 AI 生成的结果，请确认复制的是完整 JSON（本系统也兼容带 markdown 代码块或前后说明文字的内容）。');
+                                this._setImportBanner('error', App.i18n.lang === 'en'
+                                    ? '<b>JSON parse failed:</b> no valid JSON found in the file.'
+                                        + '<br>If this came from an AI, make sure you copied the complete JSON (markdown fences and surrounding text are tolerated).'
+                                    : '<b>JSON 解析失败：</b>文件里没有找到有效的 JSON 内容。'
+                                        + '<br>如果是 AI 生成的结果，请确认复制的是完整 JSON（本系统也兼容带 markdown 代码块或前后说明文字的内容）。');
                                 this._setApplyBtn('ready');
                                 { const ab = App.dom.get('import-json-apply-btn'); if (ab) ab.disabled = true; }
                                 return;
@@ -581,7 +584,9 @@
                             + `、内容相同跳过 <b>${report.skippedSame}</b> 道。`
                             + (report.fixedIds ? (App.i18n.lang === 'en' ? `<br>Auto-fixed <b>${report.fixedIds}</b> duplicate/missing question ID(s).` : `<br>已自动改写 <b>${report.fixedIds}</b> 个重复/缺失的题目 ID。`) : '');
                         this._setImportBanner('busy', this._importSummary
-                            + '<br><span class="opacity-75">正在同步到云端…</span>');
+                            + (App.i18n.lang === 'en'
+                                ? '<br><span class="opacity-75">Syncing to cloud…</span>'
+                                : '<br><span class="opacity-75">正在同步到云端…</span>'));
                         this._setApplyBtn('done');
                         if (statusEl) {
                             statusEl.textContent = `导入完成：新增 ${report.added} 道、更新 ${report.updated} 道`;
