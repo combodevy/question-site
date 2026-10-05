@@ -8,7 +8,7 @@ export const profile = {
         // 未登录：显示引导卡，绝不渲染账户操作按钮（修改密码/注销等都无意义）
         if (!App.auth || !App.auth.session) {
             root.innerHTML = `<div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-10 text-center">
-                <div class="text-3xl mb-3">🔐</div>
+                <div class="mb-3 flex justify-center"><svg class="w-9 h-9 text-[var(--sub)]" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg></div>
                 <div class="text-sm font-bold text-[var(--text)] mb-1">${App.t('请先登录')}</div>
                 <div class="text-xs text-[var(--sub)]">${App.t('登录后即可查看你的学习数据、趋势与成就。')}</div>
             </div>`;
@@ -49,18 +49,18 @@ export const profile = {
         const subjectTouched = Object.values(s.subjectStats).filter(v => v.attempts > 0).length;
 
         const achievements = [
-            { e: '🌱', name: t('初来乍到'), cond: t('注册账号'), ok: true },
-            { e: '✏️', name: t('小试牛刀'), cond: t('完成第 1 次作答'), ok: s.totalAttempts >= 1 },
-            { e: '💯', name: t('百题斩'), cond: t('累计作答 ≥ 100 次'), ok: s.totalAttempts >= 100 },
-            { e: '🏆', name: t('千题斩'), cond: t('累计作答 ≥ 1000 次'), ok: s.totalAttempts >= 1000 },
-            { e: '🔥', name: t('三日坚持'), cond: t('连续练习 ≥ 3 天'), ok: s.streak >= 3 },
-            { e: '📅', name: t('七日之约'), cond: t('连续练习 ≥ 7 天'), ok: s.streak >= 7 },
-            { e: '🌙', name: t('三十而立'), cond: t('连续练习 ≥ 30 天'), ok: s.streak >= 30 },
-            { e: '🎯', name: t('神射手'), cond: t('≥50 次作答且正确率 ≥ 85%'), ok: s.totalAttempts >= 50 && s.acc >= 85 },
-            { e: '⚡', name: t('完美一日'), cond: t('单日作答 ≥ 20 次且全部正确'), ok: perfectDay },
-            { e: '⭐', name: t('收藏家'), cond: t('收藏 ≥ 10 题'), ok: starred >= 10 },
-            { e: '🏗️', name: t('题库建筑师'), cond: t('题库 ≥ 50 题'), ok: s.total >= 50 },
-            { e: '🧭', name: t('全科探索'), cond: t('在 ≥ 3 个科目作答过'), ok: subjectTouched >= 3 }
+            { svg: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14l-4-4 1.41-1.41L10 13.17l6.59-6.59L18 8l-8 8z', name: t('初来乍到'), cond: t('注册账号'), ok: true },
+            { svg: 'M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 000-1.41l-2.34-2.34a.996.996 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z', name: t('小试牛刀'), cond: t('完成第 1 次作答'), ok: s.totalAttempts >= 1 },
+            { svg: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', name: t('百题斩'), cond: t('累计作答 ≥ 100 次'), ok: s.totalAttempts >= 100 },
+            { svg: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5', name: t('千题斩'), cond: t('累计作答 ≥ 1000 次'), ok: s.totalAttempts >= 1000 },
+            { svg: 'M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z', name: t('三日坚持'), cond: t('连续练习 ≥ 3 天'), ok: s.streak >= 3 },
+            { svg: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', name: t('七日之约'), cond: t('连续练习 ≥ 7 天'), ok: s.streak >= 7 },
+            { svg: 'M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z', name: t('三十而立'), cond: t('连续练习 ≥ 30 天'), ok: s.streak >= 30 },
+            { svg: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14a6 6 0 100 12 6 6 0 000-12zm0 9a3 3 0 110-6 3 3 0 010 6z', name: t('神射手'), cond: t('≥50 次作答且正确率 ≥ 85%'), ok: s.totalAttempts >= 50 && s.acc >= 85 },
+            { svg: 'M13 10V3L4 14h7v7l9-11h-7z', name: t('完美一日'), cond: t('单日作答 ≥ 20 次且全部正确'), ok: perfectDay },
+            { svg: 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z', name: t('收藏家'), cond: t('收藏 ≥ 10 题'), ok: starred >= 10 },
+            { svg: 'M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6', name: t('题库建筑师'), cond: t('题库 ≥ 50 题'), ok: s.total >= 50 },
+            { svg: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z', name: t('全科探索'), cond: t('在 ≥ 3 个科目作答过'), ok: subjectTouched >= 3 }
         ];
         const unlocked = achievements.filter(a => a.ok).length;
 
@@ -118,7 +118,10 @@ export const profile = {
             <div class="rounded-xl border p-3 text-center transition-colors ${a.ok
                 ? 'border-primary-200 dark:border-primary-800 bg-primary-50/60 dark:bg-primary-900/20'
                 : 'border-[var(--border)] bg-[var(--bg)] opacity-55'}">
-                <div class="text-xl leading-none mb-1.5 ${a.ok ? '' : 'grayscale'}">${a.ok ? a.e : '🔒'}</div>
+                <div class="mb-1.5 flex items-center justify-center relative">${a.ok
+            ? `<svg class="w-7 h-7 text-primary-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="${a.svg}"/></svg>`
+            : `<svg class="w-6 h-6 text-[var(--sub)] opacity-50" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>`
+        }</div>
                 <div class="text-[11px] font-bold text-[var(--text)]">${esc(a.name)}</div>
                 <div class="text-[10px] text-[var(--sub)] mt-0.5 leading-tight">${esc(a.cond)}</div>
             </div>`).join('');
@@ -141,7 +144,7 @@ export const profile = {
                     <div class="text-[11px] text-[var(--sub)] mt-1">${App.i18n.lang === 'en' ? 'Joined' : '注册于'} ${esc(createdText)} · ID <span class="font-mono">${esc(shortId)}</span><button id="pf-copy-id" class="ml-1 text-primary-600 hover:underline">${t('复制')}</button></div>
                 </div>
                 <div class="flex-shrink-0 text-center rounded-xl bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-900 px-3 py-2">
-                    <div class="text-base font-bold text-orange-500">🔥 ${s.streak}</div>
+                    <div class="text-base font-bold text-orange-500 flex items-center gap-0.5"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" /></svg> ${s.streak}</div>
                     <div class="text-[10px] text-[var(--sub)]">${t('连续天数')}</div>
                 </div>
             </div>
