@@ -2426,6 +2426,7 @@ export const sync = {
                     }
                 },
                 async openLogPanel() {
+                    if (window.App && App.ui && typeof App.ui.closeModal === 'function') App.ui.closeModal('config');
                     if (!App.auth || typeof App.auth.getToken !== 'function') return;
                     const token = await App.auth.getToken();
                     if (!token) return;
