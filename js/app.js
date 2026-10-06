@@ -71,6 +71,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     // 同时上报到 Worker（/api/client-errors），管理后台「系统日志」可见——
     // 线上出问题开发者先于用户知道。节流：每会话最多报 5 条，防止循环上报。
     let lastReportedError = null;
+// 英语专题等模块需要全局可用的提示条（模块作用域内 typeof 探测不到）
+window.showGlobalError = showGlobalError;
     const showGlobalError = (msg, err) => {
         let toast = document.getElementById('global-error-toast');
         if (!toast) {
