@@ -221,13 +221,11 @@ export const english = {
         if (!meta || this._loading) return;
         const answers = this.answers();
         const key = answers[id] || {};
-        if (Object.keys(key).length < meta.qCount) {
-            const miss = meta.qCount - Object.keys(key).length;
-            if (typeof showGlobalError === 'function') {
-                showGlobalError(this.t('该卷还有 N 题未录入答案，先点「答案」补全后再开始。').replace('N', miss));
-            }
-            this.openKeyModal(id);
-            return;
+        const keyed = Object.keys(key).length;
+        // 未录入答案也可练习：自测模式（可看题、可作答、不计分），录入答案后重新开始即自动判分
+        let notice = null;
+        if (keyed < meta.qCount) {
+            notice = this.t('自测模式：本卷未录入答案，作答不计分；点「答案」补录后重新开始即自动判分。');
         }
         let data;
         try {
@@ -251,23 +249,20 @@ export const english = {
             }
             if (sec.passage) parts.push(sec.passage);
             parts.push(q.q);
-            const ans = (key[q.no] || q.a || '').trim().toUpperCase();
+            const ans = (key[q.no] || '').trim().toUpperCase();
+            const selfCheck = !ans;
             qs.push({
                 id: 'eng-' + data.id + '-q' + q.no,
                 type: 'mcq',
                 q: parts.join('\n\n'),
                 o: (q.o && q.o.length ? q.o : (sec.words || []).map((w, i) => String.fromCharCode(65 + i) + '. ' + w)),
-                a: ans
+                // 自测题需要占位答案才能通过 schema 校验；quiz 对 selfCheck 题跳过计分
+                a: ans || (q.o && q.o.length ? String.fromCharCode(65 + Math.min(1, q.o.length - 1)) : 'A'),
+                selfCheck
             });
         }
         if (!qs.length) {
             if (typeof showGlobalError === 'function') showGlobalError(this.t('该卷解析结果为空。'));
-            return;
-        }
-        // 校验答案齐全（缺答案的题判分会失真）
-        const noAns = qs.filter(q => !q.a).length;
-        if (noAns > 0) {
-            if (typeof showGlobalError === 'function') showGlobalError(this.t('N 道题缺少答案，请补全后再开始。').replace('N', noAns));
             return;
         }
         const bank = {};
@@ -275,9 +270,10 @@ export const english = {
         bank[subject][chapter] = qs;
         const report = App.data.importBank(JSON.stringify(bank));
         if (!report) return;
+        if (notice && typeof showGlobalError === 'function') showGlobalError(notice);
         // 导入成功 → 直接进入该套练习
         const chapterValue = subject + '\u0001' + chapter;
         App.router.go('quiz');
-        App.quiz.init('custom', { type: 'all', customChapters: [chapterValue] });
+        App.quiz.init('custom', { type: 'all', limit: 'all', customChapters: [chapterValue] });
     }
 };
