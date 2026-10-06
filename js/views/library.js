@@ -193,9 +193,9 @@
                             delBtn = `<button class="text-[11px] font-bold text-red-500 border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 px-2 py-1 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 active:scale-95 transition-all" data-role="forget">${App.t("移除")}</button>`;
                         }
 
-                        // 星标按钮：所有模式都显示；已收藏高亮实心星
+                        // 星标按钮：所有模式都显示；已收藏高亮实心星（SVG 加粗，字符星太细小）
                         const starred = App.data.isStarred(q.id);
-                        const starBtn = `<button class="text-[13px] leading-none mr-1.5 ${starred ? 'text-amber-400' : 'text-[var(--sub)] hover:text-amber-400'} transition-colors" data-role="star" data-id="${App.utils.escapeHTML(String(q.id || ''))}" title="${starred ? '取消收藏' : '收藏'}" aria-label="${starred ? '取消收藏' : '收藏'}">${starred ? '★' : '☆'}</button>`;
+                        const starBtn = `<button class="leading-none mr-1.5 ${starred ? 'text-amber-400' : 'text-[var(--sub)] hover:text-amber-400'} transition-colors" data-role="star" data-id="${App.utils.escapeHTML(String(q.id || ''))}" title="${starred ? '取消收藏' : '收藏'}" aria-label="${starred ? '取消收藏' : '收藏'}"><svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="${starred ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></button>`;
 
                         let ansPreview = '';
                         let detailsHtml = '';
@@ -555,7 +555,9 @@
                                         return;
                                     }
                                     // 只更新这一颗星的状态，不重渲染整个列表
-                                    btn.textContent = starred ? '★' : '☆';
+                                    const starSvg = btn.querySelector('svg');
+                                    if (starSvg) starSvg.setAttribute('fill', starred ? 'currentColor' : 'none');
+                                    else btn.textContent = starred ? '★' : '☆';
                                     btn.classList.toggle('text-amber-400', starred);
                                     btn.classList.toggle('text-[var(--sub)]', !starred);
                                     btn.title = App.t(starred ? '取消收藏' : '收藏');
