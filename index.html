@@ -399,6 +399,37 @@
         /* ===== 英语阅读题双栏布局 =====
            桌面/平板：文章左栏 sticky 自滚动，题目右栏并排，文章全程可见；
            手机：文章收进底部抽屉，按钮唤起，答题区保持干净。 */
+        #q-passage-text {
+            /* 真题正文统一衬线新罗马、常规字重 */
+            font-family: 'Times New Roman', 'Times', 'Georgia', serif;
+            font-weight: 400;
+        }
+
+        /* 自测模式选中项：中性主色描边，不伪装判分结果 */
+        .self-pick {
+            border-color: var(--primary) !important;
+        }
+
+        .psg-font-btn {
+            min-width: 26px;
+            height: 24px;
+            padding: 0 6px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--sub);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+
+        .psg-font-btn:hover {
+            color: var(--text);
+            background: var(--bg);
+        }
+
         #q-passage-col {
             display: none;
         }
@@ -1034,12 +1065,16 @@
                         class="card p-4 md:p-5 rounded-2xl flex flex-col bg-[var(--card)] border border-[var(--border)]">
                         <div class="flex justify-between items-center mb-2 md:mb-3">
                             <span class="text-[11px] font-bold text-[var(--sub)] uppercase tracking-wider" data-i18n>文章 Passage</span>
-                            <button onclick="App.quiz.togglePassage()" aria-label="收起文章"
-                                class="md:hidden p-1 text-[var(--sub)] hover:text-[var(--text)] active:scale-90 transition-all">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
+                            <div class="flex items-center gap-1.5">
+                                <button onclick="App.quiz.psgFont(-1)" aria-label="缩小字体" class="psg-font-btn">A−</button>
+                                <button onclick="App.quiz.psgFont(1)" aria-label="放大字体" class="psg-font-btn">A+</button>
+                                <button onclick="App.quiz.togglePassage()" aria-label="收起文章"
+                                    class="md:hidden p-1 text-[var(--sub)] hover:text-[var(--text)] active:scale-90 transition-all">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
                         <div id="q-passage-text"
                             class="flex-1 min-h-0 overflow-y-auto custom-scroll whitespace-pre-line text-sm md:text-[15px] leading-relaxed text-[var(--text)]"></div>
