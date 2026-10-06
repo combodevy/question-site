@@ -309,13 +309,25 @@ export const english = {
                 no: q.no,
                 sec: q.sec,
                 stem: parts.join('\n\n'),
-                o: (q.o && q.o.length ? q.o : (sec.words || []).map((w, i) => String.fromCharCode(65 + i) + '. ' + w)),
+                o: (q.o && q.o.length ? q.o.map(x => String(x).replace(/^[A-O][\)\.]\s*/, '')) : (sec.words || []).slice()),
                 psg: sec.passage ? this.reflowPassage(sec.passage) : null
             };
         });
         // Section 顺序按题目首次出现
         const secOrder = [];
         for (const q of questions) if (!secOrder.includes(q.sec)) secOrder.push(q.sec);
+        // 每个 Section 自己的文章（完形节 = 带行内空号的完整文章）
+        const secPassages = {};
+        for (const sec of secOrder) {
+            const secMeta = sections[sec] || {};
+            if (secMeta.passage) secPassages[sec] = this.reflowPassage(secMeta.passage);
+        }
+        // 完形型 Section：文章内含空号，题干冗余 → 卡片只留选项
+        const clozeSecs = secOrder.filter(sec => {
+            if (!secPassages[sec]) return false;
+            const nos = questions.filter(q => q.sec === sec).map(q => q.no);
+            return nos.length > 0 && nos.every(no => new RegExp('(?<![\\d])' + no + '(?![\\d])').test(secPassages[sec]));
+        });
         const saved = this.loadSession(id) || {};
         this._sess = {
             id,
@@ -323,6 +335,8 @@ export const english = {
             questions,
             secOrder,
             sections,
+            secPassages,
+            clozeSecs,
             key: this.answers()[id] || {},
             answers: saved.answers || {},
             graded: !!saved.graded,
@@ -354,8 +368,7 @@ export const english = {
                     : '') +
                 ' <span class="opacity-75">' + done + '/' + total + '</span></button>';
         }).join('');
-        const psg = s.questions.find(q => q.psg);
-        const psgText = psg ? psg.psg : '';
+        const psgText = s.secPassages[s.curSec] || '';
         root.innerHTML =
             '<div class="flex items-center justify-between gap-2 flex-wrap">' +
             '<div class="flex items-center gap-2 min-w-0">' +
@@ -366,7 +379,7 @@ export const english = {
             '<span class="text-[11px] text-[var(--sub)]">' + this.t('已答') + ' <b class="text-[var(--text)]">' + answered + '</b>/' + s.questions.length + '</span>' +
             '<button data-submit class="px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700 active:scale-95 transition-all shadow-sm">' + this.t('交卷') + '</button>' +
             '</div></div>' +
-            '<div class="eng-session grid gap-3 md:gap-4' + (psgText ? ' has-psg' : '') + '">' +
+            '<div class="eng-session grid gap-3 md:gap-4">' +
             '<div class="eng-psg-col card p-4 md:p-5 rounded-2xl flex flex-col bg-[var(--card)] border border-[var(--border)]">' +
             '<div class="flex justify-between items-center mb-2 md:mb-3">' +
             '<span class="text-[11px] font-bold text-[var(--sub)] uppercase tracking-wider">' + this.t('文章 Passage') + '</span>' +
@@ -375,10 +388,11 @@ export const english = {
             '<button onclick="App.views.english.psgFont(1)" aria-label="放大字体" class="psg-font-btn">A+</button>' +
             '<button data-psg-close class="md:hidden p-1 text-[var(--sub)] hover:text-[var(--text)] active:scale-90 transition-all"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>' +
             '</div></div>' +
-            '<div id="eng-psg-text" class="flex-1 min-h-0 overflow-y-auto custom-scroll whitespace-pre-line text-sm md:text-[15px] leading-relaxed text-[var(--text)]" style="font-family:\'Times New Roman\',\'Times\',\'Georgia\',serif;font-weight:400">' + this.esc(psgText) + '</div>' +
+            '<div id="eng-psg-text" class="flex-1 min-h-0 overflow-y-auto custom-scroll whitespace-pre-line text-sm md:text-[15px] leading-relaxed text-[var(--text)]" style="font-family:\'Times New Roman\',\'Times\',\'Georgia\',serif;font-weight:400"></div>' +
+            '<div id="eng-psg-bank" class="hidden mt-3 pt-2.5 border-t border-[var(--border)] text-[11px] leading-loose text-[var(--text)]"></div>' +
             '</div>' +
             '<div class="eng-q-col flex flex-col gap-3 min-w-0">' +
-            (psgText ? '<button data-psg-open class="md:hidden w-full px-3 py-2.5 rounded-xl border border-primary-200 dark:border-primary-900 bg-primary-50 dark:bg-primary-950/30 text-primary-600 dark:text-primary-400 text-xs font-bold flex items-center justify-center gap-2 active:scale-[0.99] transition-all"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg><span>' + this.t('阅读文章 (Passage)') + '</span></button>' : '') +
+            '<button data-psg-open class="hidden md:hidden w-full px-3 py-2.5 rounded-xl border border-primary-200 dark:border-primary-900 bg-primary-50 dark:bg-primary-950/30 text-primary-600 dark:text-primary-400 text-xs font-bold items-center justify-center gap-2 active:scale-[0.99] transition-all"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg><span>' + this.t('阅读文章 (Passage)') + '</span></button>' +
             '<div class="flex gap-1.5 flex-wrap">' + tabs + '</div>' +
             '<div id="eng-q-list" class="flex flex-col gap-2.5"></div>' +
             '</div>' +
@@ -392,16 +406,50 @@ export const english = {
         if (psgOpen) psgOpen.addEventListener('click', () => this.togglePsg(true));
         const bd = root.querySelector('.eng-psg-backdrop');
         bd.addEventListener('click', () => this.togglePsg(false));
-        root.querySelectorAll('[data-sec]').forEach(b => b.addEventListener('click', () => { s.curSec = b.dataset.sec; this.renderQuestions(); this._syncTabs(); }));
-        if (psgText) {
-            if (this._psgFont == null) {
-                let v = 15;
-                try { v = parseInt(localStorage.getItem('qs_psg_fontsize'), 10) || 15; } catch (e) { }
-                this._psgFont = Math.min(24, Math.max(12, v));
-            }
-            root.querySelector('#eng-psg-text').style.fontSize = this._psgFont + 'px';
-        }
+        root.querySelectorAll('[data-sec]').forEach(b => b.addEventListener('click', () => { s.curSec = b.dataset.sec; this.renderQuestions(); this._syncTabs(); this._syncPassage(); }));
+        this._syncPassage();
         this.renderQuestions();
+    },
+
+    /** 文章栏跟随当前 Section：内容 + 词库 + 空号高亮 + 抽屉按钮可见性 */
+    _syncPassage() {
+        const s = this._sess;
+        const root = document.getElementById('english-root');
+        if (!root || !s) return;
+        const session = root.querySelector('.eng-session');
+        const txt = root.querySelector('#eng-psg-text');
+        const bankEl = root.querySelector('#eng-psg-bank');
+        const openBtn = root.querySelector('[data-psg-open]');
+        if (!session || !txt || !bankEl) return;
+        const psg = s.secPassages[s.curSec] || '';
+        session.classList.toggle('has-psg', !!psg);
+        txt.textContent = psg;
+        if (this._psgFont == null) {
+            let v = 15;
+            try { v = parseInt(localStorage.getItem('qs_psg_fontsize'), 10) || 15; } catch (e) { }
+            this._psgFont = Math.min(24, Math.max(12, v));
+        }
+        txt.style.fontSize = this._psgFont + 'px';
+        // 完形节：空号高亮（普通阅读节的正文数字不高亮，避免误导）
+        const nos = s.questions.filter(q => q.sec === s.curSec).map(q => q.no).sort((a, b) => b - a);
+        if (psg && nos.length && s.clozeSecs.includes(s.curSec)) {
+            const re = new RegExp('(?<!\\d)(' + nos.join('|') + ')(?!\\d)', 'g');
+            txt.innerHTML = this.esc(psg).replace(re, '<span class="eng-blank">$1</span>');
+        } else {
+            txt.innerHTML = this.esc(psg);
+        }
+        // 选词填空：词库挂在文章下方
+        const words = (s.sections[s.curSec] || {}).words || [];
+        if (words.length) {
+            bankEl.innerHTML = '<span class="text-[10px] font-bold text-[var(--sub)] uppercase tracking-wider mr-2">' + this.t('词库 Word Bank') + '</span>' +
+                words.map((w, i) => '<span class="eng-bank-word">' + String.fromCharCode(65 + i) + '. ' + this.esc(w) + '</span>').join('');
+            bankEl.classList.remove('hidden');
+        } else {
+            bankEl.classList.add('hidden');
+            bankEl.innerHTML = '';
+        }
+        if (openBtn) openBtn.style.display = psg ? 'flex' : 'none';
+        if (!psg) this.togglePsg(false);
     },
 
     _syncTabs() {
@@ -420,6 +468,7 @@ export const english = {
         const wrap = document.getElementById('eng-q-list');
         if (!wrap || !s) return;
         const graded = s.graded;
+        const isCloze = s.clozeSecs.includes(s.curSec);
         const html = s.questions.filter(q => q.sec === s.curSec).map(q => {
             const picked = s.answers[q.no] || '';
             const keyAns = (s.key[q.no] || '').toUpperCase();
@@ -429,17 +478,21 @@ export const english = {
                 const letter = String.fromCharCode(65 + i);
                 const sel = picked === letter;
                 let cls = 'eng-opt' + (sel ? ' sel' : '') + (graded && keyAns ? (letter === keyAns ? ' ok' : (sel ? ' bad' : '')) : '');
+                const isLetterOnly = opt === letter;
                 return '<button data-no="' + q.no + '" data-letter="' + letter + '" class="' + cls + '">' +
                     '<span class="font-bold flex-shrink-0">' + letter + '</span>' +
-                    '<span class="min-w-0">' + this.esc(opt) + '</span>' +
+                    (isLetterOnly ? '' : '<span class="min-w-0">' + this.esc(opt) + '</span>') +
                     '</button>';
             }).join('');
             const gradeNote = (graded && keyAns && picked !== keyAns)
                 ? '<div class="text-[11px] text-emerald-500 mt-1">' + this.t('正确答案') + '：<b>' + keyAns + '</b></div>'
                 : '';
+            const stemHtml = isCloze
+                ? ''
+                : '<div class="text-xs font-bold text-[var(--text)] leading-relaxed whitespace-pre-line min-w-0">' + this.esc(q.stem) + '</div>';
             return '<div class="card p-3.5 rounded-xl">' +
                 '<div class="flex items-start justify-between gap-2 mb-2">' +
-                '<div class="text-xs font-bold text-[var(--text)] leading-relaxed whitespace-pre-line min-w-0">' + this.esc(q.stem) + '</div>' +
+                stemHtml +
                 '<span class="text-[10px] font-mono font-bold text-[var(--sub)] bg-[var(--bg)] px-1.5 py-0.5 rounded flex-shrink-0">Q' + q.no + '</span>' +
                 '</div>' +
                 '<div class="eng-opts flex flex-col gap-1.5">' + opts + '</div>' +

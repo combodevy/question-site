@@ -506,6 +506,7 @@ export const i18n = {
         '错误：': { en: 'Error: ' },
         '查看': { en: 'View' },
         '自测模式': { en: 'Self-check' },
+        '词库 Word Bank': { en: 'Word Bank' },
         '已完成': { en: 'Completed' },
         '平均正确率': { en: 'Avg accuracy' },
         '英语数据独立保存，不计入主页统计': { en: 'English data is stored separately and never counted in the main dashboard stats.' },

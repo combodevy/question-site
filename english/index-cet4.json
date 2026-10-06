@@ -168,22 +168,10 @@
 "file": "papers/cet4-2018-12-02.json"
 },
 {
-"id": "cet4-2018-12-01",
-"title": "2018年12月英语四级真题(第1套)",
-"qCount": 29,
-"file": "papers/cet4-2018-12-01.json"
-},
-{
 "id": "cet4-2018-06-03",
 "title": "2018年6月英语四级真题(第3套)",
 "qCount": 30,
 "file": "papers/cet4-2018-06-03.json"
-},
-{
-"id": "cet4-2017-12-02",
-"title": "2017年12月英语四级真题(第2套)",
-"qCount": 29,
-"file": "papers/cet4-2017-12-02.json"
 },
 {
 "id": "cet4-2017-06-02",
@@ -222,57 +210,9 @@
 "file": "papers/cet4-2016-06-01.json"
 },
 {
-"id": "cet4-2015-12-02",
-"title": "2015年12月英语四级真题(第2套)",
-"qCount": 30,
-"file": "papers/cet4-2015-12-02.json"
-},
-{
-"id": "cet4-2015-12-01",
-"title": "2015年12月英语四级真题(第1套)",
-"qCount": 30,
-"file": "papers/cet4-2015-12-01.json"
-},
-{
-"id": "cet4-2015-06-03",
-"title": "2015年6月英语四级真题(第3套)",
-"qCount": 30,
-"file": "papers/cet4-2015-06-03.json"
-},
-{
 "id": "cet4-2015-06-02",
 "title": "2015年6月英语四级真题(第2套)",
 "qCount": 30,
 "file": "papers/cet4-2015-06-02.json"
-},
-{
-"id": "cet4-2014-12-03",
-"title": "2014年12月英语四级真题(第3套)",
-"qCount": 30,
-"file": "papers/cet4-2014-12-03.json"
-},
-{
-"id": "cet4-2014-12-01",
-"title": "2014年12月英语四级真题(第1套)",
-"qCount": 30,
-"file": "papers/cet4-2014-12-01.json"
-},
-{
-"id": "cet4-2014-06-03",
-"title": "2014年6月英语四级真题(第3套)",
-"qCount": 30,
-"file": "papers/cet4-2014-06-03.json"
-},
-{
-"id": "cet4-2014-06-02",
-"title": "2014年6月英语四级真题(第2套)",
-"qCount": 28,
-"file": "papers/cet4-2014-06-02.json"
-},
-{
-"id": "cet4-2014-06-01",
-"title": "2014年6月英语四级真题(第1套)",
-"qCount": 30,
-"file": "papers/cet4-2014-06-01.json"
 }
 ]
