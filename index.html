@@ -563,6 +563,92 @@
             color: var(--primary);
         }
 
+        /* 完形空位槽：可点击，已填显示词 */
+        #view-english .eng-blank-slot {
+            display: inline-flex;
+            align-items: baseline;
+            gap: 4px;
+            min-width: 46px;
+            margin: 0 3px;
+            padding: 1px 8px;
+            border: none;
+            border-bottom: 2px dashed var(--primary);
+            background: rgba(16, 185, 129, 0.05);
+            border-radius: 6px 6px 0 0;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: inherit;
+            line-height: inherit;
+            vertical-align: baseline;
+            transition: background 0.15s;
+        }
+
+        #view-english .eng-blank-slot:hover {
+            background: rgba(16, 185, 129, 0.14);
+        }
+
+        #view-english .eng-blank-slot i {
+            font-style: normal;
+            font-size: 10px;
+            font-weight: 700;
+            font-family: ui-monospace, monospace;
+            color: var(--primary);
+            opacity: 0.85;
+        }
+
+        #view-english .eng-blank-slot b {
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        #view-english .eng-blank-slot.ok {
+            border-bottom-color: #10b981;
+        }
+
+        #view-english .eng-blank-slot.bad {
+            border-bottom-color: #ef4444;
+        }
+
+        /* 长篇阅读段落标记 */
+        #view-english .eng-para-mark {
+            display: inline-block;
+            font-weight: 700;
+            color: var(--primary);
+            margin-right: 2px;
+        }
+
+        /* 完形作答条行 */
+        #view-english .eng-strip-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            padding: 7px 10px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--card);
+            color: var(--text);
+            font-size: 12px;
+            transition: all 0.15s;
+        }
+
+        #view-english .eng-strip-row:hover {
+            background: var(--bg);
+            border-color: var(--primary);
+        }
+
+        #view-english .eng-strip-row.has {
+            background: rgba(16, 185, 129, 0.05);
+        }
+
+        #view-english .eng-strip-row.ok {
+            border-color: #10b981;
+        }
+
+        #view-english .eng-strip-row.bad {
+            border-color: #ef4444;
+        }
+
         #view-english .eng-bank-word {
             display: inline-block;
             margin: 2px 10px 2px 0;
