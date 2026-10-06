@@ -81,7 +81,8 @@ export const quiz = {
                         pool = pool.filter(q => targets.includes(`${q.sub}\u0001${q.chap}`));
                         if (!pool.length) { alert(App.t("选中的章节下没有符合的题目。")); return false; }
 
-                        pool = App.utils.shuffle(pool);
+                        // 英语真题等外部入口可传 order:'natural' 保持题号顺序（不洗牌）
+                        if ((config && config.order) !== 'natural') pool = App.utils.shuffle(pool);
                         // 英语专题等外部入口可通过 config.limit 指定题量（如 'all' 整卷）
                         const l = (config && config.limit) ? String(config.limit) : App.dom.getValue('setup-limit', '20');
                         const n = parseInt(l, 10);
@@ -359,7 +360,7 @@ export const quiz = {
                         App.dom.show('quiz-feedback');
                         if (c2) {
                             Array.from(c2.children).forEach(child => {
-                                if (this.currentMultiSelection.has(child.dataset.val)) child.classList.add('correct');
+                                if (this.currentMultiSelection.has(child.dataset.val)) child.classList.add('self-pick');
                             });
                         }
                         App.dom.setText('fb-icon', 'i');
@@ -407,7 +408,7 @@ export const quiz = {
                     if (q.selfCheck) {
                         const c2 = App.dom.get('q-options');
                         if (c2) c2.style.pointerEvents = 'none';
-                        el.classList.add('correct');
+                        el.classList.add('self-pick');
                         App.dom.show('quiz-feedback');
                         App.dom.setText('fb-icon', 'i');
                         App.dom.setText('fb-title', App.t('自测模式'));
@@ -515,6 +516,12 @@ export const quiz = {
                             txt.dataset.sig = sig;
                             txt.scrollTop = 0;
                         }
+                        if (this._psgFont == null) {
+                            let v = 15;
+                            try { v = parseInt(localStorage.getItem('qs_psg_fontsize'), 10) || 15; } catch (e) { }
+                            this._psgFont = Math.min(24, Math.max(12, v));
+                        }
+                        txt.style.fontSize = this._psgFont + 'px';
                         // 收起抽屉（手机），避免上一题的开合状态残留
                         col.classList.remove('open');
                         backdrop.classList.add('hidden');
@@ -525,6 +532,21 @@ export const quiz = {
                         col.classList.remove('open');
                         backdrop.classList.add('hidden');
                     }
+                },
+
+                // 文章字号：localStorage 记忆，12-24px
+                _psgFont: null,
+
+                psgFont(delta) {
+                    if (this._psgFont == null) {
+                        let v = 15;
+                        try { v = parseInt(localStorage.getItem('qs_psg_fontsize'), 10) || 15; } catch (e) { }
+                        this._psgFont = Math.min(24, Math.max(12, v));
+                    }
+                    this._psgFont = Math.min(24, Math.max(12, this._psgFont + delta));
+                    try { localStorage.setItem('qs_psg_fontsize', String(this._psgFont)); } catch (e) { }
+                    const txt = document.getElementById('q-passage-text');
+                    if (txt) txt.style.fontSize = this._psgFont + 'px';
                 },
 
                 togglePassage() {
