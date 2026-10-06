@@ -234,6 +234,22 @@ export const quiz = {
                     const exact = accepted.some(x => x === userAns);
 
                     const duration = this._questionStartTime ? Math.min(Date.now() - this._questionStartTime, 300000) : 0;
+                    // 自测模式（题目未录入答案）：可作答但不计分、不写历史
+                    if (q.selfCheck) {
+                        input.disabled = true;
+                        const c2 = App.dom.get('q-options');
+                        if (c2) c2.style.pointerEvents = 'none';
+                        App.dom.show('quiz-feedback');
+                        App.dom.setText('fb-icon', 'i');
+                        App.dom.setText('fb-title', App.t('自测模式'));
+                        App.dom.setText('fb-desc', App.t('本题未录入答案，不计分。可在英语专题「答案」中补录后重新练习。'));
+                        if (this._pendingNextTimer) clearTimeout(this._pendingNextTimer);
+                        this._pendingNextTimer = setTimeout(() => {
+                            this._pendingNextTimer = null;
+                            this.next();
+                        }, 1400);
+                        return;
+                    }
                     App.data.record(q.id, ok, duration);
 
                     input.disabled = true;
@@ -333,6 +349,21 @@ export const quiz = {
                     const ok = userAns === normalizedAnswer;
 
                     const duration = this._questionStartTime ? Math.min(Date.now() - this._questionStartTime, 300000) : 0;
+                    if (q.selfCheck) {
+                        const c2 = App.dom.get('q-options');
+                        if (c2) c2.style.pointerEvents = 'none';
+                        App.dom.hide('multi-actions');
+                        App.dom.show('quiz-feedback');
+                        if (c2) {
+                            Array.from(c2.children).forEach(child => {
+                                if (this.currentMultiSelection.has(child.dataset.val)) child.classList.add('correct');
+                            });
+                        }
+                        App.dom.setText('fb-icon', 'i');
+                        App.dom.setText('fb-title', App.t('自测模式'));
+                        App.dom.setText('fb-desc', App.t('本题未录入答案，不计分。可在英语专题「答案」中补录后重新练习。'));
+                        return;
+                    }
                     App.data.record(q.id, ok, duration);
 
                     const c = App.dom.get('q-options');
@@ -370,6 +401,21 @@ export const quiz = {
                 sub(val, el) {
                     if (this._pendingNextTimer) return;   // 已答对等待跳转：忽略重复提交
                     const q = this.queue[this.idx];
+                    if (q.selfCheck) {
+                        const c2 = App.dom.get('q-options');
+                        if (c2) c2.style.pointerEvents = 'none';
+                        el.classList.add('correct');
+                        App.dom.show('quiz-feedback');
+                        App.dom.setText('fb-icon', 'i');
+                        App.dom.setText('fb-title', App.t('自测模式'));
+                        App.dom.setText('fb-desc', App.t('本题未录入答案，不计分。可在英语专题「答案」中补录后重新练习。'));
+                        if (this._pendingNextTimer) clearTimeout(this._pendingNextTimer);
+                        this._pendingNextTimer = setTimeout(() => {
+                            this._pendingNextTimer = null;
+                            this.next();
+                        }, 1400);
+                        return;
+                    }
                     const ok = val === q.a;
                     const duration = this._questionStartTime ? Math.min(Date.now() - this._questionStartTime, 300000) : 0;
                     App.data.record(q.id, ok, duration);
