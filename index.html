@@ -498,6 +498,15 @@
             }
         }
 
+        /* 动画 forwards/both 残留 identity transform 会劫持后代 position:fixed
+           （抽屉被定位到整个视图容器底部而非视口），这两个视图必须放开 */
+        #view-english.animate-slide-up,
+        #view-quiz.animate-slide-in,
+        #view-english.anim-view-in,
+        #view-quiz.anim-view-in {
+            animation-fill-mode: none;
+        }
+
         /* ===== 英语整卷会话（english.js 专属，与主刷题引擎数据分离） ===== */
         .eng-session .eng-psg-col {
             display: none;
