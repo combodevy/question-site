@@ -346,6 +346,44 @@ export const english = {
         this.renderSession();
     },
 
+    /** 完形空位槽：已填显示词，未填显示空号；点击弹选词面板 */
+    _slotHtml(no) {
+        const s = this._sess;
+        const letter = s.answers[no];
+        const q = s.questions.find(q => q.no === no);
+        const word = letter && q ? (q.o['ABCDEFGHIJKLMNOPQRSTUVWXYZ'.indexOf(letter)] || '') : '';
+        const gradedCls = s.graded && s.key[no] ? (letter === (s.key[no] || '').toUpperCase() ? ' ok' : ' bad') : '';
+        return '<button class="eng-blank-slot' + (letter ? ' filled' : '') + gradedCls + '" data-no="' + no + '">' +
+            (letter ? '<b>' + this.esc(word) + '</b><i>' + no + '</i>' : '<i>' + no + '</i>') +
+            '</button>';
+    },
+
+    /** 底部选词面板：列出该空的所有选项 */
+    openPicker(no) {
+        const s = this._sess;
+        if (!s || s.graded) return;
+        const q = s.questions.find(q => q.no === no);
+        if (!q) return;
+        const pk = document.getElementById('eng-picker');
+        if (!pk) return;
+        pk.querySelector('#eng-pk-title').textContent = 'Q' + no;
+        const cur = s.answers[no] || '';
+        pk.querySelector('#eng-pk-opts').innerHTML = q.o.map((opt, i) => {
+            const letter = String.fromCharCode(65 + i);
+            return '<button data-letter="' + letter + '" class="eng-opt' + (cur === letter ? ' sel' : '') + '">' +
+                '<span class="font-bold flex-shrink-0">' + letter + '</span>' +
+                (opt === letter ? '' : '<span class="min-w-0">' + this.esc(opt) + '</span>') +
+                '</button>';
+        }).join('');
+        pk.classList.remove('hidden');
+        pk.dataset.no = String(no);
+    },
+
+    closePicker() {
+        const pk = document.getElementById('eng-picker');
+        if (pk) pk.classList.add('hidden');
+    },
+
     secLabel(sec) {
         const s = (this._sess.sections || {})[sec] || {};
         return s.label || sec;
@@ -397,7 +435,17 @@ export const english = {
             '<div id="eng-q-list" class="flex flex-col gap-2.5"></div>' +
             '</div>' +
             '</div>' +
-            '<div class="eng-psg-backdrop fixed inset-0 bg-black/40 z-[55] hidden md:hidden"></div>';
+            '<div class="eng-psg-backdrop fixed inset-0 bg-black/40 z-[55] hidden md:hidden"></div>' +
+            '<div id="eng-picker" class="fixed inset-0 z-[65] hidden">' +
+            '<div class="absolute inset-0 bg-black/40" data-pk-close></div>' +
+            '<div class="absolute bottom-0 left-0 right-0 card rounded-t-2xl p-4 max-h-[72vh] overflow-y-auto custom-scroll animate-slide-up">' +
+            '<div class="flex justify-between items-center mb-2.5">' +
+            '<b class="text-sm text-[var(--text)]" id="eng-pk-title">Q</b>' +
+            '<button data-pk-close aria-label="关闭" class="text-[var(--sub)] hover:text-[var(--text)] p-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>' +
+            '</div>' +
+            '<div id="eng-pk-opts" class="flex flex-col gap-1.5"></div>' +
+            '<button data-pk-clear class="mt-3 w-full px-3 py-2 rounded-lg border border-red-200 dark:border-red-900 text-[11px] font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all">' + this.t('清除该空') + '</button>' +
+            '</div></div>';
         // 事件绑定
         root.querySelector('[data-back]').addEventListener('click', () => this.render());
         root.querySelector('[data-submit]').addEventListener('click', () => this.submitSession());
@@ -408,7 +456,43 @@ export const english = {
         bd.addEventListener('click', () => this.togglePsg(false));
         root.querySelectorAll('[data-sec]').forEach(b => b.addEventListener('click', () => { s.curSec = b.dataset.sec; this.renderQuestions(); this._syncTabs(); this._syncPassage(); }));
         this._syncPassage();
+        // 完形槽位点击委托（_syncPassage 会重建 innerHTML，用委托保证一直有效）
+        root.querySelector('#eng-psg-text').addEventListener('click', (e) => {
+            const slot = e.target.closest('.eng-blank-slot');
+            if (slot) this.openPicker(parseInt(slot.dataset.no, 10));
+        });
+        const picker = root.querySelector('#eng-picker');
+        picker.addEventListener('click', (e) => {
+            if (e.target.closest('[data-pk-close]') || e.target === picker) this.closePicker();
+            if (e.target.closest('[data-pk-clear]')) {
+                const no = parseInt(picker.dataset.no, 10);
+                delete this._sess.answers[no];
+                this.saveSession();
+                this.closePicker();
+                this._syncPassage();
+                this.renderQuestions();
+                this._updateCounter();
+            }
+            const opt = e.target.closest('#eng-pk-opts .eng-opt');
+            if (opt) {
+                this._assign(parseInt(picker.dataset.no, 10), opt.dataset.letter);
+                this.closePicker();
+            }
+        });
         this.renderQuestions();
+    },
+
+    /** 完形赋值：写入答案 → 刷新槽位 + 作答条 + 计数 */
+    _assign(no, letter) {
+        const s = this._sess;
+        if (!s || s.graded) return;
+        if (s.answers[no] === letter) delete s.answers[no];
+        else s.answers[no] = letter;
+        this.saveSession();
+        this._syncPassage();
+        this.renderQuestions();
+        this._updateCounter();
+        this._syncTabs();
     },
 
     /** 文章栏跟随当前 Section：内容 + 词库 + 空号高亮 + 抽屉按钮可见性 */
@@ -422,23 +506,24 @@ export const english = {
         const openBtn = root.querySelector('[data-psg-open]');
         if (!session || !txt || !bankEl) return;
         const psg = s.secPassages[s.curSec] || '';
+        const isCloze = s.clozeSecs.includes(s.curSec);
         session.classList.toggle('has-psg', !!psg);
-        txt.textContent = psg;
         if (this._psgFont == null) {
             let v = 15;
             try { v = parseInt(localStorage.getItem('qs_psg_fontsize'), 10) || 15; } catch (e) { }
             this._psgFont = Math.min(24, Math.max(12, v));
         }
         txt.style.fontSize = this._psgFont + 'px';
-        // 完形节：空号高亮（普通阅读节的正文数字不高亮，避免误导）
         const nos = s.questions.filter(q => q.sec === s.curSec).map(q => q.no).sort((a, b) => b - a);
-        if (psg && nos.length && s.clozeSecs.includes(s.curSec)) {
+        if (isCloze && psg && nos.length) {
+            // 完形节：空号渲染成可点击槽位（已填的把词显示在空里）
             const re = new RegExp('(?<!\\d)(' + nos.join('|') + ')(?!\\d)', 'g');
-            txt.innerHTML = this.esc(psg).replace(re, '<span class="eng-blank">$1</span>');
+            txt.innerHTML = this.esc(psg).replace(re, (m, no) => this._slotHtml(parseInt(no, 10)));
         } else {
-            txt.innerHTML = this.esc(psg);
+            // 阅读节：段落标记醒目化（[A] / A. 行首），便于长篇阅读定位
+            txt.innerHTML = this.esc(psg).replace(/(^|\n)(\[?[A-L]\]?[.\)])\s+/g, '$1<span class="eng-para-mark">$2</span> ');
         }
-        // 选词填空：词库挂在文章下方
+        // 选词填空：词库挂在文章下方（仅参考，作答点空位弹面板）
         const words = (s.sections[s.curSec] || {}).words || [];
         if (words.length) {
             bankEl.innerHTML = '<span class="text-[10px] font-bold text-[var(--sub)] uppercase tracking-wider mr-2">' + this.t('词库 Word Bank') + '</span>' +
@@ -469,6 +554,36 @@ export const english = {
         if (!wrap || !s) return;
         const graded = s.graded;
         const isCloze = s.clozeSecs.includes(s.curSec);
+        // 完形节：作答条（空位总览；作答在文章里点空位完成）
+        if (isCloze) {
+            const qs = s.questions.filter(q => q.sec === s.curSec).sort((a, b) => a.no - b.no);
+            const rows = qs.map(q => {
+                const letter = s.answers[q.no] || '';
+                const keyAns = (s.key[q.no] || '').toUpperCase();
+                const word = letter ? (q.o['ABCDEFGHIJKLMNOPQRSTUVWXYZ'.indexOf(letter)] || '') : '';
+                let cls = 'eng-strip-row' + (letter ? ' has' : '');
+                let mark = '';
+                if (graded && keyAns) {
+                    cls += letter === keyAns ? ' ok' : ' bad';
+                    mark = '<span class="text-[10px] font-bold flex-shrink-0 ' + (letter === keyAns ? 'text-emerald-500' : 'text-red-500') + '">' +
+                        (letter === keyAns ? '✓' : '✕ ' + keyAns) + '</span>';
+                }
+                return '<button data-no="' + q.no + '" class="' + cls.trim() + '">' +
+                    '<span class="font-mono font-bold text-[11px] flex-shrink-0">Q' + q.no + '</span>' +
+                    '<span class="min-w-0 flex-1 text-left truncate">' + (letter ? this.esc(word) : '<i class="opacity-40">____</i>') + '</span>' +
+                    mark +
+                    '</button>';
+            }).join('');
+            wrap.innerHTML =
+                '<div class="card p-3.5 rounded-xl">' +
+                '<div class="text-[11px] text-[var(--sub)] mb-2 leading-relaxed">' + this.t('在文章里点击空位作答；这里总览全部空的填写情况。') + '</div>' +
+                '<div class="flex flex-col gap-1.5">' + rows + '</div>' +
+                '</div>';
+            wrap.querySelectorAll('.eng-strip-row').forEach(b => {
+                b.addEventListener('click', () => this.openPicker(parseInt(b.dataset.no, 10)));
+            });
+            return;
+        }
         const html = s.questions.filter(q => q.sec === s.curSec).map(q => {
             const picked = s.answers[q.no] || '';
             const keyAns = (s.key[q.no] || '').toUpperCase();
