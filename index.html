@@ -396,6 +396,77 @@
             transform: scale(0.97) translateY(10px);
         }
 
+        /* ===== 英语阅读题双栏布局 =====
+           桌面/平板：文章左栏 sticky 自滚动，题目右栏并排，文章全程可见；
+           手机：文章收进底部抽屉，按钮唤起，答题区保持干净。 */
+        #q-passage-col {
+            display: none;
+        }
+
+        #psg-toggle {
+            display: none;
+        }
+
+        #view-quiz.has-psg #quiz-body {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+
+        #view-quiz.has-psg #psg-toggle {
+            display: flex;
+        }
+
+        @media (min-width: 768px) {
+            #view-quiz.has-psg {
+                max-width: 76rem;
+            }
+
+            #view-quiz.has-psg .quiz-card {
+                padding: 1.25rem 1.5rem;
+            }
+
+            #view-quiz.has-psg #quiz-body {
+                display: grid;
+                grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+                gap: 1.25rem;
+                align-items: start;
+            }
+
+            #view-quiz.has-psg #q-passage-col {
+                display: flex;
+                position: sticky;
+                top: 12px;
+                height: calc(100vh - 132px);
+                min-height: 320px;
+            }
+
+            #view-quiz.has-psg #psg-toggle {
+                display: none !important;
+            }
+        }
+
+        @media (max-width: 767.98px) {
+            #view-quiz.has-psg #q-passage-col {
+                display: flex;
+                position: fixed;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 60;
+                max-height: 74vh;
+                border-radius: 1.25rem 1.25rem 0 0;
+                transform: translateY(105%);
+                transition: transform 0.26s ease;
+                box-shadow: 0 -10px 34px rgba(0, 0, 0, 0.28);
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+
+            #view-quiz.has-psg #q-passage-col.open {
+                transform: translateY(0);
+            }
+        }
+
         /* 账户菜单：从右上角锚点轻弹出（menu 本身已有 transition-all） */
         #account-menu {
             transform-origin: top right;
@@ -957,7 +1028,31 @@
                 </div>
 
                 <div
-                    class="card p-5 md:p-10 rounded-2xl md:rounded-3xl flex-grow flex flex-col relative shadow-lg border-t-4 border-t-primary-500">
+                    class="quiz-card card p-5 md:p-10 rounded-2xl md:rounded-3xl flex-grow flex flex-col relative shadow-lg border-t-4 border-t-primary-500">
+                    <div id="quiz-body" class="flex flex-col flex-grow">
+                    <div id="q-passage-col"
+                        class="card p-4 md:p-5 rounded-2xl flex flex-col bg-[var(--card)] border border-[var(--border)]">
+                        <div class="flex justify-between items-center mb-2 md:mb-3">
+                            <span class="text-[11px] font-bold text-[var(--sub)] uppercase tracking-wider" data-i18n>文章 Passage</span>
+                            <button onclick="App.quiz.togglePassage()" aria-label="收起文章"
+                                class="md:hidden p-1 text-[var(--sub)] hover:text-[var(--text)] active:scale-90 transition-all">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div id="q-passage-text"
+                            class="flex-1 min-h-0 overflow-y-auto custom-scroll whitespace-pre-line text-sm md:text-[15px] leading-relaxed text-[var(--text)]"></div>
+                    </div>
+                    <div id="q-answer-col" class="flex flex-col flex-grow min-w-0">
+                    <button id="psg-toggle" onclick="App.quiz.togglePassage()"
+                        class="w-full mb-3 px-3 py-2.5 rounded-xl border border-primary-200 dark:border-primary-900 bg-primary-50 dark:bg-primary-950/30 text-primary-600 dark:text-primary-400 text-xs font-bold items-center justify-center gap-2 active:scale-[0.99] transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                        <span data-i18n>阅读文章 (Passage)</span>
+                    </button>
                     <div class="mb-6 md:mb-8">
                         <div class="flex flex-wrap gap-2 mb-2 md:mb-3 items-center">
                             <span
@@ -967,7 +1062,7 @@
                                 class="text-[11px] md:text-[11px] font-bold text-primary-600 bg-primary-50 px-2 py-0.5 rounded truncate max-w-[120px]"
                                 id="q-sub">Subject</span>
                         </div>
-                        <h3 class="text-lg md:text-2xl font-medium leading-relaxed text-[var(--text)]" id="q-text">
+                        <h3 class="text-lg md:text-2xl font-medium leading-relaxed text-[var(--text)] whitespace-pre-line" id="q-text">
                             Loading...</h3>
                         <div id="multi-hint" class="hidden mt-2 text-xs text-[var(--sub)]">
                             多项选择，请选出所有正确选项后提交
@@ -1006,6 +1101,8 @@
                                 class="btn px-4 md:px-6 py-2 bg-primary-600 text-white rounded-lg text-xs md:text-sm shadow-lg active:bg-primary-700 min-w-[80px]">下一题</button>
                         </div>
                     </div>
+                    </div>
+                    </div>
                 </div>
 
                 <div class="mt-4 md:mt-6 text-center pb-4">
@@ -1013,6 +1110,8 @@
                         class="text-xs text-red-400 hover:text-red-600 underline active:opacity-70">提前交卷</button>
                 </div>
             </div>
+
+            <div id="psg-backdrop" class="fixed inset-0 bg-black/40 z-[55] hidden md:hidden" onclick="App.quiz.togglePassage()"></div>
 
             <!-- Setup View -->
             <div id="view-setup" class="view-section hidden flex flex-col h-full animate-slide-in">
