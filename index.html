@@ -498,6 +498,87 @@
             }
         }
 
+        /* ===== 英语整卷会话（english.js 专属，与主刷题引擎数据分离） ===== */
+        .eng-session .eng-psg-col {
+            display: none;
+        }
+
+        #view-english .eng-opt {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            width: 100%;
+            text-align: left;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--card);
+            color: var(--text);
+            font-size: 12px;
+            line-height: 1.5;
+            transition: all 0.15s;
+        }
+
+        #view-english .eng-opt:hover {
+            background: var(--bg);
+        }
+
+        #view-english .eng-opt.sel {
+            border-color: var(--primary);
+            background: rgba(16, 185, 129, 0.06);
+        }
+
+        #view-english .eng-opt.ok {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.08);
+        }
+
+        #view-english .eng-opt.bad {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.07);
+        }
+
+        #view-english .eng-opt .self-pick {
+            border-color: var(--primary);
+        }
+
+        @media (min-width: 768px) {
+            #view-english .eng-session.has-psg {
+                display: grid;
+                grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+                align-items: start;
+            }
+
+            #view-english .eng-session.has-psg .eng-psg-col {
+                display: flex;
+                position: sticky;
+                top: 12px;
+                height: calc(100vh - 140px);
+                min-height: 300px;
+            }
+        }
+
+        @media (max-width: 767.98px) {
+            #view-english .eng-session.has-psg .eng-psg-col {
+                display: flex;
+                position: fixed;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 60;
+                max-height: 74vh;
+                border-radius: 1.25rem 1.25rem 0 0;
+                transform: translateY(105%);
+                transition: transform 0.26s ease;
+                box-shadow: 0 -10px 34px rgba(0, 0, 0, 0.28);
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+
+            #view-english .eng-session.has-psg .eng-psg-col.open {
+                transform: translateY(0);
+            }
+        }
+
         /* 账户菜单：从右上角锚点轻弹出（menu 本身已有 transition-all） */
         #account-menu {
             transform-origin: top right;
