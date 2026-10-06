@@ -243,7 +243,8 @@ export const english = {
         for (const q of data.questions) {
             const sec = sections[q.sec] || {};
             const parts = [];
-            if (sec.label) parts.push('【' + sec.label + '】');
+            // 题号写进标签：用户可对照试卷题号；同 ID 重导入时内容必变，确保字段更新
+            parts.push('【' + (sec.label || 'Question') + ' · Q' + q.no + '】');
             if (q.sec === 'A' && sec.words && sec.words.length) {
                 parts.push(sec.words.map((w, i) => String.fromCharCode(65 + i) + '. ' + w).join('   '));
             }
@@ -253,8 +254,9 @@ export const english = {
             qs.push({
                 id: 'eng-' + data.id + '-q' + q.no,
                 type: 'mcq',
-                // 文章独立字段（quiz 双栏/抽屉排版），不再内嵌进题干
-                psg: sec.passage || null,
+                no: q.no,
+                // 文章独立字段（quiz 双栏/抽屉排版），不再内嵌进题干；重排修复 PDF 断行
+                psg: sec.passage ? this.reflowPassage(sec.passage) : null,
                 q: parts.join('\n\n'),
                 o: (q.o && q.o.length ? q.o : (sec.words || []).map((w, i) => String.fromCharCode(65 + i) + '. ' + w)),
                 // 自测题需要占位答案才能通过 schema 校验；quiz 对 selfCheck 题跳过计分
@@ -262,6 +264,7 @@ export const english = {
                 selfCheck
             });
         }
+        qs.sort((a, b) => a.no - b.no);   // 真题按题号顺序作答，不洗牌
         if (!qs.length) {
             if (typeof showGlobalError === 'function') showGlobalError(this.t('该卷解析结果为空。'));
             return;
@@ -275,6 +278,40 @@ export const english = {
         // 导入成功 → 直接进入该套练习
         const chapterValue = subject + '\u0001' + chapter;
         App.router.go('quiz');
-        App.quiz.init('custom', { type: 'all', limit: 'all', customChapters: [chapterValue] });
+        App.quiz.init('custom', { type: 'all', limit: 'all', order: 'natural', customChapters: [chapterValue] });
+    },
+
+    /**
+     * PDF 断行重排：把每个视觉行的硬换行接回空格，恢复连续段落。
+     * 段落边界启发式：行以句末标点收尾且长度明显短于中位行长 → 真段落结束；
+     * 行首是标记（[A] / A. / 数字. / Section / Part / Passage）→ 新段。
+     * 同时剥掉残留的 "Questions X to Y are based on..." 指令行。
+     */
+    reflowPassage(text) {
+        let t = (text || '').replace(/\r/g, '');
+        t = t.replace(/^\s*Questions?\s+\d+\s+to\s+\d+[^\n]*$/gim, '');
+        const lines = t.split('\n').map(l => l.trim()).filter(Boolean);
+        if (lines.length < 3) return lines.join(' ');
+        const lens = lines.map(l => l.length).slice().sort((a, b) => a - b);
+        const median = lens[Math.floor(lens.length / 2)] || 60;
+        const markerStart = /^(\[[A-O]\]|[A-O][\)\.]\s+\S|\d{1,2}[\.\s]|(Section|Part|Passage|Questions?)\b)/i;
+        let out = '';
+        let prevLine = null;
+        for (const line of lines) {
+            if (prevLine === null) {
+                out = line;
+            } else {
+                const prevShort = prevLine.length < median * 0.72;
+                const prevEndsSentence = /[.?!”"]\s*$/.test(prevLine);
+                const newMarked = markerStart.test(line);
+                if ((prevShort && prevEndsSentence) || newMarked) {
+                    out += '\n\n' + line;
+                } else {
+                    out += ' ' + line;
+                }
+            }
+            prevLine = line;
+        }
+        return out;
     }
 };
