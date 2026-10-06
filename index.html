@@ -703,6 +703,27 @@
                     </div>
                 </div>
 
+                <button onclick="App.router.go('english')"
+                    class="w-full card card-interactive p-3 md:p-4 rounded-xl md:rounded-2xl flex items-center justify-between text-left active:scale-[0.99] transition-all">
+                    <div class="flex items-center gap-3">
+                        <span
+                            class="p-2 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-lg"><svg
+                                class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253">
+                                </path>
+                            </svg></span>
+                        <div>
+                            <div class="font-bold text-sm md:text-base text-[var(--text)]">英语专题</div>
+                            <div class="text-[11px] md:text-xs text-[var(--sub)]">历年真题 · 阅读专项刷题</div>
+                        </div>
+                    </div>
+                    <svg class="w-4 h-4 md:w-5 md:h-5 text-[var(--sub)]" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </button>
+
                 <button onclick="App.router.go('analytics')"
                     class="w-full card card-interactive p-3 md:p-4 rounded-xl md:rounded-2xl flex items-center justify-between text-left active:scale-[0.99] transition-all">
                     <div class="flex items-center gap-3">
@@ -1077,7 +1098,20 @@
             </div>
 
             <!-- Analytics View -->
-            <div id="view-analytics" class="view-section hidden flex flex-col gap-6 animate-slide-up pb-8">
+            <div id="view-english" class="view-section hidden flex flex-col gap-6 animate-slide-up pb-8">
+        <div class="flex items-center gap-3">
+            <button onclick="App.router.go('dashboard')"
+                aria-label="返回首页" class="btn w-8 h-8 rounded-full bg-[var(--card)] border border-[var(--border)] text-[var(--sub)] active:scale-95 transition-transform">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </button>
+            <h2 class="text-lg md:text-xl font-bold text-[var(--text)]">英语专题</h2>
+        </div>
+        <div id="english-root" class="flex flex-col gap-4"></div>
+    </div>
+
+    <div id="view-analytics" class="view-section hidden flex flex-col gap-6 animate-slide-up pb-8">
                 <div class="flex items-center gap-3">
                     <button onclick="App.router.go('dashboard')"
                         aria-label="返回首页" class="btn w-8 h-8 rounded-full bg-[var(--card)] border border-[var(--border)] text-[var(--sub)] active:scale-95 transition-transform">

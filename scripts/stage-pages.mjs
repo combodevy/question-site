@@ -13,7 +13,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dest = path.join(root, '.pages-dist');
 
 const FRONTEND_FILES = ['index.html', 'admin.html', 'config.js'];
-const FRONTEND_DIRS = ['js', 'fonts'];
+const FRONTEND_DIRS = ['js', 'fonts', 'english'];
 
 // 部署目标防呆：确认前端与后端配置指向同一环境
 execFileSync(process.execPath, [path.join(root, 'scripts', 'check-deploy-target.mjs')], { stdio: 'inherit' });

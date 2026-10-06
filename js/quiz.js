@@ -82,7 +82,8 @@ export const quiz = {
                         if (!pool.length) { alert(App.t("选中的章节下没有符合的题目。")); return false; }
 
                         pool = App.utils.shuffle(pool);
-                        const l = App.dom.getValue('setup-limit', '20');
+                        // 英语专题等外部入口可通过 config.limit 指定题量（如 'all' 整卷）
+                        const l = (config && config.limit) ? String(config.limit) : App.dom.getValue('setup-limit', '20');
                         const n = parseInt(l, 10);
                         this.queue = (l === 'all' || !Number.isFinite(n) || n <= 0) ? pool : pool.slice(0, n);
                     }
@@ -92,7 +93,7 @@ export const quiz = {
                     this.lastConfig = {
                         mode,
                         options: { ...config },
-                        customChapters: mode === 'custom' ? [...document.querySelectorAll('.setup-chk:checked')].map(c2 => c2.value) : null
+                        customChapters: mode === 'custom' ? ((config && Array.isArray(config.customChapters)) ? config.customChapters : [...document.querySelectorAll('.setup-chk:checked')].map(c2 => c2.value)) : null
                     };
 
                     this.idx = 0; this.stats = { c: 0, w: 0 };

@@ -389,8 +389,9 @@ export const data = {
                                 if (typeof q.q !== 'string' || !q.q.trim()) return `Missing/invalid question text for ID ${q.id}`;
                                 if (typeof q.a !== 'string' || !q.a.trim()) return `Missing/invalid answer for ID ${q.id}`;
                                 if (!TYPES.has(q.type)) return `Unknown type "${q.type}" for ID ${q.id} (allowed: mcq/multi/tf/fill)`;
-                                // 防御性长度上限：单题题干/答案异常巨大通常是坏数据，会拖垮渲染和同步
-                                if (q.q.length > 5000) return `Question text too long (>5000 chars) for ID ${q.id}`;
+                                // 防御性长度上限：单题题干/答案异常巨大通常是坏数据，会拖垮渲染和同步。
+                                // 题干上限 20000：英语真题长阅读按题内嵌整段文章（~7k 字符）是合法数据
+                                if (q.q.length > 20000) return `Question text too long (>20000 chars) for ID ${q.id}`;
                                 if (q.a.length > 500) return `Answer too long (>500 chars) for ID ${q.id}`;
 
                                 // 修复 6: 归一化多选题答案 (Normalize Multi-select Answers)
@@ -400,7 +401,7 @@ export const data = {
 
                                 if (q.type === 'mcq' || q.type === 'multi') {
                                     if (!Array.isArray(q.o) || q.o.length < 2) return `Invalid options array for question ID ${q.id}`;
-                                    if (q.o.length > 8) return `Too many options (>8) for question ID ${q.id}`;
+                                    if (q.o.length > 16) return `Too many options (>16) for question ID ${q.id}`;
                                     for (let k = 0; k < q.o.length; k++) {
                                         if (typeof q.o[k] !== 'string' || !q.o[k].trim()) {
                                             return `Option ${String.fromCharCode(65 + k)} is empty/invalid for question ID ${q.id}`;

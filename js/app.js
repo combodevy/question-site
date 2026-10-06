@@ -11,6 +11,7 @@ import { setup } from './views/setup.js';
 import { library } from './views/library.js';
 import { analytics } from './views/analytics.js';
 import { profile } from './views/profile.js';
+import { english } from './views/english.js';
 import { i18n } from './i18n.js';
 import { prefs } from './prefs.js';
 
@@ -34,7 +35,8 @@ const App = {
         setup,
         library,
         analytics,
-        profile
+        profile,
+        english
     },
     async init() {
         // 逐步容错：任何一步失败都不能阻止后面的初始化。
