@@ -247,13 +247,14 @@ export const english = {
             if (q.sec === 'A' && sec.words && sec.words.length) {
                 parts.push(sec.words.map((w, i) => String.fromCharCode(65 + i) + '. ' + w).join('   '));
             }
-            if (sec.passage) parts.push(sec.passage);
             parts.push(q.q);
             const ans = (key[q.no] || '').trim().toUpperCase();
             const selfCheck = !ans;
             qs.push({
                 id: 'eng-' + data.id + '-q' + q.no,
                 type: 'mcq',
+                // 文章独立字段（quiz 双栏/抽屉排版），不再内嵌进题干
+                psg: sec.passage || null,
                 q: parts.join('\n\n'),
                 o: (q.o && q.o.length ? q.o : (sec.words || []).map((w, i) => String.fromCharCode(65 + i) + '. ' + w)),
                 // 自测题需要占位答案才能通过 schema 校验；quiz 对 selfCheck 题跳过计分
