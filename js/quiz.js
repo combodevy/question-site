@@ -133,6 +133,9 @@ export const quiz = {
                     }
                     App.dom.setText('quiz-progress', `${this.idx + 1} / ${this.queue.length}`);
 
+                    // 收藏按钮同步当前题状态
+                    this._updateStarBtn(q);
+
                     this._questionStartTime = Date.now();
 
                     const c = App.dom.get('q-options');
@@ -444,6 +447,34 @@ export const quiz = {
                 },
                 isActive() {
                     return this._active === true;
+                },
+
+                // 刷题页收藏按钮：同步星标状态并绑定点击（每题渲染时刷新）
+                _updateStarBtn(q) {
+                    const btn = document.getElementById('quiz-star-btn');
+                    if (!btn || !q) return;
+                    const icon = btn.querySelector('[data-star-icon]');
+                    const sync = () => {
+                        const starred = App.data.isStarred(q.id);
+                        if (icon) {
+                            icon.setAttribute('fill', starred ? 'currentColor' : 'none');
+                            btn.classList.toggle('text-amber-400', starred);
+                            btn.classList.toggle('text-[var(--sub)]', !starred);
+                        }
+                        const tip = App.t(starred ? '取消收藏' : '收藏');
+                        btn.title = tip;
+                        btn.setAttribute('aria-label', tip);
+                    };
+                    sync();
+                    if (!btn.dataset.starBound) {
+                        btn.dataset.starBound = '1';
+                        btn.addEventListener('click', () => {
+                            const cur = this.queue[this.idx];
+                            if (!cur) return;
+                            App.data.toggleStar(cur.id);
+                            this._updateStarBtn(cur);
+                        });
+                    }
                 },
 
                 // 练习收尾清理：恢复同步、冲刷未上传记录（不负责跳转）
