@@ -194,8 +194,6 @@ export const profile = {
                 <h3 class="font-bold text-sm text-[var(--text)] mb-3">${t('账户操作')}</h3>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <button onclick="App.ui.openPasswordModal()" class="px-3 py-2.5 rounded-xl border border-[var(--border)] text-xs font-bold text-[var(--text)] hover:bg-[var(--bg)] active:scale-95 transition-all">${t('修改密码')}</button>
-                    <button onclick="App.ui.exportAllBank()" class="px-3 py-2.5 rounded-xl border border-[var(--border)] text-xs font-bold text-[var(--text)] hover:bg-[var(--bg)] active:scale-95 transition-all">${t('导出备份 JSON')}</button>
-                    <button onclick="App.ui.openPrintExport()" class="px-3 py-2.5 rounded-xl border border-[var(--border)] text-xs font-bold text-[var(--text)] hover:bg-[var(--bg)] active:scale-95 transition-all">${t('导出 PDF 打印版')}</button>
                     <button onclick="App.ui.handleAccountMenuAction('logout')" class="px-3 py-2.5 rounded-xl border border-[var(--border)] text-xs font-bold text-[var(--text)] hover:bg-[var(--bg)] active:scale-95 transition-all">${t('退出登录')}</button>
                 </div>
                 <button onclick="App.ui._startAccountDeletion()" class="mt-3 w-full px-3 py-2.5 rounded-xl border border-red-200 dark:border-red-900 text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] transition-all">${t('注销账号（删除全部数据）')}</button>
