@@ -134,6 +134,9 @@ export const quiz = {
                     }
                     App.dom.setText('quiz-progress', `${this.idx + 1} / ${this.queue.length}`);
 
+                    // 阅读题双栏/抽屉：文章独立展示（psg 字段由英语专题展开写入）
+                    this._renderPassage(q);
+
                     // 收藏按钮同步当前题状态
                     this._updateStarBtn(q);
 
@@ -494,6 +497,42 @@ export const quiz = {
                 },
                 isActive() {
                     return this._active === true;
+                },
+
+                // 阅读文章栏：桌面常驻左栏、手机抽屉；同文章连题保持滚动位置
+                _renderPassage(q) {
+                    const view = document.getElementById('view-quiz');
+                    const col = document.getElementById('q-passage-col');
+                    const txt = document.getElementById('q-passage-text');
+                    const toggle = document.getElementById('psg-toggle');
+                    const backdrop = document.getElementById('psg-backdrop');
+                    if (!view || !col || !txt || !toggle || !backdrop) return;
+                    if (q && q.psg) {
+                        view.classList.add('has-psg');
+                        const sig = String(q.psg.length) + ':' + q.psg.slice(0, 80);
+                        if (txt.dataset.sig !== sig) {
+                            txt.textContent = q.psg;
+                            txt.dataset.sig = sig;
+                            txt.scrollTop = 0;
+                        }
+                        // 收起抽屉（手机），避免上一题的开合状态残留
+                        col.classList.remove('open');
+                        backdrop.classList.add('hidden');
+                    } else {
+                        view.classList.remove('has-psg');
+                        txt.textContent = '';
+                        delete txt.dataset.sig;
+                        col.classList.remove('open');
+                        backdrop.classList.add('hidden');
+                    }
+                },
+
+                togglePassage() {
+                    const col = document.getElementById('q-passage-col');
+                    const backdrop = document.getElementById('psg-backdrop');
+                    if (!col || !backdrop) return;
+                    const open = col.classList.toggle('open');
+                    backdrop.classList.toggle('hidden', !open);
                 },
 
                 // 刷题页收藏按钮：同步星标状态并绑定点击（每题渲染时刷新）
