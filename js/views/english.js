@@ -19,6 +19,7 @@ const CATS = [
 export const english = {
     _cat: 'cet4',
     _indexCache: {},
+    _keysCache: null,
     _loading: false,
     _sess: null,        // 当前练习会话
     _curSec: null,      // 当前 Section
@@ -28,6 +29,25 @@ export const english = {
     esc(s) { return utils.escapeHTML(String(s == null ? '' : s)); },
 
     /* ---------- 存储 ---------- */
+
+    /** 内置答案键（站点随包发布）+ 用户本地覆盖，合并出有效 key */
+    effectiveKey(id) {
+        const builtin = (this._keysCache || {})[id] || {};
+        const mine = this.answers()[id] || {};
+        const merged = Object.assign({}, builtin);
+        for (const k of Object.keys(mine)) merged[k] = mine[k];
+        return merged;
+    },
+
+    async _ensureKeys() {
+        if (this._keysCache) return;
+        try {
+            const r = await fetch('english/keys.json?b=' + Date.now());
+            this._keysCache = await r.json();
+        } catch (e) {
+            this._keysCache = {};
+        }
+    },
 
     answers() {
         try { return JSON.parse(localStorage.getItem('qs_eng_answers') || '{}'); } catch (e) { return {}; }
@@ -142,6 +162,7 @@ export const english = {
         const list = document.getElementById('eng-list');
         if (!list) return;
         const cat = this._cat;
+        if (!this._keysCache) this._ensureKeys();
         if (!this._indexCache[cat]) {
             this._loading = true;
             list.innerHTML = '<div class="text-xs text-[var(--sub)] text-center py-8">' + this.t('正在加载题库索引…') + '</div>';
@@ -179,7 +200,7 @@ export const english = {
         for (const g of groups) {
             html += '<div class="text-[11px] font-bold text-[var(--sub)] uppercase tracking-wider px-1 pt-2">' + g.year + '</div>';
             for (const p of g.items) {
-                const keyed = Object.keys(answers[p.id] || {}).length;
+                const keyed = Object.keys(Object.assign({}, this._keysCache && this._keysCache[p.id] || {}, answers[p.id] || {})).length;
                 const res = results[p.id];
                 let badge;
                 if (res) {
@@ -337,7 +358,7 @@ export const english = {
             sections,
             secPassages,
             clozeSecs,
-            key: this.answers()[id] || {},
+            key: this.effectiveKey(id),
             answers: saved.answers || {},
             graded: !!saved.graded,
             result: saved.result || null,
@@ -517,7 +538,7 @@ export const english = {
         const nos = s.questions.filter(q => q.sec === s.curSec).map(q => q.no).sort((a, b) => b - a);
         if (isCloze && psg && nos.length) {
             // 完形节：空号渲染成可点击槽位（已填的把词显示在空里）
-            const re = new RegExp('(?<!\\d)(' + nos.join('|') + ')(?!\\d)', 'g');
+            const re = new RegExp('(?<!\w)(' + nos.join('|') + ')(?!\w)(?!\.\d)', 'g');
             txt.innerHTML = this.esc(psg).replace(re, (m, no) => this._slotHtml(parseInt(no, 10)));
         } else {
             // 阅读节：段落标记醒目化（[A] / A. 行首），便于长篇阅读定位
@@ -589,14 +610,16 @@ export const english = {
             const keyAns = (s.key[q.no] || '').toUpperCase();
             let state = '';
             if (graded && keyAns) state = picked === keyAns ? 'ok' : 'bad';
+            // 纯字母选项（长篇阅读选段落）：紧凑小 chips，一排多个，不占大卡
+            const letterOnly = q.o.length > 4 && q.o.every(x => String(x).length <= 2);
             const opts = q.o.map((opt, i) => {
                 const letter = String.fromCharCode(65 + i);
                 const sel = picked === letter;
-                let cls = 'eng-opt' + (sel ? ' sel' : '') + (graded && keyAns ? (letter === keyAns ? ' ok' : (sel ? ' bad' : '')) : '');
-                const isLetterOnly = opt === letter;
-                return '<button data-no="' + q.no + '" data-letter="' + letter + '" class="' + cls + '">' +
+                let cls = (letterOnly ? 'eng-chip' : 'eng-opt') + (sel ? ' sel' : '') + (graded && keyAns ? (letter === keyAns ? ' ok' : (sel ? ' bad' : '')) : '');
+                return '<button data-no="' + q.no + '" data-letter="' + letter + '" class="' + cls.trim() + '" ' +
+                    (letterOnly ? 'aria-label="段落 ' + letter + '"' : '') + '>' +
                     '<span class="font-bold flex-shrink-0">' + letter + '</span>' +
-                    (isLetterOnly ? '' : '<span class="min-w-0">' + this.esc(opt) + '</span>') +
+                    (this.isLetterOnly(opt, letter) ? '' : '<span class="min-w-0">' + this.esc(opt) + '</span>') +
                     '</button>';
             }).join('');
             const gradeNote = (graded && keyAns && picked !== keyAns)
@@ -604,20 +627,28 @@ export const english = {
                 : '';
             const stemHtml = isCloze
                 ? ''
-                : '<div class="text-xs font-bold text-[var(--text)] leading-relaxed whitespace-pre-line min-w-0">' + this.esc(q.stem) + '</div>';
+                : '<div class="text-xs font-bold text-[var(--text)] leading-relaxed whitespace-pre-line min-w-0" style="text-wrap:pretty">' + this.esc(q.stem) + '</div>';
+            const optsWrap = letterOnly
+                ? '<div class="flex flex-wrap gap-1.5">' + opts + '</div>'
+                : '<div class="eng-opts flex flex-col gap-1.5">' + opts + '</div>';
             return '<div class="card p-3.5 rounded-xl">' +
                 '<div class="flex items-start justify-between gap-2 mb-2">' +
                 stemHtml +
                 '<span class="text-[10px] font-mono font-bold text-[var(--sub)] bg-[var(--bg)] px-1.5 py-0.5 rounded flex-shrink-0">Q' + q.no + '</span>' +
                 '</div>' +
-                '<div class="eng-opts flex flex-col gap-1.5">' + opts + '</div>' +
+                optsWrap +
                 gradeNote +
                 '</div>';
         }).join('');
         wrap.innerHTML = html;
-        wrap.querySelectorAll('.eng-opt').forEach(b => {
+        wrap.querySelectorAll('.eng-opt, .eng-chip').forEach(b => {
             b.addEventListener('click', () => this.pick(b.dataset.no, b.dataset.letter));
         });
+    },
+
+    /** 选项文本与字母相同（长篇阅读段落字母）→ 只渲染字标 */
+    isLetterOnly(opt, letter) {
+        return String(opt) === String(letter);
     },
 
     pick(no, letter) {
