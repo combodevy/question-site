@@ -97,24 +97,20 @@ export const english = {
     reflowPassage(text) {
         let t = (text || '').replace(/\r/g, '');
         t = t.replace(/^\s*Questions?\s+\d+\s+to\s+\d+[^\n]*$/gim, '');
-        const lines = t.split('\n').map(l => l.trim()).filter(Boolean);
-        if (lines.length < 3) return lines.join(' ');
-        const lens = lines.map(l => l.length).slice().sort((a, b) => a - b);
-        const median = lens[Math.floor(lens.length / 2)] || 60;
-        const markerStart = /^(\[[A-O]\]|[A-O][\)\.]\s+\S|\d{1,2}[\.\s]|(Section|Part|Passage|Questions?)\b)/i;
+        const lines = t.split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
+        // 保守分段：只在强标记（段落字母/题号/Section/Passage）处分段，
+        // 其余行一律空格接回——绝不在句中截断（启发式猜段落误判率高，用户实测踩坑）
+        const markerStart = new RegExp('^(\\[[A-O]\\]|[A-O][\\)\\.]\\s+\\S|\\d{1,2}[\\.\\s]\\s*[A-Z\u201c]|(Section|Part|Passage)\\b)', 'i');
         let out = '';
         let prevLine = null;
-        for (const line of lines) {
+        for (let li = 0; li < lines.length; li++) {
+            const line = lines[li];
             if (prevLine === null) {
                 out = line;
+            } else if (markerStart.test(line)) {
+                out += '\n\n' + line;
             } else {
-                const prevShort = prevLine.length < median * 0.72;
-                const prevEndsSentence = /[.?!”"]\s*$/.test(prevLine);
-                if ((prevShort && prevEndsSentence) || markerStart.test(line)) {
-                    out += '\n\n' + line;
-                } else {
-                    out += ' ' + line;
-                }
+                out += ' ' + line;
             }
             prevLine = line;
         }
