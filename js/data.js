@@ -1,4 +1,4 @@
-﻿import { getDBItem, setDBItem, deleteDBItem } from './db.js';
+import { getDBItem, setDBItem, deleteDBItem } from './db.js';
 import { utils } from './utils.js';
 
 export const data = {
@@ -165,6 +165,194 @@ export const data = {
                     }
                 },
 
+                /**
+                 * 把「当前状态」打包成与 clearBank / resetHistory 同格式的备份载荷。
+                 * 清空前的自动备份、恢复前的自动备份都走这里，保证只有一处格式定义。
+                 */
+                _buildBackupPayload(type) {
+                    if (type === 'bank') {
+                        const bankOut = {};
+                        this.getQuestions().forEach(q => {
+                            const { _pinyin, _aiAnalysis, sub, chap, _editedAt, ...rest } = q;
+                            (bankOut[sub] = bankOut[sub] || {})[chap] = (bankOut[sub][chap] || []).concat(rest);
+                        });
+                        return bankOut;
+                    }
+                    return {
+                        exportedAt: new Date().toISOString(),
+                        history: this.history,
+                        lastPracticeTime: this.lastPracticeTime,
+                        hiddenMistakeIds: Array.isArray(this.hiddenMistakeIds) ? this.hiddenMistakeIds : [],
+                        starred: Array.isArray(this.starredIds) ? this.starredIds : []
+                    };
+                },
+
+                /** 把当前状态存成一份云端备份（返回是否成功） */
+                async _backupCurrentState(type) {
+                    return this._uploadCloudBackup(type, this._buildBackupPayload(type));
+                },
+
+                /* ===== 云端备份：预览差异 + 覆盖式恢复 =====
+                   备份原先只能「下载成 JSON」：用户要恢复得自己再走一遍导入流程，
+                   而导入是「合并」不是「覆盖」，等于没有真正的回滚手段。
+                   这里补上两步——先算出「当前 → 备份」的完整差异让用户逐条看，
+                   确认后整份覆盖。 */
+
+                /** 题目内容比对时忽略的字段（渲染期派生 / 编辑时间戳，不参与「改没改」判定） */
+                _Q_DIFF_SKIP: ['_pinyin', '_aiAnalysis', '_editedAt'],
+
+                /** 题库 → Map<题 id, {sub, chap, q}> */
+                _indexBank(bank) {
+                    const map = new Map();
+                    for (const sub in (bank || {})) {
+                        const chaps = bank[sub] || {};
+                        for (const chap in chaps) {
+                            const list = chaps[chap] || [];
+                            for (const q of list) {
+                                if (q && typeof q.id === 'string' && q.id) map.set(q.id, { sub, chap, q });
+                            }
+                        }
+                    }
+                    return map;
+                },
+
+                /** 统计科目/章节数 */
+                _bankGroupCounts(bank) {
+                    let subjects = 0, chapters = 0;
+                    for (const sub in (bank || {})) {
+                        subjects++;
+                        chapters += Object.keys(bank[sub] || {}).length;
+                    }
+                    return { subjects, chapters };
+                },
+
+                /** 两题之间的字段级差异（「修改」项的明细） */
+                _questionFieldDiff(a, b) {
+                    const out = [];
+                    const keys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
+                    for (const k of keys) {
+                        if (this._Q_DIFF_SKIP.indexOf(k) > -1) continue;
+                        const va = a ? a[k] : undefined;
+                        const vb = b ? b[k] : undefined;
+                        if (JSON.stringify(va) === JSON.stringify(vb)) continue;
+                        out.push({ field: k, from: va, to: vb });
+                    }
+                    out.sort((x, y) => x.field.localeCompare(y.field));
+                    return out;
+                },
+
+                /**
+                 * 计算「当前数据 → 这份备份」的完整差异。
+                 * kind: added(备份里有、当前没有) / removed(当前有、备份里没有 → 恢复后会消失) /
+                 *       moved(题目换了科目/章节) / changed(内容变了) / same(完全一致)
+                 */
+                diffCloudBackup(type, payload) {
+                    if (type === 'bank') {
+                        const cur = this._indexBank(this.bank);
+                        const bak = this._indexBank(payload);
+                        const items = [];
+                        const counts = { added: 0, removed: 0, moved: 0, changed: 0, same: 0 };
+                        for (const [id, b] of bak) {
+                            const c = cur.get(id);
+                            if (!c) { counts.added++; items.push({ id, kind: 'added', to: b }); continue; }
+                            const fields = this._questionFieldDiff(c.q, b.q);
+                            if (c.sub !== b.sub || c.chap !== b.chap) {
+                                counts.moved++; items.push({ id, kind: 'moved', from: c, to: b, fields });
+                            } else if (fields.length) {
+                                counts.changed++; items.push({ id, kind: 'changed', from: c, to: b, fields });
+                            } else {
+                                counts.same++; items.push({ id, kind: 'same', from: c, to: b });
+                            }
+                        }
+                        for (const [id, c] of cur) {
+                            if (!bak.has(id)) { counts.removed++; items.push({ id, kind: 'removed', from: c }); }
+                        }
+                        const rank = { added: 0, removed: 1, moved: 2, changed: 3, same: 4 };
+                        items.sort((x, y) => (rank[x.kind] - rank[y.kind]) || String(x.id).localeCompare(String(y.id)));
+                        return {
+                            type, counts, items,
+                            curTotal: cur.size, bakTotal: bak.size,
+                            curGroups: this._bankGroupCounts(this.bank), bakGroups: this._bankGroupCounts(payload),
+                            invalid: 0
+                        };
+                    }
+                    // history：按稳定键（rid，旧数据回退 id|t）对齐
+                    const rawBak = (payload && Array.isArray(payload.history)) ? payload.history : [];
+                    const cur = new Map(this.sanitizeHistory(this.history).map(h => [this._historyKey(h), h]));
+                    const bakList = this.sanitizeHistory(rawBak);
+                    const bak = new Map(bakList.map(h => [this._historyKey(h), h]));
+                    const items = [];
+                    const counts = { added: 0, removed: 0, changed: 0, same: 0 };
+                    for (const [k, b] of bak) {
+                        const c = cur.get(k);
+                        if (!c) { counts.added++; items.push({ key: k, kind: 'added', to: b }); continue; }
+                        if (!!c.r !== !!b.r) { counts.changed++; items.push({ key: k, kind: 'changed', from: c, to: b }); }
+                        else { counts.same++; items.push({ key: k, kind: 'same', from: c, to: b }); }
+                    }
+                    for (const [k, c] of cur) {
+                        if (!bak.has(k)) { counts.removed++; items.push({ key: k, kind: 'removed', from: c }); }
+                    }
+                    const rank2 = { added: 0, removed: 1, changed: 2, same: 3 };
+                    items.sort((x, y) => rank2[x.kind] - rank2[y.kind]);
+                    return {
+                        type, counts, items,
+                        curTotal: cur.size, bakTotal: bak.size,
+                        invalid: Math.max(0, rawBak.length - bakList.length),
+                        curLast: this.lastPracticeTime,
+                        bakLast: (payload && typeof payload.lastPracticeTime === 'number') ? payload.lastPracticeTime : null,
+                        exportedAt: payload && payload.exportedAt
+                    };
+                },
+
+                /**
+                 * 用备份**整份覆盖**当前数据（不是合并）。
+                 * 题库走「清洗 + 模式校验」同一条链路，避免脏数据进库；
+                 * 记录会一并重置增量缓冲与游标，否则云端会把旧增量 concat 回来。
+                 */
+                restoreCloudBackup(type, payload) {
+                    if (type === 'bank') {
+                        const idStats = {};
+                        const sanitized = (window.App && App.utils && typeof App.utils.sanitizeImportedBank === 'function')
+                            ? App.utils.sanitizeImportedBank(payload, idStats)
+                            : payload;
+                        const v = this.validateSchema(sanitized);
+                        if (v !== true) throw new Error(String(v));
+                        this.bank = sanitized;
+                        this._cachedQuestions = null;
+                        this._questionMap = null;
+                        // 收藏按 id 记录：恢复后只保留仍然存在的题
+                        const alive = new Set(this.getQuestions().map(q => q.id));
+                        this.starredIds = (this.starredIds || []).filter(id => alive.has(id));
+                        this._persistStarred();
+                        this.persistBank();
+                        return { ok: true, questions: alive.size, subjects: this._bankGroupCounts(sanitized).subjects };
+                    }
+                    if (type === 'history') {
+                        const rawBak = (payload && Array.isArray(payload.history)) ? payload.history : [];
+                        const list = this.sanitizeHistory(rawBak);
+                        this.history = list;
+                        this.lastPracticeTime = (payload && typeof payload.lastPracticeTime === 'number') ? payload.lastPracticeTime : null;
+                        if (payload && Array.isArray(payload.hiddenMistakeIds)) {
+                            this.hiddenMistakeIds = payload.hiddenMistakeIds.filter(x => typeof x === 'string');
+                        }
+                        if (payload && Array.isArray(payload.starred)) {
+                            this.starredIds = payload.starred.filter(x => typeof x === 'string');
+                            this._persistStarred();
+                        }
+                        this._historyAppendBuffer = [];
+                        this._errFreqCache = null;
+                        this._lastHistoryTimestamp = 0;
+                        this._isHistoryDirty = true;
+                        // 强制全量保存：全量模式的 state.history 会整份替换云端，
+                        // 否则 Worker 会把还没上传的旧增量 concat 回去（「恢复」恢复不掉）
+                        this._bankDirty = true;
+                        this._markUnsynced();
+                        this.saveHistory();
+                        return { ok: true, records: list.length, dropped: rawBak.length - list.length };
+                    }
+                    throw new Error('unknown backup type: ' + type);
+                },
+
                 async _safeSetItem(key, value) {
                     try {
                         await setDBItem(key, value);
@@ -217,9 +405,17 @@ export const data = {
                 isStarred(id) {
                     return Array.isArray(this.starredIds) && this.starredIds.includes(id);
                 },
+                getStarredCount() {
+                    if (!Array.isArray(this.starredIds) || !this.starredIds.length) return 0;
+                    const activeIds = this._activeQuestionIds();
+                    let count = 0;
+                    for (const id of this.starredIds) {
+                        if (activeIds.has(id)) count++;
+                    }
+                    return count;
+                },
                 _persistStarred() {
                     this._editSeq++;
-                    this._bankDirty = true;   // 收藏走全量保存：增量分支的 payload 不含 starred
                     this._markUnsynced();
                     // 广播必须等写入提交：否则另一标签页的读取会跑赢落库读到旧值
                     setDBItem(this.starredKey, JSON.stringify(this.starredIds))
@@ -349,6 +545,7 @@ export const data = {
                         await deleteDBItem(this.bankNameKey);
                         await deleteDBItem(this.historyKey);
                         await deleteDBItem(this.trashKey);
+                        await deleteDBItem(this.starredKey);
                         await deleteDBItem(this.lastUserIdKey);
                         await deleteDBItem('lms_v26_synced_base');   // 三方合并基线一并清除
                         this._lastSyncedBank = null;
@@ -376,10 +573,12 @@ export const data = {
                 validateSchema(data) {
                     if (!data || typeof data !== 'object' || Array.isArray(data)) return "Root must be an object";
                     const TYPES = new Set(['mcq', 'multi', 'tf', 'fill']);
-                    for (const sub in data) {
-                        if (!sub || typeof sub !== 'string') return "Subject name must be a non-empty string";
-                        if (typeof data[sub] !== 'object' || Array.isArray(data[sub])) return `Subject [${sub}] format error`;
-                        for (const chap in data[sub]) {
+                    const UNSAFE_KEYS = new Set(['__proto__', 'prototype', 'constructor', 'toString', 'valueOf', 'hasOwnProperty']);
+                    for (const sub of Object.keys(data)) {
+                        if (!sub || typeof sub !== 'string' || sub.length > 200 || UNSAFE_KEYS.has(sub)) return "Invalid or unsafe subject name";
+                        if (typeof data[sub] !== 'object' || Array.isArray(data[sub]) || data[sub] === null) return `Subject [${sub}] format error`;
+                        for (const chap of Object.keys(data[sub])) {
+                            if (!chap || typeof chap !== 'string' || chap.length > 200 || UNSAFE_KEYS.has(chap)) return `Invalid or unsafe chapter name in [${sub}]`;
                             if (!Array.isArray(data[sub][chap])) return `Chapter [${chap}] must be an array`;
                             for (let i = 0; i < data[sub][chap].length; i++) {
                                 const q = data[sub][chap][i];
@@ -449,8 +648,8 @@ export const data = {
                                         if (typeof m.key !== 'string' || !m.key.trim()) return `media[${mi}].key must be a non-empty string for ID ${q.id}`;
                                         const mt = m.type || 'img';
                                         if (mt === 'img') {
-                                            if (typeof m.src !== 'string' || !/^(https:\/\/|data:image\/)/.test(m.src)) {
-                                                return `media[${mi}].src must be https:// or data:image/ URL for ID ${q.id}`;
+                                            if (typeof m.src !== 'string' || !/^(https:\/\/|data:image\/(?:png|jpe?g|gif|webp);base64,)/i.test(m.src)) {
+                                                return `media[${mi}].src must be https:// or safe raster data:image/(png|jpeg|gif|webp);base64 URL for ID ${q.id}`;
                                             }
                                             if (m.src.length > 500000) return `media[${mi}].src too large (max ~500KB base64) for ID ${q.id}`;
                                         } else if (mt === 'table') {
@@ -511,7 +710,7 @@ export const data = {
                             }
                         }
                         // 相似题检测的基准：导入前的旧题，按科目分组、题干预先归一化。
-                        // 字符计数缓存供 bagDistance 预筛用（编辑距离的下界），避免全量 O(m·n) DP。
+                        // 字符计数缓存供 bagDistance 预筛用（编辑距离的下界），避免全量 O(m*n) DP。
                         const SIMILARITY_THRESHOLD = 0.85;
                         const MIN_NORM_LEN = 6;
                         const SIMILAR_PAIRS_CAP = 200;
@@ -642,17 +841,28 @@ export const data = {
                                 }
                             }
                         });
-                        // 对每个章节进行一次去重（按 id 保留最后一个）
+                        // 对每个章节进行一次去重（按 id 保留最后一个），并使章节顺序优先遵循本次导入预览的顺序
                         for (const sub in this.bank) {
-                            for (const chap in (this.bank[sub] || {})) {
-                                const arr = this.bank[sub][chap] || [];
+                            const chapDict = this.bank[sub] || {};
+                            for (const chap in chapDict) {
+                                const arr = chapDict[chap] || [];
                                 const uniq = new Map();
                                 arr.forEach(q => {
                                     if (q && typeof q.id === 'string') {
                                         uniq.set(q.id, q);
                                     }
                                 });
-                                this.bank[sub][chap] = Array.from(uniq.values());
+                                chapDict[chap] = Array.from(uniq.values());
+                            }
+                            if (sanitizedInput && sanitizedInput[sub] && typeof sanitizedInput[sub] === 'object') {
+                                const orderedChaps = {};
+                                for (const inChap of Object.keys(sanitizedInput[sub])) {
+                                    if (chapDict[inChap]) orderedChaps[inChap] = chapDict[inChap];
+                                }
+                                for (const oldChap of Object.keys(chapDict)) {
+                                    if (!(oldChap in orderedChaps)) orderedChaps[oldChap] = chapDict[oldChap];
+                                }
+                                this.bank[sub] = orderedChaps;
                             }
                         }
                         this.normalizeBankStructure();
@@ -690,15 +900,10 @@ export const data = {
                 },
 
                 async clearBank() {
-                    if (confirm(App.t("确定清空题库吗？该操作不会清空您的做题记录。"))) {
+                    if (await App.ui.confirm(App.t("确定清空题库吗？该操作不会清空您的做题记录。"))) {
                         // 清空前自动备份完整题库到云端（与 exportAllBank 同格式，可直接再导入）
                         try {
-                            const bankOut = {};
-                            this.getQuestions().forEach(q => {
-                                const { _pinyin, _aiAnalysis, sub, chap, _editedAt, ...rest } = q;
-                                (bankOut[sub] = bankOut[sub] || {})[chap] = (bankOut[sub][chap] || []).concat(rest);
-                            });
-                            const okBk = await this._uploadCloudBackup('bank', bankOut);
+                            const okBk = await this._backupCurrentState('bank');
                             if (!okBk) {
                                 alert(App.t('云端备份失败，已取消清空。请检查网络后重试，或先在账户菜单「导出全部题库」手动备份。'));
                                 return;
@@ -710,6 +915,7 @@ export const data = {
                         }
                         this.bank = {};
                         this.starredIds = [];   // 收藏不指向不存在的题
+                        this._persistStarred();
                         this.persistBank();
                         App.ui.closeModal('config');
                         App.router.go('dashboard');
@@ -717,15 +923,11 @@ export const data = {
                 },
 
                 async resetHistory() {
-                    if (confirm(App.t("确定清空所有刷题记录吗？"))) {
+                    if (await App.ui.confirm(App.t("确定清空所有刷题记录吗？"))) {
                         // 清空前自动备份完整记录到云端（设置 → 数据管理 → 云端备份 可查看/下载）：
                         // 备份失败则阻断清空——误删必须有救，不能静默丢数据
                         try {
-                            const okBk = await this._uploadCloudBackup('history', {
-                                exportedAt: new Date().toISOString(),
-                                history: this.history,
-                                lastPracticeTime: this.lastPracticeTime
-                            });
+                            const okBk = await this._backupCurrentState('history');
                             if (!okBk) {
                                 alert(App.t('云端备份失败，已取消清空。请检查网络后重试，或先在账户菜单「导出全部题库」手动备份。'));
                                 return;
@@ -737,6 +939,7 @@ export const data = {
                         }
                         this.history = [];
                         this.lastPracticeTime = null;
+                        this.hiddenMistakeIds = [];
                         // 三件套必须一起做，否则刚答完题留在增量缓冲里的记录会在随后的
                         // statePartial 保存中被 Worker concat 回云端——「清空」清不掉云端：
                         this._historyAppendBuffer = [];   // ① 待上传的增量作废
@@ -822,13 +1025,24 @@ export const data = {
                 renameSubject(oldSub, newSub) {
                     const trimmed = String(newSub || '').trim();
                     if (!trimmed || trimmed === oldSub || !this.bank[oldSub]) return;
-                    if (!this.bank[trimmed]) this.bank[trimmed] = {};
+                    const targetExisted = Boolean(this.bank[trimmed]);
+                    const mergedChaps = targetExisted ? { ...this.bank[trimmed] } : {};
                     for (const chap in this.bank[oldSub]) {
                         // 目标科目可能已存在同名章节，按 id 合并去重
-                        this.bank[trimmed][chap] = this._mergeById(this.bank[trimmed][chap], this.bank[oldSub][chap]);
+                        mergedChaps[chap] = this._mergeById(mergedChaps[chap], this.bank[oldSub][chap]);
                     }
-                    // 收藏按 id 记录：重命名只是搬家，id 不变，星标保持有效（不要误清）
-                    delete this.bank[oldSub];
+                    // 保持原科目在列表中的顺序位置（不因重命名跳到末尾）
+                    const rebuiltBank = {};
+                    for (const k of Object.keys(this.bank)) {
+                        if (k === oldSub) {
+                            if (!targetExisted) rebuiltBank[trimmed] = mergedChaps;
+                        } else if (k === trimmed) {
+                            rebuiltBank[trimmed] = mergedChaps;
+                        } else {
+                            rebuiltBank[k] = this.bank[k];
+                        }
+                    }
+                    this.bank = rebuiltBank;
                     if (this.trash && this.trash[oldSub]) {
                         if (!this.trash[trimmed]) this.trash[trimmed] = {};
                         for (const chap in this.trash[oldSub]) {
@@ -899,10 +1113,20 @@ export const data = {
                     if (!this.bank[sub] || !this.bank[sub][oldChap]) return;
                     const trimmed = String(newChap || '').trim();
                     if (!trimmed || trimmed === oldChap) return;
-                    if (!this.bank[sub][trimmed]) this.bank[sub][trimmed] = [];
-                    // 目标章节可能已存在，按 id 合并去重
-                    this.bank[sub][trimmed] = this._mergeById(this.bank[sub][trimmed], this.bank[sub][oldChap]);
-                    delete this.bank[sub][oldChap];
+                    const targetExisted = Boolean(this.bank[sub][trimmed]);
+                    const mergedQs = this._mergeById(this.bank[sub][trimmed], this.bank[sub][oldChap]);
+                    // 保持原章节在科目内的顺序位置（不因重命名跳到末尾）
+                    const rebuiltChaps = {};
+                    for (const c of Object.keys(this.bank[sub])) {
+                        if (c === oldChap) {
+                            if (!targetExisted) rebuiltChaps[trimmed] = mergedQs;
+                        } else if (c === trimmed) {
+                            rebuiltChaps[trimmed] = mergedQs;
+                        } else {
+                            rebuiltChaps[c] = this.bank[sub][c];
+                        }
+                    }
+                    this.bank[sub] = rebuiltChaps;
                     if (!Object.keys(this.bank[sub] || {}).length) delete this.bank[sub];
                     if (this.trash && this.trash[sub] && this.trash[sub][oldChap]) {
                         const mergedArr = this._mergeById(this.trash[sub][trimmed], this.trash[sub][oldChap]);
@@ -917,6 +1141,116 @@ export const data = {
                     }
                     this.normalizeBankStructure();
                     this.persistBank();
+                },
+
+                // 调整科目顺序（delta: -1 上移，+1 下移）
+                moveSubject(sub, delta) {
+                    const keys = Object.keys(this.bank || {});
+                    const idx = keys.indexOf(sub);
+                    if (idx === -1) return false;
+                    const targetIdx = idx + delta;
+                    if (targetIdx < 0 || targetIdx >= keys.length) return false;
+                    const tmp = keys[idx];
+                    keys[idx] = keys[targetIdx];
+                    keys[targetIdx] = tmp;
+                    const rebuilt = {};
+                    for (const k of keys) rebuilt[k] = this.bank[k];
+                    this.bank = rebuilt;
+                    this.persistBank();
+                    if (window.App && App.ui && typeof App.ui.renderBankManager === 'function') {
+                        App.ui.renderBankManager();
+                    }
+                    if (window.App && App.router && typeof App.router.refresh === 'function') {
+                        App.router.refresh();
+                    }
+                    return true;
+                },
+
+                // 调整章节顺序（delta: -1 上移，+1 下移）
+                moveChapter(sub, chap, delta) {
+                    if (!this.bank || !this.bank[sub]) return false;
+                    const keys = Object.keys(this.bank[sub]);
+                    const idx = keys.indexOf(chap);
+                    if (idx === -1) return false;
+                    const targetIdx = idx + delta;
+                    if (targetIdx < 0 || targetIdx >= keys.length) return false;
+                    const tmp = keys[idx];
+                    keys[idx] = keys[targetIdx];
+                    keys[targetIdx] = tmp;
+                    const rebuilt = {};
+                    for (const k of keys) rebuilt[k] = this.bank[sub][k];
+                    this.bank[sub] = rebuilt;
+                    this.persistBank();
+                    if (window.App && App.ui && typeof App.ui.renderBankManager === 'function') {
+                        App.ui.renderBankManager();
+                    }
+                    if (window.App && App.router && typeof App.router.refresh === 'function') {
+                        App.router.refresh();
+                    }
+                    return true;
+                },
+
+                // 按章节号自然排序指定科目下的全部章节（支持 Chapter 1..N、第一章..第N章 等）
+                sortChaptersNaturally(sub) {
+                    if (!this.bank || !this.bank[sub]) return false;
+                    const keys = Object.keys(this.bank[sub]);
+                    if (keys.length < 2) return false;
+                    const cmp = (window.App && App.utils && typeof App.utils.naturalCompare === 'function')
+                        ? (a, b) => App.utils.naturalCompare(a, b)
+                        : (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+                    const sorted = [...keys].sort(cmp);
+                    const changed = keys.some((k, i) => k !== sorted[i]);
+                    if (!changed) {
+                        if (typeof showGlobalToast === 'function') {
+                            showGlobalToast(App.t('当前章节已经是自然顺序，无需调整。'), 'info');
+                        }
+                        return false;
+                    }
+                    const rebuilt = {};
+                    for (const k of sorted) rebuilt[k] = this.bank[sub][k];
+                    this.bank[sub] = rebuilt;
+                    this.persistBank();
+                    if (window.App && App.ui && typeof App.ui.renderBankManager === 'function') {
+                        App.ui.renderBankManager();
+                    }
+                    if (window.App && App.router && typeof App.router.refresh === 'function') {
+                        App.router.refresh();
+                    }
+                    if (typeof showGlobalToast === 'function') {
+                        showGlobalToast(App.t('已按章节序号重新排列。'), 'success');
+                    }
+                    return true;
+                },
+
+                // 按名称自然排序所有科目
+                sortSubjectsNaturally() {
+                    const keys = Object.keys(this.bank || {});
+                    if (keys.length < 2) return false;
+                    const cmp = (window.App && App.utils && typeof App.utils.naturalCompare === 'function')
+                        ? (a, b) => App.utils.naturalCompare(a, b)
+                        : (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+                    const sorted = [...keys].sort(cmp);
+                    const changed = keys.some((k, i) => k !== sorted[i]);
+                    if (!changed) {
+                        if (typeof showGlobalToast === 'function') {
+                            showGlobalToast(App.t('当前科目已经是自然顺序，无需调整。'), 'info');
+                        }
+                        return false;
+                    }
+                    const rebuilt = {};
+                    for (const k of sorted) rebuilt[k] = this.bank[k];
+                    this.bank = rebuilt;
+                    this.persistBank();
+                    if (window.App && App.ui && typeof App.ui.renderBankManager === 'function') {
+                        App.ui.renderBankManager();
+                    }
+                    if (window.App && App.router && typeof App.router.refresh === 'function') {
+                        App.router.refresh();
+                    }
+                    if (typeof showGlobalToast === 'function') {
+                        showGlobalToast(App.t('已按科目名称重新排列。'), 'success');
+                    }
+                    return true;
                 },
 
                 deleteChapter(sub, chap) {
@@ -954,8 +1288,8 @@ export const data = {
                     }
                 },
 
-                renameSubjectInteractive(sub) {
-                    const next = window.prompt(App.t('请输入新的科目名称'), sub);
+                async renameSubjectInteractive(sub) {
+                    const next = await App.ui.prompt(App.t('请输入新的科目名称'), sub);
                     if (!next || next.trim() === sub) return;
                     this.renameSubject(sub, next.trim());
                     if (App && App.ui && typeof App.ui.renderBankManager === 'function') {
@@ -966,8 +1300,8 @@ export const data = {
                         }
                 },
 
-                deleteSubjectInteractive(sub) {
-                    if (!window.confirm(`${App.t('确定要删除科目「')}${sub}${App.t('」及其所有章节和题目吗？')}`)) return;
+                async deleteSubjectInteractive(sub) {
+                    if (!(await App.ui.confirm(`${App.t('确定要删除科目「')}${sub}${App.t('」及其所有章节和题目吗？')}`))) return;
                     this.deleteSubject(sub);
                     if (App && App.ui && typeof App.ui.renderBankManager === 'function') {
                         App.ui.renderBankManager();
@@ -977,8 +1311,8 @@ export const data = {
                         }
                 },
 
-                renameChapterInteractive(sub, chap) {
-                    const next = window.prompt(App.t('请输入新的章节名称（{s}）').replace('{s}', sub), chap);
+                async renameChapterInteractive(sub, chap) {
+                    const next = await App.ui.prompt(App.t('请输入新的章节名称（{s}）').replace('{s}', sub), chap);
                     if (!next || next.trim() === chap) return;
                     this.renameChapter(sub, chap, next.trim());
                     if (App && App.ui && typeof App.ui.renderBankManager === 'function') {
@@ -989,8 +1323,8 @@ export const data = {
                         }
                 },
 
-                deleteChapterInteractive(sub, chap) {
-                    if (!window.confirm(`${App.t('确定要删除章节「')}${sub} / ${chap}${App.t('」及其所有题目吗？')}`)) return;
+                async deleteChapterInteractive(sub, chap) {
+                    if (!(await App.ui.confirm(`${App.t('确定要删除章节「')}${sub} / ${chap}${App.t('」及其所有题目吗？')}`))) return;
                     this.deleteChapter(sub, chap);
                     if (App && App.ui && typeof App.ui.renderBankManager === 'function') {
                         App.ui.renderBankManager();
@@ -1090,12 +1424,12 @@ export const data = {
                         const skipQuestionsUpdate = !this._bankDirty && delta.questions === 0;
 
                         // ========== 增量同步决策 ==========
-                        // 如果只有 history 变动（bank/trash 没变），使用增量模式
+                        // 如果只有 history / starred / hiddenMistakeIds 变动（bank/trash 没变），使用增量模式
                         const historyBuffer = Array.isArray(this._historyAppendBuffer) ? this._historyAppendBuffer : [];
                         const useIncrementalSync = !this._bankDirty
                             && delta.questions === 0
                             && delta.trash === 0
-                            && historyBuffer.length > 0;
+                            && (historyBuffer.length > 0 || (typeof this.remoteVersion === 'number' && this.remoteVersion > 0));
 
                         if (window.App && App.sync && typeof App.sync.setDebug === 'function') {
                             App.sync.setDebug({
@@ -1111,9 +1445,10 @@ export const data = {
                             });
                         }
 
-                        // 5. 构造要保存的完整状态树
-                        const state = {
-                            bank,
+                        // 5. 构造要保存的状态树（优化：当 questions 数组已随请求上传或 skipQuestionsUpdate=true 时，
+                        // 不在网络载荷里重复塞入整份 bank，避免同一批题目在单次请求中双倍序列化与上传；
+                        // Worker 端会自动从 questions 或旧 state.bank 补齐，保持云端存储结构 100% 兼容）
+                        const wireState = {
                             bankName: this.bankName || null,
                             history,
                             lastPracticeTime,
@@ -1152,8 +1487,6 @@ export const data = {
                                 App.sync.setStatus('pending', null, null);
                             }
                             // 每次保存都重新快照：快照必须代表「本次尝试要上传的状态」。
-                            // 原来只在为 null 时创建，导致一次失败后快照一直停在旧状态，
-                            // 之后若遇到 409 会回滚到那份旧数据，把中间的编辑一起丢掉。
                             this._pendingSaveState = {
                                 bank: JSON.parse(JSON.stringify(this.bank || {})),
                                 history: Array.isArray(this.history) ? this.history.slice() : [],
@@ -1162,49 +1495,63 @@ export const data = {
                                 hiddenMistakeIds: Array.isArray(this.hiddenMistakeIds) ? this.hiddenMistakeIds.slice() : [],
                                 bankName: this.bankName || ''
                             };
+                            const payloadObj = useIncrementalSync ? {
+                                // ========== 增量模式：仅发送新增 history ==========
+                                name: inferredName,
+                                statePartial: true,
+                                historyAppend: historyBuffer,
+                                skipQuestionsUpdate: true,
+                                version: typeof this.remoteVersion === "number" ? this.remoteVersion : 0,
+                                partialFields: ['lastPracticeTime', 'hiddenMistakeIds', 'starred'],
+                                partialValues: {
+                                    lastPracticeTime: lastPracticeTime,
+                                    hiddenMistakeIds: Array.isArray(this.hiddenMistakeIds) ? this.hiddenMistakeIds : [],
+                                    starred: Array.isArray(this.starredIds) ? this.starredIds : []
+                                },
+                                delta: {
+                                    questions: 0,
+                                    history: historyBuffer.length,
+                                    trash: 0,
+                                    incremental: true
+                                }
+                            } : {
+                                // ========== 全量模式（精简载荷：省略重复的 state.bank） ==========
+                                name: inferredName,
+                                questions: skipQuestionsUpdate ? [] : questions,
+                                state: wireState,
+                                skipQuestionsUpdate,
+                                version: typeof this.remoteVersion === "number" ? this.remoteVersion : 0,
+                                historyAppend: historyBuffer.length > 0 ? historyBuffer : undefined,
+                                delta: {
+                                    questions: delta.questions,
+                                    history: delta.history,
+                                    trash: delta.trash,
+                                    questionIds: {
+                                        added: addedIds,
+                                        removed: removedIds
+                                    }
+                                }
+                            };
+                            const rawBodyStr = JSON.stringify(payloadObj);
+                            const reqHeaders = {
+                                "Content-Type": "application/json",
+                                Authorization: "Bearer " + token
+                            };
+                            let reqBody = rawBodyStr;
+                            // 大载荷（>32KB）自动启用浏览器原生 Gzip 流式压缩上传，实测可减少 85%–92% 上传流量
+                            if (rawBodyStr.length > 32768 && typeof CompressionStream === 'function' && typeof Blob === 'function' && typeof Response === 'function') {
+                                try {
+                                    const compressedStream = new Blob([rawBodyStr]).stream().pipeThrough(new CompressionStream('gzip'));
+                                    reqBody = await new Response(compressedStream).arrayBuffer();
+                                    reqHeaders['Content-Encoding'] = 'gzip';
+                                } catch (_) {
+                                    reqBody = rawBodyStr;
+                                }
+                            }
                             res = await fetch((App.apiBase || '') + "/api/save-question-set", {
                                 method: "POST",
-                                headers: {
-                                    "Content-Type": "application/json",
-                                    Authorization: "Bearer " + token
-                                },
-                                body: JSON.stringify(useIncrementalSync ? {
-                                    // ========== 增量模式：仅发送新增 history ==========
-                                    name: inferredName,
-                                    statePartial: true,
-                                    historyAppend: historyBuffer,
-                                    skipQuestionsUpdate: true,
-                                    version: typeof this.remoteVersion === "number" ? this.remoteVersion : 0,
-                                    partialFields: ['lastPracticeTime', 'hiddenMistakeIds'],
-                                    partialValues: {
-                                        lastPracticeTime: lastPracticeTime,
-                                        hiddenMistakeIds: Array.isArray(this.hiddenMistakeIds) ? this.hiddenMistakeIds : []
-                                    },
-                                    delta: {
-                                        questions: 0,
-                                        history: historyBuffer.length,
-                                        trash: 0,
-                                        incremental: true
-                                    }
-                                } : {
-                                    // ========== 全量模式（原逻辑） ==========
-                                    name: inferredName,
-                                    questions,
-                                    state,
-                                    skipQuestionsUpdate,
-                                    version: typeof this.remoteVersion === "number" ? this.remoteVersion : 0,
-                                    // 同时附带 historyAppend 以防万一
-                                    historyAppend: historyBuffer.length > 0 ? historyBuffer : undefined,
-                                    delta: {
-                                        questions: delta.questions,
-                                        history: delta.history,
-                                        trash: delta.trash,
-                                        questionIds: {
-                                            added: addedIds,
-                                            removed: removedIds
-                                        }
-                                    }
-                                })
+                                headers: reqHeaders,
+                                body: reqBody
                             });
                         } catch (e) {
                             console.error("保存题库到云端失败", e);
@@ -1453,6 +1800,7 @@ export const data = {
                                                     hiddenMistakeIds: this.hiddenMistakeIds
                                                 }));
                                                 this._safeSetItem(this.trashKey, JSON.stringify(this.trash));
+                                                this._safeSetItem(this.starredKey, JSON.stringify(this.starredIds));
                                                 if (this.bankName) this._safeSetItem(this.bankNameKey, this.bankName);
                                                 this._cachedQuestions = null;
                                                 this._questionMap = null;
@@ -1683,6 +2031,7 @@ export const data = {
                                     this.history = [];
                                     this.trash = {};
                                     this.hiddenMistakeIds = [];
+                                    this.starredIds = [];
                                     this.lastPracticeTime = null;
                                     this._cachedQuestions = null;
                                     this._questionMap = null;
@@ -1696,6 +2045,7 @@ export const data = {
                                         await deleteDBItem(this.bankNameKey);
                                         await deleteDBItem(this.historyKey);
                                         await deleteDBItem(this.trashKey);
+                                        await deleteDBItem(this.starredKey);
                                     } catch (e) { }
                                 }
                                 if (uid) {
@@ -1815,6 +2165,7 @@ this.bumpHistoryRev();
                                 hiddenMistakeIds: this.hiddenMistakeIds
                             }));
                             this._safeSetItem(this.trashKey, JSON.stringify(this.trash));
+                            this._safeSetItem(this.starredKey, JSON.stringify(this.starredIds));
                             const bankCount = (() => {
                                 let n = 0;
                                 for (const sub in this.bank) {
@@ -1873,7 +2224,9 @@ this.bumpHistoryRev();
                             this._bankDirty = false;
                             this._clearUnsynced();
                             this._syncReady = true;
-                            this._suppressCloudSync = false;
+                            if (!(window.App && App.quiz && typeof App.quiz.isActive === 'function' && App.quiz.isActive())) {
+                                this._suppressCloudSync = false;
+                            }
                             if (window.App && App.router && typeof App.router.refresh === 'function') {
                                 App.router.refresh();
                             }
@@ -2065,9 +2418,36 @@ this.bumpHistoryRev();
                     return n;
                 },
 
+                // 全部恢复回收站中的题目
+                async restoreAllTrash() {
+                    const total = this.getTrashCount();
+                    if (!total) {
+                        alert(App.t('回收站为空。'));
+                        return;
+                    }
+                    if (!(await App.ui.confirm(`${App.t('确定恢复回收站中的全部 ')}${total}${App.t(' 道题目吗？')}`))) return;
+                    const items = [];
+                    for (const sub of Object.keys(this.trash || {})) {
+                        const chapDict = this.trash[sub] || {};
+                        for (const chap of Object.keys(chapDict)) {
+                            const arr = chapDict[chap] || [];
+                            arr.forEach(q => {
+                                if (q && q.id) items.push({ sub, chap, id: q.id });
+                            });
+                        }
+                    }
+                    items.forEach(it => this.restoreFromTrash(it.sub, it.chap, it.id));
+                    if (window.App && App.ui && typeof App.ui.openTrashModal === 'function') {
+                        App.ui.openTrashModal();
+                    }
+                    if (window.App && App.router && typeof App.router.refresh === 'function') {
+                        App.router.refresh();
+                    }
+                },
+
                 // 清空回收站
-                emptyTrash() {
-                    if (!confirm(App.t("确定要清空回收站中的所有题目吗？该操作不可恢复。"))) return;
+                async emptyTrash() {
+                    if (!(await App.ui.confirm(App.t("确定要清空回收站中的所有题目吗？该操作不可恢复。")))) return;
                     this.trash = {};
                     this.persistTrash();
                     if (window.App && App.ui && typeof App.ui.openTrashModal === 'function') {
@@ -2143,8 +2523,7 @@ this.bumpHistoryRev();
 
                     // 清理残留的空容器
                     this._pruneEmptyContainers();
-                    // 题目被删除（同 id 旧题被覆盖移除）时同步移出收藏
-                    this.starredIds = (this.starredIds || []).filter(sid => sid !== q.id);
+                    // 注意：编辑已有题目时必须保留其收藏状态（starredIds），不可清除！
                     this.persistBank();
                 },
 
@@ -2161,6 +2540,13 @@ this.bumpHistoryRev();
                         }
                     }
                     if (changed) {
+                        if (Array.isArray(this.starredIds) && this.starredIds.length) {
+                            const nextStarred = this.starredIds.filter(sid => !idSet.has(sid));
+                            if (nextStarred.length !== this.starredIds.length) {
+                                this.starredIds = nextStarred;
+                                this._persistStarred();
+                            }
+                        }
                         this._pruneEmptyContainers();
                         this.persistBank();
                     }
@@ -2289,10 +2675,18 @@ this.bumpHistoryRev();
                     const bestSub = subEntries.sort((a, b) => b[1].acc - a[1].acc)[0]?.[0] || null;
                     const worstSub = [...subEntries].sort((a, b) => a[1].acc - b[1].acc)[0]?.[0] || null;
 
+                    let starredCount = 0;
+                    if (Array.isArray(this.starredIds) && this.starredIds.length) {
+                        for (const sid of this.starredIds) {
+                            if (activeIds.has(sid)) starredCount++;
+                        }
+                    }
+
                     return {
                         total: all.length,
                         acc: h.length ? Math.round((corr / h.length) * 100) : 0,
                         mistakes: Object.keys(errFreq).length,
+                        starred: starredCount,
                         topMistakes,
                         timeText,
                         subjectStats,
@@ -2430,7 +2824,11 @@ export const sync = {
                     if (!btn || !icon) return;
 
                     // Reset classes on dot and button（与 HTML 头部保持一致的响应式：手机端只显示状态点）
-                    btn.className = "h-8 flex items-center gap-1.5 px-2 sm:gap-2 sm:px-3 rounded-lg border text-[11px] sm:text-xs font-medium transition-all duration-200 active:scale-95 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50";
+                    // 注意：基础 class 里**不能**放背景色/边框色：下面每个状态分支都会再 add 自己的
+                    //   颜色，两组 class 同时存在时谁生效取决于 CSS 规则顺序（Tailwind 静态构建
+                    //   按固定顺序输出，与旧 Play CDN 的「发现顺序」不同）——结果是状态染色
+                    //   会被基础色盖掉。所以颜色一律只在分支里给。
+                    btn.className = "h-8 flex items-center gap-1.5 px-2 sm:gap-2 sm:px-3 rounded-lg border text-[11px] sm:text-xs font-medium transition-all duration-200 active:scale-95";
                     icon.className = "w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full transition-all duration-300";
                     
                     let titleText = '';
@@ -2441,7 +2839,7 @@ export const sync = {
                         btn.classList.add('border-slate-300', 'dark:border-slate-700', 'bg-slate-100/50', 'dark:bg-slate-900/50');
                         icon.classList.add('bg-slate-400');
                         statusText = (window.App && App.t) ? App.t('未登录') : '未登录';
-                        titleText = '登录后题库与学习数据自动同步';
+                        titleText = (window.App && App.t) ? App.t('登录后题库与学习数据自动同步') : '登录后题库与学习数据自动同步';
                     } else if (this._lastStatus === 'error') {
                         btn.classList.add('border-red-400', 'bg-red-500/5');
                         icon.classList.add('bg-red-500', 'shadow-[0_0_8px_rgba(239,68,68,0.4)]');
@@ -2552,7 +2950,7 @@ export const sync = {
                     if (debugPanel) {
                         const dbg = this._lastSyncDebug;
                         if (!dbg) {
-                            debugPanel.innerHTML = '<div class="text-[var(--sub)]">暂无诊断信息</div>';
+                            debugPanel.innerHTML = `<div class="text-[var(--sub)]">${App.t('暂无诊断信息')}</div>`;
                         } else {
                             const time = dbg.time ? new Date(dbg.time).toLocaleString() : '';
                             debugPanel.innerHTML = `
@@ -2569,7 +2967,7 @@ export const sync = {
                     list.innerHTML = '';
                     const logs = data && data.ok && Array.isArray(data.logs) ? data.logs : [];
                     if (!logs.length) {
-                        list.innerHTML = '<div class="text-[var(--sub)] text-xs py-4 text-center">暂无同步记录</div>';
+                        list.innerHTML = `<div class="text-[var(--sub)] text-xs py-4 text-center">${App.t('暂无同步记录')}</div>`;
                     } else {
                         logs.forEach(l => {
                             const line = document.createElement('div');

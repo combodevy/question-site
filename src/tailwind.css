@@ -1,0 +1,4 @@
+/* Tailwind 源文件：构建产物为 css/tailwind.css（见 package.json 的 build:css） */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

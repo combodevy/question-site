@@ -67,43 +67,55 @@ window.addEventListener('DOMContentLoaded', async () => {
     window.App = App;
     await App.init();
 
-    // ===== 全局错误提示：任何未捕获异常都可见，避免"点了没反应"式的静默失败 =====
-    // 同时上报到 Worker（/api/client-errors），管理后台「系统日志」可见——
-    // 线上出问题开发者先于用户知道。节流：每会话最多报 5 条，防止循环上报。
+    // ===== 全局提示条 =====
+    // type: 'error' | 'warn' | 'success' | 'info'
+    // 注意：只有 error 才加「程序异常：」前缀，并且只有 error 才上报到 Worker
+    //   （/api/client-errors → 管理后台「系统日志」）。
+    //   旧实现所有提示都走 showGlobalError：于是「判分完成」「已恢复题库」这类
+    //   正常结果也显示成红色「程序异常：」，还会往后台错误日志里灌假错误。
     let lastReportedError = null;
-// 英语专题等模块需要全局可用的提示条（模块作用域内 typeof 探测不到）
-window.showGlobalError = showGlobalError;
-    const showGlobalError = (msg, err) => {
-        let toast = document.getElementById('global-error-toast');
+    const TOAST_CLASS = {
+        error: 'bg-red-600 text-white',
+        warn: 'bg-amber-500 text-white',
+        success: 'bg-emerald-600 text-white',
+        info: 'bg-slate-700 text-white'
+    };
+    const TOAST_BASE = 'fixed bottom-4 left-1/2 -translate-x-1/2 z-[70] pointer-events-none px-4 py-2 rounded-lg text-xs shadow-lg max-w-[90vw] transition-opacity duration-200';
+    const showGlobalToast = (msg, type, err) => {
+        const kind = TOAST_CLASS[type] ? type : 'info';
+        let toast = document.getElementById('global-toast');
         if (!toast) {
             toast = document.createElement('div');
-            toast.id = 'global-error-toast';
-            // pointer-events-none：这是纯提示、没有任何可点的东西，
-            // 不能让它悬在页面上挡住下面的按钮（尤其它 z-[70] 高于所有弹窗）
-            toast.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 z-[70] pointer-events-none px-4 py-2 rounded-lg bg-red-600 text-white text-xs shadow-lg max-w-[90vw] transition-opacity duration-200';
+            toast.id = 'global-toast';
+            // pointer-events-none：这是纯提示，不能悬在页面上挡住下面的按钮
+            //（它 z-[70] 高于所有弹窗）。需要可点的东西必须自己加 pointer-events-auto。
+            toast.className = TOAST_BASE + ' ' + TOAST_CLASS.info;
             document.body.appendChild(toast);
         }
-        toast.textContent = App.t('程序异常：') + msg;
+        // 每次重设 class：类型可能变化，且要清掉上一次可能插入的子节点样式
+        toast.className = TOAST_BASE + ' ' + TOAST_CLASS[kind];
+        toast.textContent = (kind === 'error' ? App.t('程序异常：') : '') + msg;
         // 淡入：先归零再过渡到 1，避免直接蹦出（淡出已有 260ms 过渡）
         toast.style.display = 'block';
         toast.style.transition = 'opacity 200ms ease-out';
         toast.style.opacity = '0';
         void toast.offsetWidth;
         toast.style.opacity = '1';
-        clearTimeout(showGlobalError._t);
-        showGlobalError._t = setTimeout(() => {
+        clearTimeout(showGlobalToast._t);
+        showGlobalToast._t = setTimeout(() => {
             // 先淡出再隐藏，避免硬切消失
             toast.style.opacity = '0';
             setTimeout(() => { toast.style.display = 'none'; }, 260);
-        }, 5000);
+        }, kind === 'error' ? 5000 : 3200);
 
+        if (kind !== 'error') return;   // 只有真错误才上报
         // 错误上报（静默失败，不影响用户）
-        if (!showGlobalError._reportCount) showGlobalError._reportCount = 0;
-        if (showGlobalError._reportCount >= 5) return;
+        if (!showGlobalToast._reportCount) showGlobalToast._reportCount = 0;
+        if (showGlobalToast._reportCount >= 5) return;
         if (!App.apiBase || !App.auth || !App.auth.session) return;
         if (msg === lastReportedError) return;   // 同一条错误不重复报
         lastReportedError = msg;
-        showGlobalError._reportCount++;
+        showGlobalToast._reportCount++;
         try {
             fetch(App.apiBase + '/api/client-errors', {
                 method: 'POST',
@@ -119,6 +131,13 @@ window.showGlobalError = showGlobalError;
             }).catch(() => { });
         } catch (e) { }
     };
+    const showGlobalError = (msg, err) => showGlobalToast(msg, 'error', err);
+    // 英语专题等模块需要全局可用的提示条（模块作用域内 typeof 探测不到）。
+    // 注意：必须在 const 定义之后赋值：写在前面会因 TDZ 抛
+    //   "Cannot access '…' before initialization"，把本回调里它之后的全部代码
+    //   （版本提示条、登录/注册按钮绑定、跨标签页同步…）一起带走。
+    window.showGlobalToast = showGlobalToast;
+    window.showGlobalError = showGlobalError;
     window.addEventListener('error', (e) => {
         if (e && e.message) showGlobalError(e.message.slice(0, 120), e.error);
     });
@@ -138,7 +157,7 @@ window.showGlobalError = showGlobalError;
     }
 
     // ===== 版本检测：部署了新版本后提示用户刷新，避免一直跑旧代码 =====
-    // ★ 曾经的问题：检测到新版本后只把提示条显示出来，却没有更新 localStorage 里的版本号，
+    // 注意：曾经的问题：检测到新版本后只把提示条显示出来，却没有更新 localStorage 里的版本号，
     //   于是每次检查（包括用户刷新页面之后）都仍然判定为「有新版本」，提示条永久常驻。
     //   现在：一检测到新版本就立刻记录，本次会话提示一次，刷新拿到新代码后不再提示。
     App.checkAppVersion = async () => {
@@ -172,7 +191,7 @@ window.showGlobalError = showGlobalError;
                 bar.className = 'fixed bottom-14 left-1/2 -translate-x-1/2 z-[45] flex items-center gap-2 px-3 py-2 rounded-full bg-slate-900 text-white text-xs shadow-lg';
                 bar.innerHTML = '<span>' + App.t('应用已更新') + '</span>'
                     + '<button id="app-version-reload" class="px-3 py-1 rounded-full bg-primary-600 font-bold active:scale-95 transition-transform">立即刷新</button>'
-                    + '<button id="app-version-dismiss" class="px-1.5 py-1 rounded-full text-slate-300 hover:text-white leading-none" title="本次不再提示" aria-label="关闭">✕</button>';
+                    + '<button id="app-version-dismiss" class="px-1.5 py-1 rounded-full text-slate-300 hover:text-white leading-none inline-flex items-center justify-center" title="本次不再提示" aria-label="关闭"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>';
                 document.body.appendChild(bar);
                 const reloadBtn = document.getElementById('app-version-reload');
                 if (reloadBtn) reloadBtn.onclick = () => location.reload();
@@ -210,6 +229,11 @@ window.showGlobalError = showGlobalError;
             const currentView = document.querySelector('[id^="view-"]:not(.hidden)');
             if (!currentView) return;
             const viewName = currentView.id.replace('view-', '');
+            // 做题中的视图不重渲染：quiz/english 的 render 都会回到起始界面，
+            // 拖一下窗口（或手机旋转屏幕）就会把进行中的练习整个丢掉。
+            // 这里的重渲染本意只是让图表画布跟随新尺寸，quiz/english 没有图表。
+            if (viewName === 'quiz' && App.quiz && typeof App.quiz.isActive === 'function' && App.quiz.isActive()) return;
+            if (viewName === 'english' && App.views && App.views.english && App.views.english._sess) return;
             if (window.App && App.views && App.views[viewName] && typeof App.views[viewName].render === 'function') {
                 App.views[viewName].render();
             }
@@ -250,7 +274,7 @@ window.showGlobalError = showGlobalError;
             const isStarredOnly = info.key === d.starredKey;
             const selfDirty = d._bankDirty || (Array.isArray(d._historyAppendBuffer) && d._historyAppendBuffer.length > 0) || d._isSaving;
             if (selfDirty) {
-                if (typeof showGlobalError === 'function') showGlobalError(App.t('其他标签页修改了题库数据；本页也有未保存修改，保存时会自动合并。'));
+                if (typeof showGlobalToast === 'function') showGlobalToast(App.t('其他标签页修改了题库数据；本页也有未保存修改，保存时会自动合并。'), 'info');
                 if (d.saveToCloudDebounced) d.saveToCloudDebounced();
                 return;
             }
@@ -260,13 +284,15 @@ window.showGlobalError = showGlobalError;
                 return;
             }
             // 非阻塞提示条替代 confirm：后台事件不该打断正在做题/操作的用户
-            if (typeof showGlobalError === 'function') {
-                showGlobalError(App.t('检测到其他标签页修改了题库数据。'));
-                const bar = document.getElementById('global-error-toast');
+            if (typeof showGlobalToast === 'function') {
+                showGlobalToast(App.t('检测到其他标签页修改了题库数据。'), 'info');
+                const bar = document.getElementById('global-toast');
                 if (bar && !document.getElementById('tab-sync-reload')) {
                     const btn = document.createElement('button');
                     btn.id = 'tab-sync-reload';
-                    btn.className = 'ml-2 underline font-bold';
+                    // 注意：pointer-events-auto 必须显式加：提示条本身是 pointer-events-none，
+                    //   子元素不恢复的话这个按钮根本点不动（点了没反应）
+                    btn.className = 'ml-2 underline font-bold pointer-events-auto cursor-pointer';
                     btn.textContent = App.t('立即刷新');
                     btn.onclick = () => { if (window.App && App.data && App.data.reloadFromLocalIDB) App.data.reloadFromLocalIDB(); if (bar) bar.remove(); };
                     bar.appendChild(btn);
@@ -306,8 +332,17 @@ window.showGlobalError = showGlobalError;
     const signupBtn = document.getElementById("auth-signup-btn");
     const emailInput = document.getElementById("auth-email");
     const passwordInput = document.getElementById("auth-password");
+    const confirmInput = document.getElementById("auth-password-confirm");
     const statusEl = document.getElementById("auth-status");
-    const showStatus = (msg) => { if (statusEl) statusEl.textContent = msg || ''; };
+    const showStatus = (msg, kind = 'info') => {
+        if (!statusEl) return;
+        statusEl.textContent = msg || '';
+        statusEl.className = 'text-[11px] min-h-[1rem] leading-snug ' + (
+            kind === 'error'
+                ? 'text-red-500 font-medium'
+                : (kind === 'success' ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-[var(--sub)]')
+        );
+    };
 
     if (saveBtn) {
         // 左键同样打开同步记录面板（右键已有绑定），提高可发现性
@@ -366,76 +401,135 @@ window.showGlobalError = showGlobalError;
             const loginId = emailInput ? emailInput.value.trim() : '';
             const password = passwordInput ? passwordInput.value : '';
             if (!loginId || !password) {
-                showStatus('请输入用户名和密码');
+                showStatus(App.t('请输入用户名和密码'), 'error');
                 return;
             }
-            // 防连点：重复提交不仅重复请求，还会白吃登录限流与注册限流的配额
+            if (loginId.length < 2 || loginId.length > 32) {
+                showStatus(App.t('用户名长度需在 2–32 位之间'), 'error');
+                return;
+            }
+            if (password.length < 6 || password.length > 128) {
+                showStatus(App.t('密码长度需在 6–128 位之间'), 'error');
+                return;
+            }
             if (loginBtn.disabled) return;
             loginBtn.disabled = true;
             try {
-                await doLogin();
+                showStatus(App.t('登录中...'), 'info');
+                const { error } = await App.auth.login(loginId, password);
+                if (error) {
+                    showStatus(error.message || App.t('登录失败'), 'error');
+                    return;
+                }
+                showStatus(App.t('登录成功'), 'success');
+                if (window.App && App.ui && typeof App.ui.closeModal === "function") {
+                    App.ui.closeModal('auth');
+                }
             } finally {
                 loginBtn.disabled = false;
             }
         });
-
-        async function doLogin() {
-            {
-                const loginId = emailInput ? emailInput.value.trim() : '';
-                const password = passwordInput ? passwordInput.value : '';
-                if (!loginId || !password) {
-                    showStatus('请输入用户名和密码');
-                    return;
-                }
-            showStatus('登录中...');
-            const { error } = await App.auth.login(loginId, password);
-            if (error) {
-                showStatus(error.message || '登录失败');
-                return;
-            }
-            showStatus('登录成功');
-            if (window.App && App.ui && typeof App.ui.closeModal === "function") {
-                App.ui.closeModal('auth');
-            }
-            }
-        }
     }
 
     if (signupBtn) {
         signupBtn.addEventListener("click", async function () {
             const loginId = emailInput ? emailInput.value.trim() : '';
             const password = passwordInput ? passwordInput.value : '';
+            const confirmPw = confirmInput ? confirmInput.value : '';
             if (!loginId || !password) {
-                showStatus('请输入用户名和密码');
+                showStatus(App.t('请输入用户名和密码'), 'error');
                 return;
+            }
+            if (loginId.includes('@')) {
+                showStatus(App.t('用户名不能包含 @ 符号'), 'error');
+                return;
+            }
+            if (loginId.length < 2 || loginId.length > 32) {
+                showStatus(App.t('用户名长度需在 2–32 位之间'), 'error');
+                return;
+            }
+            if (!/^[a-zA-Z0-9_\u4e00-\u9fa5.-]+$/.test(loginId)) {
+                showStatus(App.t('用户名只能包含字母、数字、下划线、点、横线或中文'), 'error');
+                return;
+            }
+            if (password.length < 6 || password.length > 128) {
+                showStatus(App.t('密码长度需在 6–128 位之间'), 'error');
+                return;
+            }
+            const confirmWrap = document.getElementById('auth-confirm-wrap');
+            if (confirmWrap && !confirmWrap.classList.contains('hidden')) {
+                if (!confirmPw) {
+                    showStatus(App.t('请再次输入确认密码'), 'error');
+                    if (confirmInput) confirmInput.focus();
+                    return;
+                }
+                if (password !== confirmPw) {
+                    showStatus(App.t('两次输入的密码不一致，请核对后重试'), 'error');
+                    if (confirmInput) confirmInput.focus();
+                    return;
+                }
             }
             if (signupBtn.disabled) return;
             signupBtn.disabled = true;
             try {
-                await doSignup();
+                showStatus(App.t('注册中...'), 'info');
+                const { error } = await App.auth.signup(loginId, password);
+                if (error) {
+                    const msg = /already registered/i.test(error.message || '') ? App.t('该用户名已被注册') : (error.message || App.t('注册失败'));
+                    showStatus(msg, 'error');
+                    return;
+                }
+                if (confirmInput) confirmInput.value = '';
+                showStatus(App.t('注册成功，已自动登录'), 'success');
+                if (window.App && App.ui && typeof App.ui.closeModal === "function") {
+                    App.ui.closeModal('auth');
+                }
             } finally {
                 signupBtn.disabled = false;
             }
         });
+    }
 
-        async function doSignup() {
-            {
-                const loginId = emailInput ? emailInput.value.trim() : '';
-                const password = passwordInput ? passwordInput.value : '';
-                if (!loginId || !password) {
-                    showStatus('请输入用户名和密码');
-                    return;
-                }
-            showStatus('注册中...');
-            const { error } = await App.auth.signup(loginId, password);
-            if (error) {
-                const msg = /already registered/i.test(error.message || '') ? '该用户名已被注册' : (error.message || '注册失败');
-                showStatus(msg);
+    // 登录/注册弹窗支持回车键快捷提交（自动根据当前所处模式触发登录或注册）
+    const triggerActiveAuthSubmit = () => {
+        const isSignup = window.App && App.ui && App.ui._authMode === 'signup';
+        if (isSignup) {
+            if (confirmInput && !confirmInput.value) {
+                confirmInput.focus();
                 return;
             }
-            showStatus(App.t('注册成功，已自动登录'));
-            }
+            if (signupBtn && !signupBtn.disabled) signupBtn.click();
+        } else {
+            if (loginBtn && !loginBtn.disabled) loginBtn.click();
         }
+    };
+    if (emailInput) {
+        emailInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (passwordInput && !passwordInput.value) {
+                    passwordInput.focus();
+                } else {
+                    triggerActiveAuthSubmit();
+                }
+            }
+        });
+    }
+    if (passwordInput) {
+        passwordInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                triggerActiveAuthSubmit();
+            }
+        });
+    }
+    if (confirmInput) {
+        confirmInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (signupBtn && !signupBtn.disabled) signupBtn.click();
+            }
+        });
     }
 });
 

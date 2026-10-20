@@ -1,4 +1,4 @@
-﻿export const dashboard = {
+export const dashboard = {
 
                     render() {
                         const s = App.data.getStats();
@@ -6,6 +6,7 @@
                         this._animateNumber('dash-acc', s.acc, '%');
                         App.dom.setText('dash-total', s.total);
                         App.dom.setText('dash-err', s.mistakes);
+                        App.dom.setText('dash-starred', s.starred || 0);
                         App.dom.setText('last-practice-time', s.timeText);
 
                         // 间隔复习横幅：SM-2 计划中有今日到期的题时才显示
@@ -31,7 +32,7 @@
                                     const d = document.createElement('div');
                                     d.className = "flex items-start justify-between p-4 border-b border-[var(--border)] active:bg-[var(--bg-hover)] cursor-pointer transition-colors gap-3";
                                     d.onclick = () => App.ui.openDrawer(q.id);
-                                    const badgeClass = i === 0 ? 'rank-1' : (i === 1 ? 'rank-2' : (i === 2 ? 'rank-3' : 'bg-slate-100 text-slate-500'));
+                                    const badgeClass = i === 0 ? 'rank-1' : (i === 1 ? 'rank-2' : (i === 2 ? 'rank-3' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'));
 
                                     const safeQuestion = App.utils.escapeHTML(q.q || '');
                                     let fullAnswer = '';
@@ -63,7 +64,7 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="text-xs font-bold text-red-500 flex-shrink-0 self-center bg-red-50 px-2 py-1 rounded ml-1">${q.count}${App.i18n.lang === 'en' ? '×' : '次'}</div>`;
+                                        <div class="text-xs font-bold text-red-500 dark:text-red-400 flex-shrink-0 self-center bg-red-50 dark:bg-red-900/30 px-2 py-1 rounded ml-1">${q.count}${App.i18n.lang === 'en' ? '×' : '次'}</div>`;
                                     ml.appendChild(d);
                                 });
                             }
@@ -100,8 +101,8 @@
                             const sumEl = document.getElementById('dash-week-summary');
                             if (sumEl) {
                                 sumEl.innerHTML = App.i18n.lang === 'en'
-                                    ? `<span class="font-bold text-[var(--text)]">${wkTotal}</span> questions · <span class="font-bold text-emerald-600">${wkAcc}%</span> correct this week`
-                                    : `本周 <span class="font-bold text-[var(--text)]">${wkTotal}</span> 题 · 正确率 <span class="font-bold text-emerald-600">${wkAcc}%</span>`;
+                                    ? `<span class="font-bold text-[var(--text)]">${wkTotal}</span> questions / <span class="font-bold text-emerald-600">${wkAcc}%</span> correct this week`
+                                    : `本周 <span class="font-bold text-[var(--text)]">${wkTotal}</span> 题 / 正确率 <span class="font-bold text-emerald-600">${wkAcc}%</span>`;
                             }
                         }
                     },

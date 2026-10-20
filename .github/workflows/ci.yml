@@ -6,6 +6,8 @@ on:
   pull_request:
 
 jobs:
+  # 静态检查 + 数据体检：不需要浏览器，秒级完成。
+  # 这里覆盖的都是「过去真实出过问题」的面：数据完整性、答案库契约、中英覆盖。
   check:
     runs-on: ubuntu-latest
     steps:
@@ -13,11 +15,54 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Syntax check (all JS modules)
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Syntax check (all JS modules + repo scripts)
         run: node scripts/ci-check.mjs
+
       - name: Config consistency (frontend API / worker name / D1)
         run: node scripts/check-deploy-target.mjs
+
       - name: JSON validity
         run: node -e "['package.json','worker/wrangler.json'].forEach(f => JSON.parse(require('fs').readFileSync(f)))"
+
       - name: Migration files are ordered and non-empty
         run: node -e "const fs=require('fs');const m=fs.readdirSync('worker/migrations').sort();if(!m.length)throw new Error('no migrations');m.forEach(f=>{if(!fs.readFileSync('worker/migrations/'+f).toString().includes('CREATE'))throw new Error(f+' empty')})"
+
+      - name: Data audit (107 papers — mojibake / encoding / structure / counts / options / word banks)
+        run: python3 scripts/audit-data.py
+
+      - name: Answer keys contract (question numbers exist, letters within option count)
+        run: node scripts/validate-keys.mjs
+
+      - name: i18n coverage (no Chinese left in EN mode)
+        run: node scripts/check-i18n.mjs
+
+      - name: DOM contract (no dangling data-act / element id / CSS variable / inline handler)
+        run: node scripts/check-dom-contract.mjs
+
+  # 渲染核对：把每一套卷在真实浏览器里逐卷逐节渲染一遍。
+  # 数据「能解析」不等于「能正确显示」——完形节误判、正文混入题目、
+  # 断词、私有区乱码这些历史上都躲过了纯数据检查，只有渲染才能发现。
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install playwright (browser driver)
+        run: |
+          npm i --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Serve static site
+        run: |
+          python3 -m http.server 8899 --bind 127.0.0.1 &
+          for i in $(seq 1 20); do curl -sf -o /dev/null http://127.0.0.1:8899/index.html && break; sleep 0.5; done
+
+      - name: Render every paper in a real browser
+        run: node scripts/sweep-papers.mjs http://127.0.0.1:8899

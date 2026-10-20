@@ -1,7 +1,7 @@
 <!--
   @file index.html
-  @description 项目主入口文件 (Main Entry Point) - LMS Genesis v3.0
-  @date 2026-07-05
+  @description 项目主入口文件 (Main Entry Point)
+  @date 2026-10-19
   
   架构说明 (Architecture):
   单页应用 (SPA)，无构建工具 (No-Build)，原生 ES6+ JavaScript。
@@ -14,7 +14,7 @@
   - App.router: Hash 路由页面切换
   
   技术栈 (Tech Stack):
-  - Frontend: HTML5, Tailwind CSS (CDN), Vanilla JS
+  - Frontend: HTML5, Tailwind CSS (静态构建 css/tailwind.css), Vanilla JS
   - Backend: Cloudflare Workers (worker/index.js)
   - Database: Cloudflare D1 (SQLite)
   - Hosting: Cloudflare Pages
@@ -31,38 +31,13 @@
     <meta charset="UTF-8">
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>LMS Genesis | 灵活题库版 (Flexible Edition)</title>
+    <title>在线刷题系统</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230d9488' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'/%3E%3C/svg%3E">
 
-    <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3/dist/index.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        primary: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 700: '#0f766e' },
-                        slate: { 850: '#1e293b', 900: '#0f172a' }
-                    },
-                    fontFamily: { sans: ['Inter', '-apple-system', 'sans-serif'] },
-                    animation: {
-                        'slide-up': 'slideUp 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
-                        'slide-in': 'slideIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
-                        'fade-in': 'fadeIn 0.2s ease-out forwards',
-                        'pop': 'pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
-                        'shake': 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both'
-                    },
-                    keyframes: {
-                        slideUp: { '0%': { transform: 'translateY(20px)', opacity: 0 }, '100%': { transform: 'translateY(0)', opacity: 1 } },
-                        slideIn: { '0%': { transform: 'translateX(16px)', opacity: 0 }, '100%': { transform: 'translateX(0)', opacity: 1 } },
-                        fadeIn: { '0%': { opacity: 0 }, '100%': { opacity: 1 } },
-                        pop: { '0%': { transform: 'scale(0.95)' }, '100%': { transform: 'scale(1)' } },
-                        shake: { '10%, 90%': { transform: 'translate3d(-1px, 0, 0)' }, '20%, 80%': { transform: 'translate3d(2px, 0, 0)' }, '30%, 50%, 70%': { transform: 'translate3d(-4px, 0, 0)' }, '40%, 60%': { transform: 'translate3d(4px, 0, 0)' } }
-                    }
-                }
-            }
-        }
-    </script>
+    <!-- Tailwind 静态构建产物（原 cdn.tailwindcss.com 为官方 not-for-production 的运行时版）
+         重新生成：npm run build:css -->
+    <!-- 拼音搜索：本地托管（原 jsdelivr，外网被挡时会静默降级为纯文本匹配） -->
+    <script src="js/vendor/pinyin-pro.min.js"></script>
 
     <style>
         /* 自托管 Inter 可变字体（latin 子集）：此前字体栈声明了 Inter 却从未加载，
@@ -82,6 +57,9 @@
             --sub: #64748b;
             --border: #e2e8f0;
             --accent: #0d9488;
+            /* 弹窗头部条 / 卡片按下态的底色。注意：这个变量被用了 17 处却一直没定义，
+               var() 解析失败会让整条 background 声明失效 → 头部与按下反馈全是透明。 */
+            --bg-hover: #f1f5f9;
         }
 
         html.dark {
@@ -91,6 +69,7 @@
             --sub: #94a3b8;
             --border: #334155;
             --accent: #2dd4bf;
+            --bg-hover: #334155;
         }
 
         body {
@@ -214,6 +193,12 @@
             animation: fade-in 0.3s ease-out;
         }
 
+        /* 全局防长文本/URL/代码无空格溢出：确保题干、选项、解析、列表和弹窗内超长连续字符自动折行 */
+        #q-text, .opt-btn, #fb-desc, #lib-list, #drawer-q, #app-dialog-message {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
         .rank-1 {
             background: linear-gradient(135deg, #fbbf24, #d97706);
             color: white;
@@ -328,9 +313,9 @@
 
         /* ===== 动效层 =========================================================
            原则：动画跟着交互逻辑走，不做全场统一的无脑动画。
-           · 进场位移小（≤10px）、时长短（≤220ms）、ease-out——「出现」而非「表演」
-           · 数据轮询触发的同视图刷新不重播进场动画，只有视图/状态真的变了才播
-           · prefers-reduced-motion 时全部禁用                                */
+           - 进场位移小（≤10px）、时长短（≤220ms）、ease-out——「出现」而非「表演」
+           - 数据轮询触发的同视图刷新不重播进场动画，只有视图/状态真的变了才播
+           - prefers-reduced-motion 时全部禁用                                */
 
         /* 此前 .opt-btn.wrong 和 .visible-panel 引用了这两个 keyframes，
            但它们从未被定义——答错的抖动和结果页淡入一直是静默无效的死 CSS */
@@ -348,19 +333,36 @@
         }
 
         @keyframes view-in {
-            from { opacity: 0; transform: translateY(6px); }
+            from { opacity: 0; transform: translateY(8px) scale(0.995); }
             to { opacity: 1; transform: none; }
         }
 
         @keyframes pop-in {
-            0% { opacity: 0; transform: scale(0.96); }
-            60% { transform: scale(1.01); }
+            0% { opacity: 0; transform: scale(0.95); }
+            60% { transform: scale(1.012); }
             100% { opacity: 1; transform: none; }
         }
 
         @keyframes list-swap {
-            from { opacity: 0.4; }
-            to { opacity: 1; }
+            from { opacity: 0.35; transform: translateY(4px); }
+            to { opacity: 1; transform: none; }
+        }
+
+        @keyframes q-slide-next {
+            from { opacity: 0; transform: translateX(18px); }
+            to { opacity: 1; transform: none; }
+        }
+
+        @keyframes q-slide-prev {
+            from { opacity: 0; transform: translateX(-18px); }
+            to { opacity: 1; transform: none; }
+        }
+
+        @keyframes star-pop {
+            0% { transform: scale(1); }
+            40% { transform: scale(1.32) rotate(-8deg); }
+            75% { transform: scale(0.92) rotate(4deg); }
+            100% { transform: scale(1) rotate(0); }
         }
 
         /* 错误 toast / 版本条都用 left-1/2 平移居中，动画里保持 -50% */
@@ -369,13 +371,126 @@
             to { opacity: 1; transform: translate(-50%, 0); }
         }
 
-        .anim-view-in { animation: view-in 0.22s ease-out both; }
-        .anim-pop-in { animation: pop-in 0.2s ease-out both; }
+        .anim-view-in { animation: view-in 0.24s cubic-bezier(0.22, 1, 0.36, 1) both; }
+        .anim-pop-in { animation: pop-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both; }
         .anim-shake { animation: shake 0.35s ease-out both; }
         .anim-fade-in { animation: fade-in 0.2s ease-out both; }
-        .anim-list-swap { animation: list-swap 0.16s ease-out both; }
+        .anim-list-swap { animation: list-swap 0.18s cubic-bezier(0.22, 1, 0.36, 1) both; }
+        .anim-q-next { animation: q-slide-next 0.22s cubic-bezier(0.22, 1, 0.36, 1) both; }
+        .anim-q-prev { animation: q-slide-prev 0.22s cubic-bezier(0.22, 1, 0.36, 1) both; }
+        .anim-star-pop { animation: star-pop 0.32s cubic-bezier(0.22, 1, 0.36, 1); }
 
-        #global-error-toast {
+        /* 题库顶部三合一模式切换胶囊（总题库 / 错题本 / 已收藏） */
+        .lib-mode-tabs {
+            display: inline-flex;
+            padding: 3px;
+            border-radius: 11px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            gap: 2px;
+        }
+        .lib-mode-tab {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--sub);
+            transition: all 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+        .lib-mode-tab:hover {
+            color: var(--text);
+        }
+        .lib-mode-tab.is-active {
+            background: var(--card);
+            color: var(--accent);
+            box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+        }
+        .lib-mode-tab[data-lib-mode="starred"].is-active {
+            color: #d97706;
+        }
+        html.dark .lib-mode-tab[data-lib-mode="starred"].is-active {
+            color: #fbbf24;
+        }
+        .lib-mode-tab[data-lib-mode="mistakes"].is-active {
+            color: #ef4444;
+        }
+        html.dark .lib-mode-tab[data-lib-mode="mistakes"].is-active {
+            color: #f87171;
+        }
+
+        /* 刷题页顶部细进度条与题号跳转面板 */
+        .quiz-progress-track {
+            height: 5px;
+            border-radius: 999px;
+            background: var(--border);
+            overflow: hidden;
+        }
+        .quiz-progress-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #14b8a6, var(--accent));
+            transition: width 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .quiz-nav-dot {
+            height: 32px;
+            min-width: 32px;
+            padding: 0 6px;
+            border-radius: 9px;
+            font-size: 12px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border);
+            background: var(--card);
+            color: var(--sub);
+            transition: all 0.15s ease;
+            cursor: pointer;
+        }
+        .quiz-nav-dot:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            transform: translateY(-1px);
+        }
+        .quiz-nav-dot.is-current {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.22);
+            color: var(--accent);
+            font-weight: 800;
+        }
+        .quiz-nav-dot.is-correct {
+            background: #f0fdf4;
+            border-color: #86efac;
+            color: #15803d;
+        }
+        html.dark .quiz-nav-dot.is-correct {
+            background: rgba(34, 197, 94, 0.16);
+            border-color: rgba(34, 197, 94, 0.45);
+            color: #4ade80;
+        }
+        .quiz-nav-dot.is-wrong {
+            background: #fef2f2;
+            border-color: #fca5a5;
+            color: #b91c1c;
+        }
+        html.dark .quiz-nav-dot.is-wrong {
+            background: rgba(239, 68, 68, 0.18);
+            border-color: rgba(239, 68, 68, 0.45);
+            color: #f87171;
+        }
+        .quiz-nav-dot.is-self {
+            background: rgba(13, 148, 136, 0.1);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        #global-toast {
             animation: toast-in 0.25s ease-out both;
             transition: opacity 0.25s ease;
         }
@@ -394,6 +509,14 @@
 
         [id^="modal-"].opacity-0 > .card {
             transform: scale(0.97) translateY(10px);
+        }
+
+        /* 密码框采用 text + -webkit-text-security: disc 掩码：
+           视觉上与 type="password" 完全一致（******），但不会触发 Chrome Google Password Manager
+           对简单密码（如 123456）每次登录弹出的「Check your saved passwords / 数据泄露警告」弹窗。 */
+        .pw-masked {
+            -webkit-text-security: disc;
+            text-security: disc;
         }
 
         /* ===== 英语阅读题双栏布局 =====
@@ -736,6 +859,14 @@
             #view-english .eng-session.has-psg .eng-psg-col.open {
                 transform: translateY(0);
             }
+
+            /* 「阅读文章 (Passage)」按钮只在手机出现（桌面文章栏常驻在旁边，不需要它），
+               且仅当本节确实有文章时由 _syncPassage 加上 .psg-open-avail。
+               注意：不能用内联 style.display 控制可见性：内联样式优先级高于 md:hidden，
+               会导致桌面端也冒出一个点了没反应的按钮。 */
+            #view-english [data-psg-open].psg-open-avail {
+                display: flex;
+            }
         }
 
         /* 账户菜单：从右上角锚点轻弹出（menu 本身已有 transition-all） */
@@ -752,16 +883,21 @@
            点按反馈仍由 .card-interactive:active 的缩放承担 */
         @media (hover: hover) {
             .card-interactive {
-                transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+                transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.18s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.18s ease, background-color 0.15s ease;
             }
 
             .card-interactive:hover {
-                transform: translateY(-1px);
-                box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+                transform: translateY(-2px);
+                box-shadow: 0 8px 20px -4px rgba(15, 23, 42, 0.09), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
             }
 
             html.dark .card-interactive:hover {
-                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+                box-shadow: 0 8px 22px -4px rgba(0, 0, 0, 0.42);
+            }
+
+            .opt-btn:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
             }
         }
 
@@ -771,7 +907,10 @@
             .anim-shake,
             .anim-fade-in,
             .anim-list-swap,
-            #global-error-toast,
+            .anim-q-next,
+            .anim-q-prev,
+            .anim-star-pop,
+            #global-toast,
             #app-version-bar,
             .visible-panel,
             .opt-btn.wrong {
@@ -780,12 +919,14 @@
 
             [id^="modal-"] > .card,
             #account-menu,
-            .card-interactive {
+            .card-interactive,
+            .quiz-progress-fill {
                 transition: none !important;
                 transform: none !important;
             }
         }
     </style>
+    <link rel="stylesheet" href="css/tailwind.css">
 </head>
 
 <body
@@ -805,8 +946,7 @@
             
             <!-- Version Brand -->
             <div class="flex items-center gap-1.5">
-                <span class="text-xs font-bold tracking-tight text-slate-800 dark:text-white">LMS Genesis</span>
-                <span class="hidden sm:inline px-1.5 py-0.5 text-[11px] font-bold tracking-wider text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/30 rounded border border-teal-100/30 dark:border-teal-900/30">v3.0</span>
+                <span id="app-version-badge" class="px-2 py-0.5 text-[11px] font-mono font-bold tracking-wider text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/30 rounded border border-teal-100/30 dark:border-teal-900/30">v 2610193</span>
             </div>
         </div>
         
@@ -872,7 +1012,7 @@
         class="fixed right-2 top-16 left-2 sm:left-auto sm:right-4 sm:w-72 z-50 bg-[var(--card)] border border-[var(--border)] rounded-2xl shadow-2xl hidden opacity-0 pointer-events-none transition-all duration-200 overflow-hidden">
         <!-- 个人信息区：登录后展示，未登录隐藏。点击进入「个人空间」 -->
         <div id="am-profile" class="hidden px-3 pt-3 pb-2 border-b border-[var(--border)] mb-1 cursor-pointer hover:bg-[var(--bg)] transition-colors"
-            onclick="App.ui.closeAccountMenu(); App.router.go('profile')" title="进入个人空间">
+            data-act="profile" title="进入个人空间">
             <div class="flex items-center gap-3">
                 <div id="am-avatar" class="w-10 h-10 rounded-full bg-primary-600 text-white flex items-center justify-center text-base font-bold flex-shrink-0">?</div>
                 <div class="flex-1 min-w-0">
@@ -890,7 +1030,53 @@
 
         </div>
         <div id="am-stats" class="px-3 py-3 grid grid-cols-3 gap-2 border-b border-[var(--border)]"></div>
+        <!-- 常用入口。注意：这些条目的 data-act 必须与 App.ui.handleAccountMenuAction 的分支一一对应：
+             曾经整段被误删，导致菜单里只剩「注销账号」——用户根本找不到「退出登录」。
+             新增条目时同步改 handleAccountMenuAction，两边任何一边缺了都是「点了没反应」。 -->
         <div class="p-2 flex flex-col text-xs">
+            <button data-act="analytics"
+                class="account-menu-item flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[var(--text)] hover:bg-[var(--bg)] active:bg-[var(--bg-hover)] transition-colors text-left">
+                <svg class="w-4 h-4 flex-shrink-0 text-[var(--sub)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6m4 6V5m4 14v-9M5 21h14" /></svg>
+                <span data-i18n>学习分析</span>
+            </button>
+            <button data-act="import"
+                class="account-menu-item flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[var(--text)] hover:bg-[var(--bg)] active:bg-[var(--bg-hover)] transition-colors text-left">
+                <svg class="w-4 h-4 flex-shrink-0 text-[var(--sub)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21V8m0 13l-4-4m4 4l4-4M5 3h14" /></svg>
+                <span data-i18n>导入题库</span>
+            </button>
+            <button data-act="export"
+                class="account-menu-item flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[var(--text)] hover:bg-[var(--bg)] active:bg-[var(--bg-hover)] transition-colors text-left">
+                <svg class="w-4 h-4 flex-shrink-0 text-[var(--sub)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v13m0-13l-4 4m4-4l4 4M5 21h14" /></svg>
+                <span data-i18n>导出全部题库</span>
+            </button>
+            <button data-act="export-print"
+                class="account-menu-item flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[var(--text)] hover:bg-[var(--bg)] active:bg-[var(--bg-hover)] transition-colors text-left">
+                <svg class="w-4 h-4 flex-shrink-0 text-[var(--sub)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                <span data-i18n>导出 PDF</span>
+            </button>
+            <button data-act="sync"
+                class="account-menu-item flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[var(--text)] hover:bg-[var(--bg)] active:bg-[var(--bg-hover)] transition-colors text-left">
+                <svg class="w-4 h-4 flex-shrink-0 text-[var(--sub)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                <span data-i18n>同步记录</span>
+            </button>
+            <button data-act="trash"
+                class="account-menu-item flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[var(--text)] hover:bg-[var(--bg)] active:bg-[var(--bg-hover)] transition-colors text-left">
+                <svg class="w-4 h-4 flex-shrink-0 text-[var(--sub)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                <span data-i18n>回收站</span>
+                <span id="am-trash-count" class="hidden ml-auto text-[10px] font-bold text-primary-600 dark:text-primary-100 bg-primary-50 dark:bg-primary-700/20 px-1.5 py-0.5 rounded-full flex-shrink-0"></span>
+            </button>
+            <button data-act="password"
+                class="account-menu-item flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[var(--text)] hover:bg-[var(--bg)] active:bg-[var(--bg-hover)] transition-colors text-left">
+                <svg class="w-4 h-4 flex-shrink-0 text-[var(--sub)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                <span data-i18n>修改密码</span>
+            </button>
+            <div class="my-1 h-px bg-[var(--border)]"></div>
+            <button data-act="logout"
+                class="account-menu-item flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[var(--text)] hover:bg-[var(--bg)] active:bg-[var(--bg-hover)] transition-colors text-left">
+                <svg class="w-4 h-4 flex-shrink-0 text-[var(--sub)]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                <span data-i18n>退出登录</span>
+            </button>
+            <div class="my-1 h-px bg-[var(--border)]"></div>
             <button data-act="delete-account"
                 class="account-menu-item flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 active:bg-red-100 dark:active:bg-red-900/40 transition-colors text-left">
                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -928,9 +1114,9 @@
         <div id="modal-auth"
             class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm hidden opacity-0 pointer-events-none">
             <div
-                class="card w-full max-w-sm rounded-2xl shadow-2xl p-5 flex flex-col gap-4 bg-[var(--card)] border border-[var(--border)]">
+                class="card w-full max-w-sm rounded-2xl shadow-2xl p-5 flex flex-col gap-3.5 bg-[var(--card)] border border-[var(--border)]">
                 <div class="flex justify-between items-center">
-                    <h3 class="font-bold text-base">账号登录</h3>
+                    <h3 id="auth-modal-title" class="font-bold text-base">账号登录</h3>
                     <button onclick="App.ui.closeModal('auth')" aria-label="关闭登录弹窗" class="text-[var(--sub)] hover:text-[var(--text)] p-1">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -938,27 +1124,56 @@
                         </svg>
                     </button>
                 </div>
-                <div class="flex flex-col gap-2">
-                    <label class="text-[11px] text-[var(--sub)]">用户名</label>
-                    <input onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('auth-login-btn').click();}" id="auth-email" type="text" name="username" autocomplete="username"
-                        class="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-base sm:text-xs outline-none"
-                        placeholder="your_username">
+                <!-- 登录 / 注册 模式分段切换栏 -->
+                <div class="grid grid-cols-2 p-1 rounded-xl bg-[var(--bg)] border border-[var(--border)] text-xs font-bold">
+                    <button type="button" id="auth-tab-login" onclick="App.ui.switchAuthMode('login')"
+                        class="py-1.5 rounded-lg bg-[var(--card)] text-primary-600 shadow-sm transition-all" data-i18n>账号登录</button>
+                    <button type="button" id="auth-tab-signup" onclick="App.ui.switchAuthMode('signup')"
+                        class="py-1.5 rounded-lg text-[var(--sub)] hover:text-[var(--text)] transition-all" data-i18n>注册新账号</button>
                 </div>
-                <div class="flex flex-col gap-2">
-                    <label class="text-[11px] text-[var(--sub)]">密码</label>
-                    <input onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('auth-login-btn').click();}" id="auth-password" type="password" name="password" autocomplete="current-password"
-                        class="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-base sm:text-xs outline-none"
-                        placeholder="••••••••">
+                <div class="flex flex-col gap-1.5">
+                    <label for="auth-email" class="text-[11px] font-bold text-[var(--sub)]">用户名</label>
+                    <input id="auth-email" type="text" name="username" autocomplete="username" maxlength="32"
+                        class="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-base sm:text-xs outline-none focus:border-primary-500 transition-colors"
+                        placeholder="请输入用户名">
+                    <p id="auth-username-hint" class="hidden text-[10px] text-[var(--sub)]" data-i18n>2–32 位字母、数字、中文、下划线或横线，不含 @</p>
+                </div>
+                <div class="flex flex-col gap-1.5">
+                    <label for="auth-password" class="text-[11px] font-bold text-[var(--sub)]">密码</label>
+                    <div class="relative">
+                        <input id="auth-password" type="text" autocomplete="off" spellcheck="false" maxlength="128" data-lpignore="true" data-1p-ignore="true"
+                            oninput="App.ui.updateAuthPasswordStrength(this.value)"
+                            class="pw-masked w-full px-3 py-2 pr-9 rounded-lg border border-[var(--border)] bg-[var(--card)] text-base sm:text-xs outline-none focus:border-primary-500 transition-colors"
+                            placeholder="********">
                         <button type="button" data-pw-toggle="auth-password" tabindex="-1"
-                            class="text-[var(--sub)] hover:text-[var(--text)] p-1" aria-label="显示/隐藏密码"><svg data-eye class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 5-1.274 2.057-5.064 5-9.542 5-4.477 0-8.268-2.943-9.542-5z"/></svg><svg data-eye-off class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-5a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"/></svg></button>
+                            class="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--sub)] hover:text-[var(--text)] p-1" aria-label="显示/隐藏密码"><svg data-eye class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 5-1.274 2.057-5.064 5-9.542 5-4.477 0-8.268-2.943-9.542-5z"/></svg><svg data-eye-off class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-5a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"/></svg></button>
+                    </div>
+                    <!-- 注册模式下展示密码强度条 -->
+                    <div id="auth-pw-strength-wrap" class="hidden space-y-1 pt-0.5">
+                        <div class="h-1 w-full rounded-full bg-[var(--bg)] overflow-hidden">
+                            <div id="auth-pw-strength-bar" class="h-full w-0 transition-all duration-200 rounded-full"></div>
+                        </div>
+                        <div id="auth-pw-strength-text" class="text-[10px] text-[var(--sub)]" data-i18n>至少 6 位，建议字母+数字组合</div>
+                    </div>
                 </div>
-                <div class="flex items-center gap-2">
+                <!-- 注册模式下展示确认密码框（防止手误输错密码锁死新账号） -->
+                <div id="auth-confirm-wrap" class="hidden flex-col gap-1.5">
+                    <label for="auth-password-confirm" class="text-[11px] font-bold text-[var(--sub)]" data-i18n>确认密码</label>
+                    <div class="relative">
+                        <input id="auth-password-confirm" type="text" autocomplete="off" spellcheck="false" maxlength="128" data-lpignore="true" data-1p-ignore="true"
+                            class="pw-masked w-full px-3 py-2 pr-9 rounded-lg border border-[var(--border)] bg-[var(--card)] text-base sm:text-xs outline-none focus:border-primary-500 transition-colors"
+                            placeholder="再次输入密码">
+                        <button type="button" data-pw-toggle="auth-password-confirm" tabindex="-1"
+                            class="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--sub)] hover:text-[var(--text)] p-1" aria-label="显示/隐藏密码"><svg data-eye class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 5-1.274 2.057-5.064 5-9.542 5-4.477 0-8.268-2.943-9.542-5z"/></svg><svg data-eye-off class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-5a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"/></svg></button>
+                    </div>
+                </div>
+                <div id="auth-status" class="text-[11px] text-[var(--sub)] min-h-[1rem] leading-snug"></div>
+                <div class="flex flex-col gap-2">
                     <button id="auth-login-btn"
-                        class="flex-1 btn px-3 py-2.5 bg-primary-600 text-white rounded-xl text-xs font-bold active:scale-95">登录</button>
+                        class="w-full btn px-3 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all">登录</button>
                     <button id="auth-signup-btn"
-                        class="flex-1 btn px-3 py-2.5 bg-[var(--card)] border border-[var(--border)] text-[var(--text)] rounded-xl text-xs font-bold active:scale-95">注册</button>
+                        class="hidden w-full btn px-3 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all" data-i18n>注册并登录</button>
                 </div>
-                <div id="auth-status" class="text-[11px] text-[var(--sub)]"></div>
             </div>
         </div>
         <div id="sync-toast"
@@ -1019,7 +1234,7 @@
                     <div class="card card-interactive p-4 md:p-6 rounded-xl md:rounded-2xl flex flex-col justify-center relative overflow-hidden group cursor-pointer touch-manipulation"
                         onclick="App.ui.toggleModal('smart-practice')">
                         <div class="relative z-10 text-center md:text-left">
-                            <h3 class="font-bold text-sm md:text-lg text-[var(--text)]">智能练习</h3>
+                            <h3 class="font-bold text-sm md:text-lg text-[var(--text)]" data-i18n>整章练习</h3>
                         </div>
                         <div
                             class="hidden md:block absolute right-4 bottom-4 p-2 bg-primary-50 text-primary-600 rounded-lg group-hover:scale-110 transition-transform">
@@ -1057,7 +1272,7 @@
                             </svg></span>
                         <div>
                             <div class="font-bold text-sm md:text-base text-[var(--text)]">英语专题</div>
-                            <div class="text-[11px] md:text-xs text-[var(--sub)]">历年真题 · 阅读专项刷题</div>
+                            <div class="text-[11px] md:text-xs text-[var(--sub)]" data-i18n>历年真题 / 阅读专项刷题</div>
                         </div>
                     </div>
                     <svg class="w-4 h-4 md:w-5 md:h-5 text-[var(--sub)]" fill="none" stroke="currentColor"
@@ -1103,10 +1318,15 @@
                             </h2>
                             <div class="flex items-center gap-2">
                                 <button onclick="App.router.go('library'); setTimeout(() => App.views.library.render('starred'), 60)"
-                                    class="text-[11px] md:text-xs font-bold text-amber-500 bg-amber-50 px-2.5 py-1 rounded-full active:bg-amber-100 transition-colors whitespace-nowrap">收藏 ★</button>
+                                    class="inline-flex items-center gap-1 text-[11px] md:text-xs font-bold text-amber-500 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1 rounded-full active:bg-amber-100 transition-colors whitespace-nowrap">
+                                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+                                    <span data-i18n>收藏</span>
+                                </button>
                                 <button onclick="App.quiz.init('mistakes')"
-                                    class="text-[11px] md:text-xs font-bold text-red-500 bg-red-50 px-2.5 py-1 rounded-full active:bg-red-100 transition-colors whitespace-nowrap">错题突击
-                                    →</button>
+                                    class="inline-flex items-center gap-1 text-[11px] md:text-xs font-bold text-red-500 bg-red-50 dark:bg-red-950/40 px-2.5 py-1 rounded-full active:bg-red-100 transition-colors whitespace-nowrap">
+                                    <span data-i18n>错题突击</span>
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                                </button>
                             </div>
                         </div>
                         <div
@@ -1143,31 +1363,42 @@
                             <div id="dash-week-summary" class="text-[11px] text-[var(--sub)] text-right"></div>
                         </div>
 
-                        <div class="grid grid-cols-2 lg:grid-cols-1 gap-3 md:gap-4">
+                        <div class="grid grid-cols-3 lg:grid-cols-1 gap-2.5 md:gap-3.5">
                             <div onclick="App.router.go('mistake_book')"
                                 class="card card-interactive p-3 md:p-4 rounded-xl cursor-pointer flex flex-col md:flex-row items-center md:justify-between active:bg-[var(--bg-hover)] text-center md:text-left touch-manipulation">
-                                <div class="flex flex-col md:flex-row items-center gap-2 md:gap-3">
-                                    <span class="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-500"><svg
+                                <div class="flex flex-col md:flex-row items-center gap-1.5 md:gap-3">
+                                    <span class="p-2 bg-red-50 dark:bg-red-950/40 rounded-lg text-red-500"><svg
                                             class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                 d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253">
                                             </path>
                                         </svg></span>
-                                    <span class="font-medium text-xs md:text-sm">错题本</span>
+                                    <span class="font-medium text-xs md:text-sm" data-i18n>错题本</span>
                                 </div>
                                 <div class="text-sm md:text-xl font-bold text-red-500 mt-1 md:mt-0" id="dash-err">0
                                 </div>
                             </div>
+                            <div onclick="App.router.go('starred')"
+                                class="card card-interactive p-3 md:p-4 rounded-xl cursor-pointer flex flex-col md:flex-row items-center md:justify-between active:bg-[var(--bg-hover)] text-center md:text-left touch-manipulation">
+                                <div class="flex flex-col md:flex-row items-center gap-1.5 md:gap-3">
+                                    <span class="p-2 bg-amber-50 dark:bg-amber-950/40 rounded-lg text-amber-500"><svg
+                                            class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+                                        </svg></span>
+                                    <span class="font-medium text-xs md:text-sm" data-i18n>已收藏题目</span>
+                                </div>
+                                <div class="text-sm md:text-xl font-bold text-amber-500 mt-1 md:mt-0" id="dash-starred">0</div>
+                            </div>
                             <div onclick="App.router.go('library')"
                                 class="card card-interactive p-3 md:p-4 rounded-xl cursor-pointer flex flex-col md:flex-row items-center md:justify-between active:bg-[var(--bg-hover)] text-center md:text-left touch-manipulation">
-                                <div class="flex flex-col md:flex-row items-center gap-2 md:gap-3">
-                                    <span class="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-500"><svg
+                                <div class="flex flex-col md:flex-row items-center gap-1.5 md:gap-3">
+                                    <span class="p-2 bg-primary-50 dark:bg-primary-900/30 rounded-lg text-primary-500"><svg
                                             class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                 d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4">
                                             </path>
                                         </svg></span>
-                                    <span class="font-medium text-xs md:text-sm">总题库</span>
+                                    <span class="font-medium text-xs md:text-sm" data-i18n>总题库</span>
                                 </div>
                             </div>
                         </div>
@@ -1181,22 +1412,41 @@
                     <div
                         class="p-3 md:p-4 border-b border-[var(--border)] flex flex-col bg-[var(--bg)] sticky top-0 z-10 gap-3">
                         <div class="flex flex-wrap justify-between items-center gap-2">
-                            <div class="flex items-center gap-2 md:gap-3">
+                            <div class="flex items-center gap-2 md:gap-3 flex-wrap">
                                 <button onclick="App.router.go('dashboard')"
-                                    aria-label="返回首页" class="text-[var(--sub)] active:text-primary-600"><svg class="w-5 h-5" fill="none"
+                                    aria-label="返回首页" class="text-[var(--sub)] hover:text-primary-600 active:scale-95 transition-all"><svg class="w-5 h-5" fill="none"
                                         stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                             d="M15 19l-7-7 7-7"></path>
                                     </svg></button>
-                                <h2 class="font-bold text-sm" id="lib-title">总题库</h2>
+                                <h2 class="font-bold text-sm hidden sm:inline" id="lib-title">总题库</h2>
+                                <div class="lib-mode-tabs" id="lib-mode-tabs" role="tablist">
+                                    <button type="button" id="lib-tab-all" data-lib-mode="all" onclick="App.views.library.switchMode('all')" class="lib-mode-tab is-active">
+                                        <span data-i18n>总题库</span>
+                                        <span id="lib-tab-all-count" class="text-[10px] opacity-75 font-mono">0</span>
+                                    </button>
+                                    <button type="button" id="lib-tab-mistakes" data-lib-mode="mistakes" onclick="App.views.library.switchMode('mistakes')" class="lib-mode-tab">
+                                        <span data-i18n>错题本</span>
+                                        <span id="lib-tab-mistakes-count" class="text-[10px] opacity-75 font-mono">0</span>
+                                    </button>
+                                    <button type="button" id="lib-tab-starred" data-lib-mode="starred" onclick="App.views.library.switchMode('starred')" class="lib-mode-tab">
+                                        <svg class="w-3.5 h-3.5 text-amber-500 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+                                        <span data-i18n>已收藏</span>
+                                        <span id="lib-tab-starred-count" class="text-[10px] opacity-75 font-mono">0</span>
+                                    </button>
+                                </div>
                                 <span
-                                    class="text-[11px] bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full font-bold"
+                                    class="text-[11px] bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 px-2 py-0.5 rounded-full font-bold"
                                     id="lib-count">0</span>
                             </div>
                             <div class="flex flex-wrap items-center gap-2">
-                                <select id="lib-filter" onchange="App.views.library.render()"
-                                    class="text-xs bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1.5 outline-none max-w-[160px]">
-                                    <option value="all">全科目</option>
+                                <select id="lib-filter" onchange="App.views.library.handleSubjectChange()"
+                                    class="text-xs bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1.5 outline-none max-w-[150px]">
+                                    <option value="all" data-i18n>全科目</option>
+                                </select>
+                                <select id="lib-chapter" onchange="App.views.library.render()"
+                                    class="text-xs bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1.5 outline-none max-w-[180px]">
+                                    <option value="all" data-i18n>全章节</option>
                                 </select>
                                 <select id="lib-type" onchange="App.views.library.handleTypeChange()"
                                     class="text-xs bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1.5 outline-none">
@@ -1212,6 +1462,23 @@
                                     <option value="err_desc">错率↓</option>
                                     <option value="ans_asc">答案A-Z</option>
                                 </select>
+                                <button id="lib-add-btn" onclick="App.ui.openQuestionEditor()"
+                                    aria-label="新增题目" title="手动新增一道题目到题库"
+                                    class="inline-flex items-center gap-1 px-2.5 h-8 rounded-lg bg-primary-600 text-white text-xs font-bold hover:bg-primary-700 active:scale-95 transition-all shadow-sm">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                                    </svg>
+                                    <span class="hidden sm:inline" data-i18n>新增题目</span>
+                                </button>
+                                <button id="lib-practice-btn" onclick="App.views.library.practiceCurrentList()"
+                                    aria-label="练习当前列表题目" title="练习当前筛选列表中的题目"
+                                    class="inline-flex items-center gap-1 px-2.5 h-8 rounded-lg border border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 text-xs font-bold hover:bg-primary-100 dark:hover:bg-primary-900/50 active:scale-95 transition-all">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span class="hidden sm:inline">练当前列表</span>
+                                </button>
                                 <button id="lib-toggle-expand" onclick="App.views.library.toggleExpandAll()"
                                     aria-label="展开或收起全部题目详情" title="展开 / 收起全部详情"
                                     class="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--sub)] hover:bg-[var(--bg)] hover:text-primary-600 active:scale-95 transition-all">
@@ -1233,11 +1500,17 @@
 
                         <!-- 管理模式工具条 -->
                         <div id="lib-manage-bar"
-                            class="hidden mt-2 flex items-center justify-between text-[11px] text-[var(--sub)]">
-                            <div>已选 <span id="lib-selected-count" class="font-bold text-primary-600">0</span> 题</div>
+                            class="hidden mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--sub)]">
+                            <div class="flex items-center gap-2">
+                                <span>已选 <span id="lib-selected-count" class="font-bold text-primary-600">0</span> 题</span>
+                                <button onclick="App.views.library.selectAllFiltered()"
+                                    class="px-2 py-0.5 rounded border border-[var(--border)] bg-[var(--card)] text-[var(--text)] hover:border-primary-400 active:scale-95">全选当前筛选</button>
+                                <button onclick="App.views.library.clearSelection()"
+                                    class="px-2 py-0.5 rounded border border-[var(--border)] bg-[var(--card)] text-[var(--sub)] hover:text-[var(--text)] active:scale-95">清空选择</button>
+                            </div>
                             <div class="flex items-center gap-2">
                                 <button onclick="App.views.library.bulkDeleteSelected()"
-                                    class="px-2 py-1 rounded border border-red-200 bg-red-50 text-red-600 font-bold hover:bg-red-100 active:scale-95">删除</button>
+                                    class="px-2 py-1 rounded border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 font-bold hover:bg-red-100 active:scale-95">删除</button>
                                 <button onclick="App.views.library.exportSelected()"
                                     class="px-2 py-1 rounded border border-[var(--border)] bg-[var(--card)] text-[var(--sub)] hover:bg-[var(--bg)] active:scale-95">导出</button>
                             </div>
@@ -1276,31 +1549,82 @@
 
             <!-- Quiz View -->
             <div id="view-quiz"
-                class="view-section hidden flex flex-col h-full max-w-3xl mx-auto w-full animate-slide-in">
-                <div class="flex justify-between items-center mb-4 md:mb-6">
-                    <button onclick="App.quiz.abort()"
-                        class="text-xs text-[var(--sub)] hover:text-red-500 font-bold flex items-center gap-1 active:scale-95 transition-transform">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M6 18L18 6M6 6l12 12"></path>
-                        </svg> 退出
-                    </button>
-                    <div class="flex items-center gap-2">
-                        <div class="text-xs md:text-sm font-mono font-bold text-primary-600 bg-primary-50 px-3 py-1 rounded-full border border-primary-100"
-                            id="quiz-progress">1/10</div>
-                        <button id="quiz-star-btn" title="收藏" aria-label="收藏本题"
-                            class="w-8 h-8 rounded-full flex items-center justify-center text-[var(--sub)] hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-90 transition-all text-[var(--sub)]">
-                            <svg data-star-icon class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                            </svg>
-                        </button>
+                class="view-section hidden flex flex-col h-[calc(100vh-5.5rem)] max-h-full max-w-3xl mx-auto w-full overflow-hidden">
+                <div class="flex flex-col gap-2.5 mb-3 md:mb-4 flex-shrink-0">
+                    <div class="flex justify-between items-center gap-2">
+                        <div class="flex items-center gap-3">
+                            <button onclick="App.quiz.abort()"
+                                class="text-xs text-[var(--sub)] hover:text-red-500 font-bold flex items-center gap-1 active:scale-95 transition-transform">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M6 18L18 6M6 6l12 12"></path>
+                                </svg> <span data-i18n>退出</span>
+                            </button>
+                            <button onclick="App.quiz.finishConfirmed()" data-i18n
+                                class="text-xs text-red-500 hover:text-red-600 font-bold hover:underline active:opacity-70 px-1.5 py-0.5">提前交卷</button>
+                        </div>
+                        <div class="flex items-center gap-1.5 md:gap-2">
+                            <span id="quiz-answered-badge" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full border"></span>
+                            <button id="quiz-nav-toggle" onclick="App.quiz.toggleNavSheet()" title="查看全部题号并快速跳转" aria-label="打开题号跳转面板"
+                                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-[var(--border)] bg-[var(--card)] text-[11px] font-bold text-[var(--sub)] hover:text-primary-600 hover:border-primary-400 active:scale-95 transition-all">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h4v4H4V6zm6 0h4v4h-4V6zm6 0h4v4h-4V6zM4 14h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4z" />
+                                </svg>
+                                <span data-i18n>题卡</span>
+                            </button>
+                            <button id="quiz-star-btn" title="收藏" aria-label="收藏本题"
+                                class="w-8 h-8 rounded-full flex items-center justify-center text-[var(--sub)] hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-90 transition-all">
+                                <svg data-star-icon class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="hidden md:block text-[10px] text-[var(--sub)] mr-1" data-i18n>键盘 左/右 切题 | A–D 作答 | S 收藏</div>
                     </div>
-                    <div class="hidden md:block text-[10px] text-[var(--sub)] mr-2">键盘 A–D / 1–4 作答 · Enter 提交</div>
+                    <!-- 实时刷题进度条 -->
+                    <div class="quiz-progress-track">
+                        <div id="quiz-progress-fill" class="quiz-progress-fill" style="width: 0%"></div>
+                    </div>
+                    <!-- 展开式题号卡面板（自由跳题） -->
+                    <div id="quiz-nav-sheet" class="hidden card p-3 rounded-2xl border border-[var(--border)] shadow-sm anim-pop-in">
+                        <div class="flex items-center justify-between text-[11px] text-[var(--sub)] mb-2">
+                            <span class="font-bold" data-i18n>题号跳转</span>
+                            <div class="flex items-center gap-3 text-[10px]">
+                                <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span><span data-i18n>答对</span></span>
+                                <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500"></span><span data-i18n>答错</span></span>
+                                <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600"></span><span data-i18n>未答</span></span>
+                            </div>
+                        </div>
+                        <div id="quiz-nav-grid" class="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto custom-scroll pr-1"></div>
+                    </div>
                 </div>
 
                 <div
-                    class="quiz-card card p-5 md:p-10 rounded-2xl md:rounded-3xl flex-grow flex flex-col relative shadow-lg border-t-4 border-t-primary-500">
-                    <div id="quiz-body" class="flex flex-col flex-grow">
+                    class="quiz-card card p-5 md:p-8 rounded-2xl md:rounded-3xl flex-1 min-h-0 flex flex-col relative shadow-lg border-t-4 border-t-primary-500 overflow-hidden">
+                    <!-- 固定在题目卡片正上方的「上一题 / 题号 / 下一题」导航栏：位置恒定，不受题干长短与解析展开影响 -->
+                    <div class="flex items-center justify-between gap-2 pb-3.5 mb-4 border-b border-[var(--border)] flex-shrink-0">
+                        <button id="quiz-prev-btn" onclick="App.quiz.prev()" aria-label="上一题"
+                            class="btn px-3 md:px-4 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] hover:border-primary-400 hover:text-primary-600 text-xs md:text-sm font-bold flex items-center gap-1.5 shadow-sm disabled:opacity-40 disabled:pointer-events-none transition-all">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                            </svg>
+                            <span data-i18n>上一题</span>
+                        </button>
+                        <div class="flex items-center gap-2">
+                            <div class="text-xs md:text-sm font-mono font-bold text-primary-600 bg-primary-50 dark:bg-primary-900/30 px-3 py-1 rounded-full border border-primary-100 dark:border-primary-800/60"
+                                id="quiz-progress">1/10</div>
+                            <button id="quiz-retry-cur-btn" onclick="App.quiz.retryCurrent()" title="重做当前这道题"
+                                class="hidden btn px-2.5 py-1 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--sub)] hover:text-primary-600 hover:border-primary-400 text-[11px] font-bold active:scale-95 transition-all" data-i18n>重答本题</button>
+                        </div>
+                        <button id="quiz-next-btn" onclick="App.quiz.next()" aria-label="下一题"
+                            class="btn px-3 md:px-4 py-2 rounded-xl border border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-900/50 text-xs md:text-sm font-bold flex items-center gap-1.5 shadow-sm transition-all">
+                            <span id="quiz-next-label" data-i18n>下一题</span>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="quiz-body" class="flex flex-col flex-1 min-h-0 overflow-y-auto custom-scroll pr-1">
                     <div id="q-passage-col"
                         class="card p-4 md:p-5 rounded-2xl flex flex-col bg-[var(--card)] border border-[var(--border)]">
                         <div class="flex justify-between items-center mb-2 md:mb-3">
@@ -1339,12 +1663,10 @@
                         </div>
                         <h3 class="text-lg md:text-2xl font-medium leading-relaxed text-[var(--text)] whitespace-pre-line" id="q-text">
                             Loading...</h3>
-                        <div id="multi-hint" class="hidden mt-2 text-xs text-[var(--sub)]">
-                            多项选择，请选出所有正确选项后提交
-                        </div>
+                        <div id="multi-hint" class="hidden mt-2 text-xs text-[var(--sub)]" data-i18n>多项选择，请选出所有正确选项后提交</div>
                     </div>
 
-                    <div id="q-options" class="space-y-3 flex-grow overflow-y-auto custom-scroll pr-1 pb-4"></div>
+                    <div id="q-options" class="space-y-3 pb-4"></div>
 
                     <!-- 填空题作答区 -->
                     <div id="fill-actions" class="hidden mt-4 flex gap-2">
@@ -1364,25 +1686,18 @@
                     </div>
 
                     <div id="quiz-feedback"
-                        class="hidden mt-4 pt-4 md:pt-6 border-t border-[var(--border)] animate-fade-in">
+                        class="hidden mt-4 pt-4 md:pt-6 border-t border-[var(--border)] anim-fade-in">
                         <div class="flex gap-3 md:gap-4 items-start">
-                            <div class="text-xl md:text-2xl mt-0.5" id="fb-icon"></div>
-                            <div class="flex-grow">
+                            <div class="mt-0.5 flex-shrink-0" id="fb-icon"></div>
+                            <div class="flex-grow min-w-0">
                                 <div class="font-bold text-sm md:text-base" id="fb-title"></div>
                                 <div class="text-xs md:text-sm text-[var(--sub)] mt-1 leading-relaxed space-y-1"
                                     id="fb-desc"></div>
                             </div>
-                            <button onclick="App.quiz.next()"
-                                class="btn px-4 md:px-6 py-2 bg-primary-600 text-white rounded-lg text-xs md:text-sm shadow-lg active:bg-primary-700 min-w-[80px]">下一题</button>
                         </div>
                     </div>
                     </div>
                     </div>
-                </div>
-
-                <div class="mt-4 md:mt-6 text-center pb-4">
-                    <button onclick="App.quiz.finish()"
-                        class="text-xs text-red-400 hover:text-red-600 underline active:opacity-70">提前交卷</button>
                 </div>
             </div>
 
@@ -1417,16 +1732,25 @@
                         </div>
 
                         <div class="flex items-center gap-2">
-                            <span class="text-xs text-[var(--sub)]">题数:</span>
+                            <span class="text-xs text-[var(--sub)]" data-i18n>题数:</span>
                             <select id="setup-limit" onchange="App.ui.rememberPracticeChoice('setup-limit', this.value)"
                                 class="text-xs bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1 outline-none">
                                 <option value="10">10</option>
                                 <option value="20" selected>20</option>
                                 <option value="50">50</option>
-                                <option value="all">Max</option>
+                                <option value="100">100</option>
+                                <option value="all" data-i18n>全部</option>
                             </select>
                         </div>
-                        <span id="setup-selected-info" class="text-xs text-[var(--sub)]"></span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-[var(--sub)]" data-i18n>顺序:</span>
+                            <select id="setup-order" onchange="App.ui.rememberPracticeChoice('setup-order', this.value)"
+                                class="text-xs bg-[var(--card)] border border-[var(--border)] rounded px-2 py-1 outline-none">
+                                <option value="shuffle" data-i18n>随机乱序</option>
+                                <option value="natural" data-i18n>题库原序</option>
+                            </select>
+                        </div>
+                        <span id="setup-selected-info" class="text-xs font-medium text-[var(--sub)]"></span>
                         <button onclick="App.quiz.init('custom')"
                             class="btn px-6 py-2.5 bg-primary-600 text-white rounded-lg shadow-md hover:bg-primary-700 text-xs md:text-sm ml-auto" data-i18n>开始刷题</button>
                     </div>
@@ -1449,19 +1773,21 @@
                     <div class="text-5xl md:text-6xl font-bold text-primary-600 my-4 md:my-6 tracking-tighter"
                         id="res-score">0%</div>
                     <div class="grid grid-cols-2 gap-3 md:gap-4 text-sm mb-6 md:mb-8">
-                        <div class="p-3 md:p-4 bg-green-50 text-green-700 rounded-xl border border-green-100">
+                        <div class="p-3 md:p-4 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 rounded-xl border border-green-100 dark:border-green-900/40">
                             <div class="font-bold text-[11px] opacity-70 mb-1">答对</div>
                             <div class="text-xl md:text-2xl font-bold" id="res-correct">0</div>
                         </div>
-                        <div class="p-3 md:p-4 bg-red-50 text-red-700 rounded-xl border border-red-100">
+                        <div class="p-3 md:p-4 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 rounded-xl border border-red-100 dark:border-red-900/40">
                             <div class="font-bold text-[11px] opacity-70 mb-1">答错</div>
                             <div class="text-xl md:text-2xl font-bold" id="res-wrong">0</div>
                         </div>
-                        <div id="res-unanswered-wrap" class="hidden">
-                            <div class="text-[11px] text-[var(--sub)]">未作答</div>
-                            <div class="text-xl md:text-2xl font-bold text-amber-500" id="res-unanswered">0</div>
+                        <div id="res-unanswered-wrap" class="hidden col-span-2 p-2.5 px-4 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 rounded-xl border border-amber-100 dark:border-amber-900/40 flex items-center justify-between">
+                            <div class="text-[11px] font-bold opacity-80">未作答</div>
+                            <div class="text-lg md:text-xl font-bold text-amber-500" id="res-unanswered">0</div>
                         </div>
                     </div>
+                    <button id="res-retry-wrong-btn" onclick="App.quiz.retryWrong()"
+                        class="hidden w-full mb-3 btn py-2.5 md:py-3 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 font-bold text-sm hover:bg-red-100 dark:hover:bg-red-950/50 transition-all">重练本轮错题</button>
                     <div class="flex gap-3">
                         <button onclick="App.router.go('dashboard')"
                             class="flex-1 btn py-2.5 md:py-3 rounded-xl border border-[var(--border)] text-sm hover:bg-[var(--bg)]">返回首页</button>
@@ -1675,7 +2001,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
             </button>
-            <div class="text-[11px] text-[var(--sub)] font-bold uppercase mb-2" id="drawer-meta">Subject • Chapter</div>
+            <div class="text-[11px] text-[var(--sub)] font-bold uppercase mb-2" id="drawer-meta">Subject / Chapter</div>
             <div class="text-sm font-medium mb-4 leading-relaxed" id="drawer-q">Loading...</div>
             <div id="drawer-history" class="mb-1">
                 <div class="text-xs font-bold text-[var(--sub)] mb-2 uppercase" data-i18n>近期作答记录 (Recent Attempts)</div>
@@ -1701,22 +2027,22 @@
             <div class="flex flex-col gap-2">
                 <label for="pw-old" class="text-[11px] text-[var(--sub)]">原密码</label>
                 <div class="relative">
-                    <input id="pw-old" type="password" autocomplete="current-password" minlength="6"
-                        class="w-full px-3 py-2 pr-9 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none focus:border-primary-500">
+                    <input id="pw-old" type="text" autocomplete="off" spellcheck="false" minlength="6"
+                        class="pw-masked w-full px-3 py-2 pr-9 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none focus:border-primary-500">
                     <button type="button" data-pw-toggle="pw-old" title="显示/隐藏密码"
                         class="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--sub)] hover:text-[var(--text)]"><svg data-eye class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 5-1.274 2.057-5.064 5-9.542 5-4.477 0-8.268-2.943-9.542-5z"/></svg><svg data-eye-off class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-5a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"/></svg></button>
                 </div>
                 <label for="pw-new" class="text-[11px] text-[var(--sub)]">新密码（至少 6 位，建议字母+数字混合）</label>
                 <div class="relative">
-                    <input id="pw-new" type="password" autocomplete="new-password" minlength="6"
-                        class="w-full px-3 py-2 pr-9 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none focus:border-primary-500">
+                    <input id="pw-new" type="text" autocomplete="off" spellcheck="false" minlength="6"
+                        class="pw-masked w-full px-3 py-2 pr-9 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none focus:border-primary-500">
                     <button type="button" data-pw-toggle="pw-new" title="显示/隐藏密码"
                         class="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--sub)] hover:text-[var(--text)]"><svg data-eye class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 5-1.274 2.057-5.064 5-9.542 5-4.477 0-8.268-2.943-9.542-5z"/></svg><svg data-eye-off class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-5a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"/></svg></button>
                 </div>
                 <label for="pw-new2" class="text-[11px] text-[var(--sub)]">确认新密码</label>
                 <div class="relative">
-                    <input id="pw-new2" type="password" autocomplete="new-password" minlength="6"
-                        class="w-full px-3 py-2 pr-9 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none focus:border-primary-500">
+                    <input id="pw-new2" type="text" autocomplete="off" spellcheck="false" minlength="6"
+                        class="pw-masked w-full px-3 py-2 pr-9 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs outline-none focus:border-primary-500">
                     <button type="button" data-pw-toggle="pw-new2" title="显示/隐藏密码"
                         class="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--sub)] hover:text-[var(--text)]"><svg data-eye class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 5-1.274 2.057-5.064 5-9.542 5-4.477 0-8.268-2.943-9.542-5z"/></svg><svg data-eye-off class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-5a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"/></svg></button>
                 </div>
@@ -1768,19 +2094,38 @@
                     </svg>
                 </button>
             </div>
-            <div class="p-4 md:p-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                <div>
-                    <div class="flex items-center justify-between mb-2">
+            <div class="p-4 md:p-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs overflow-y-auto custom-scroll">
+                <div class="min-w-0">
+                    <div class="flex items-center justify-between mb-2 gap-2">
                         <span class="text-[11px] font-bold text-[var(--sub)] uppercase tracking-wider">科目
                             (Subjects)</span>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="App.data.sortSubjectsNaturally()"
+                                class="inline-flex items-center gap-1 text-[11px] font-bold text-primary-600 dark:text-primary-400 hover:underline whitespace-nowrap"
+                                title="按科目名称自然排序">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path></svg>
+                                <span data-i18n>排序</span>
+                            </button>
+                            <button type="button" onclick="App.ui.closeBankManager(); App.ui.openQuestionEditor()"
+                                class="inline-flex items-center gap-1 text-[11px] font-bold text-primary-600 dark:text-primary-400 hover:underline whitespace-nowrap"
+                                title="手动新增题目" data-i18n>+ 新增题目</button>
+                        </div>
                     </div>
                     <div id="bank-manager-subject-list" class="space-y-2 custom-scroll max-h-[60vh] pr-1"></div>
                 </div>
-                <div>
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-[11px] font-bold text-[var(--sub)] uppercase tracking-wider">章节
-                            (Chapters)</span>
-                        <span id="bank-manager-current-subject" class="text-[11px] text-primary-600 font-bold"></span>
+                <div class="min-w-0">
+                    <div class="flex items-center justify-between mb-2 gap-2">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="text-[11px] font-bold text-[var(--sub)] uppercase tracking-wider flex-shrink-0">章节
+                                (Chapters)</span>
+                            <span id="bank-manager-current-subject" class="text-[11px] text-primary-600 font-bold truncate"></span>
+                        </div>
+                        <button type="button" onclick="App.data.sortChaptersNaturally(App.ui._bankMgrCurrentSubject)"
+                            class="inline-flex items-center gap-1 text-[11px] font-bold text-primary-600 dark:text-primary-400 hover:underline flex-shrink-0 whitespace-nowrap"
+                            title="按章节编号（如 Chapter 1→4 / 第一章→第四章）自动排序">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path></svg>
+                            <span data-i18n>按章节号排序</span>
+                        </button>
                     </div>
                     <div id="bank-manager-chapter-list" class="space-y-2 custom-scroll max-h-[60vh] pr-1"></div>
                 </div>
@@ -1790,46 +2135,50 @@
 
     <div id="modal-smart-practice"
         class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm opacity-0 pointer-events-none hidden">
-        <div class="card w-full max-w-sm rounded-2xl shadow-2xl p-0 flex flex-col max-h-[80vh]">
+        <div class="card w-full max-w-md rounded-2xl shadow-2xl p-0 flex flex-col max-h-[85vh]">
             <div
                 class="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-hover)] rounded-t-2xl">
-                <h3 class="font-bold text-base">智能练习配置</h3>
+                <h3 class="font-bold text-base" data-i18n>整章练习配置</h3>
                 <button onclick="App.ui.closeModal('smart-practice')"
-                    aria-label="关闭智能练习配置" class="text-[var(--sub)] hover:text-[var(--text)] p-1"><svg class="w-6 h-6" fill="none"
+                    aria-label="关闭整章练习配置" class="text-[var(--sub)] hover:text-[var(--text)] p-1"><svg class="w-6 h-6" fill="none"
                         stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
                         </path>
                     </svg></button>
             </div>
-            <div class="p-4 overflow-y-auto custom-scroll">
-                <div class="mb-4">
-                    <label class="text-xs text-[var(--sub)] block mb-1 font-bold">选择题型 (Question Type):</label>
-                    <select id="smart-type" onchange="App.ui.rememberPracticeChoice('smart-type', this.value)"
-                        class="w-full text-sm bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 outline-none">
-                        <option value="all">全部 (All)</option>
-                        <option value="mcq">单选题 (Multiple Choice)</option>
-                        <option value="tf">判断题 (True/False)</option>
-                        <option value="multi">多选题 (Multi-Select)</option>
-                        <option value="fill">填空题 (Fill-in-the-blank)</option>
-                    </select>
+            <div class="p-4 overflow-y-auto custom-scroll space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs text-[var(--sub)] block mb-1 font-bold" data-i18n>选择题型:</label>
+                        <select id="smart-type" onchange="App.ui.rememberPracticeChoice('smart-type', this.value)"
+                            class="w-full text-xs bg-[var(--card)] border border-[var(--border)] rounded-lg px-2.5 py-2 outline-none">
+                            <option value="all">全部 (All)</option>
+                            <option value="mcq">单选题 (Multiple Choice)</option>
+                            <option value="tf">判断题 (True/False)</option>
+                            <option value="multi">多选题 (Multi-Select)</option>
+                            <option value="fill">填空题 (Fill-in-the-blank)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-[var(--sub)] block mb-1 font-bold" data-i18n>题目数量:</label>
+                        <select id="smart-limit" onchange="App.ui.rememberPracticeChoice('smart-limit', this.value)"
+                            class="w-full text-xs bg-[var(--card)] border border-[var(--border)] rounded-lg px-2.5 py-2 outline-none">
+                            <option value="all" selected>整章全部 (All)</option>
+                            <option value="20">20 题</option>
+                            <option value="50">50 题</option>
+                            <option value="100">100 题</option>
+                            <option value="10">10 题</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="mb-4">
-                    <label class="text-xs text-[var(--sub)] block mb-1 font-bold">题目数量 (Question Limit):</label>
-                    <select id="smart-limit" onchange="App.ui.rememberPracticeChoice('smart-limit', this.value)"
-                        class="w-full text-sm bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-2 outline-none">
-                        <option value="10">10 题</option>
-                        <option value="20" selected>20 题</option>
-                        <option value="50">50 题</option>
-                        <option value="100">100 题</option>
-                        <option value="all">全部 (Max)</option>
-                    </select>
+                <div class="flex items-center justify-between">
+                    <div class="text-xs text-[var(--sub)] font-bold" data-i18n>点击章节直接开刷，或勾选多章合并练习:</div>
                 </div>
-                <div class="text-xs text-[var(--sub)] mb-2 font-bold">选择科目 (Select Subjects):</div>
-                <div id="smart-subjects-list" class="space-y-2"></div>
+                <div id="smart-subjects-list" class="space-y-2.5"></div>
             </div>
             <div class="p-4 border-t border-[var(--border)]">
                 <button onclick="if(App.quiz.init('random')) App.ui.closeModal('smart-practice')"
-                    class="w-full btn py-3 bg-primary-600 text-white rounded-xl shadow-lg hover:bg-primary-700">开始练习</button>
+                    class="w-full btn py-3 bg-primary-600 text-white rounded-xl shadow-lg hover:bg-primary-700" data-i18n>开始整章练习</button>
             </div>
         </div>
     </div>
@@ -1968,6 +2317,11 @@
                 <div class="space-y-2">
                     <div class="text-xs font-bold text-[var(--sub)] uppercase tracking-wider mb-2" data-i18n>数据管理</div>
                     <div class="grid grid-cols-2 gap-2">
+                        <!-- 导入是这里唯一的「加数据」入口，比其它只读/导出操作更醒目：通栏 + 主色描边 -->
+                        <button onclick="App.ui.openImportCenter()"
+                            class="col-span-2 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-primary-500 bg-primary-50 dark:bg-primary-700/20 text-[11px] font-bold text-primary-700 dark:text-primary-100 hover:bg-primary-100 dark:hover:bg-primary-700/40 active:scale-[0.98] transition-all shadow-sm">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21V8m0 13l-4-4m4 4l4-4M5 3h14" /></svg> <span data-i18n>导入题库</span>
+                        </button>
                         <button onclick="App.ui.exportAllBank()"
                             class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--card)] text-[11px] font-bold text-[var(--text)] hover:bg-[var(--bg)] active:scale-95 transition-all">
                             <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v13m0-13l-4 4m4-4l4 4M5 21h14" /></svg> <span data-i18n>导出 JSON</span>
@@ -2027,7 +2381,7 @@
                 <div class="text-[var(--sub)] italic text-center py-4">加载中…</div>
             </div>
             <div class="p-3 border-t border-[var(--border)] text-[10px] text-[var(--sub)]" data-i18n>
-                清空题库/记录时会自动在此保留备份；每类最多保留最近 5 份。
+                清空题库/记录时会自动在此保留备份；每类最多保留最近 5 份。可先完整预览改动再一键覆盖恢复。
             </div>
         </div>
     </div>
@@ -2048,11 +2402,20 @@
                 </button>
             </div>
             <div class="p-4 md:p-6 space-y-4 overflow-y-auto custom-scroll flex-grow text-xs">
-                <div class="flex items-center justify-between gap-3">
-                    <p class="text-[11px] text-[var(--sub)] leading-relaxed">
-                        先在此处预览题库结构和每一道题的归属，再决定是否真正导入到当前题库。
-                    </p>
-
+                <!-- 三步流程指示条：让用户一眼看懂当前处于哪一步 -->
+                <div id="import-step-bar" class="grid grid-cols-3 gap-2 text-[11px]">
+                    <div id="import-step-1" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-primary-300 dark:border-primary-700 bg-primary-50/70 dark:bg-primary-950/40 text-primary-700 dark:text-primary-300 font-bold">
+                        <span class="w-4 h-4 rounded-full bg-primary-600 text-white text-[10px] inline-flex items-center justify-center flex-shrink-0">1</span>
+                        <span class="truncate" data-i18n>选择或粘贴 JSON</span>
+                    </div>
+                    <div id="import-step-2" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--sub)]">
+                        <span class="w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-700 text-[var(--sub)] text-[10px] inline-flex items-center justify-center flex-shrink-0">2</span>
+                        <span class="truncate" data-i18n>格式体检与预览</span>
+                    </div>
+                    <div id="import-step-3" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--sub)]">
+                        <span class="w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-700 text-[var(--sub)] text-[10px] inline-flex items-center justify-center flex-shrink-0">3</span>
+                        <span class="truncate" data-i18n>导入入库与同步</span>
+                    </div>
                 </div>
 
                 <!-- JSON 导入预览 -->
@@ -2060,16 +2423,24 @@
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <div class="flex flex-wrap items-center gap-2">
                             <button onclick="document.getElementById('import-file').click()"
-                                class="px-3 py-2 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-transform">
-                                选择 JSON 文件…
+                                class="px-3 py-2 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-transform">
+                                <span data-i18n>选择 JSON 文件…</span>
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5m0 0l5 5m-5-5v12"></path>
                                 </svg>
                             </button>
+                            <button type="button" onclick="App.ui.toggleImportPasteBox()"
+                                class="px-3 py-2 rounded-xl border border-primary-200 dark:border-primary-800 bg-primary-50/70 dark:bg-primary-950/30 text-primary-700 dark:text-primary-300 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-transform">
+                                <span data-i18n>粘贴 JSON 文本</span>
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                                </svg>
+                            </button>
                             <button onclick="App.ui.downloadTemplate()"
                                 class="px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--card)] text-[var(--text)] text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-transform">
-                                下载格式模板
+                                <span data-i18n>下载格式模板</span>
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
@@ -2078,11 +2449,37 @@
                             </button>
                         </div>
                         <span id="import-json-status"
-                            class="flex-1 text-[11px] text-right text-[var(--sub)] truncate min-w-[100px]">尚未选择文件</span>
+                            class="flex-1 text-[11px] text-right text-[var(--sub)] truncate min-w-[100px]" data-i18n>尚未选择文件（支持拖拽 .json/.txt 到此窗口）</span>
                     </div>
 
-                    <!-- 导入结果横幅：全宽、按状态着色（成功/失败/进行中），替代原先藏在角落的截断小字 -->
+                    <!-- 粘贴 JSON 文本编辑/修复框（免建本地文件，也可直接在线修语法错） -->
+                    <div id="import-paste-box" class="hidden p-3 rounded-xl border border-[var(--border)] bg-[var(--bg)] space-y-2">
+                        <div class="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                            <span class="font-bold text-[var(--text)]" data-i18n>直接粘贴 JSON 内容（支持带 ```json 代码块或 AI 前后说明文字）</span>
+                            <div class="flex items-center gap-1.5">
+                                <button type="button" onclick="App.ui.pasteClipboardToImport()"
+                                    class="px-2.5 py-1 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--text)] hover:border-primary-400 active:scale-95 transition-all" data-i18n>从剪贴板读取</button>
+                                <button type="button" onclick="App.ui.clearImportPaste()"
+                                    class="px-2.5 py-1 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--sub)] hover:text-red-500 active:scale-95 transition-all" data-i18n>清空</button>
+                            </div>
+                        </div>
+                        <textarea id="import-paste-input"
+                            placeholder="在此粘贴题库 JSON 内容，或点击上方「从剪贴板读取」…"
+                            class="w-full h-36 p-2.5 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[11px] font-mono leading-relaxed text-[var(--text)] outline-none focus:border-primary-500 custom-scroll resize-y"
+                            spellcheck="false"></textarea>
+                        <div class="flex justify-end gap-2">
+                            <button type="button" onclick="App.ui.toggleImportPasteBox(false)"
+                                class="px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--sub)] text-[11px] font-bold active:scale-95 transition-all" data-i18n>收起</button>
+                            <button type="button" onclick="App.ui.handleJsonPastePreview()"
+                                class="px-3.5 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-[11px] font-bold shadow-sm active:scale-95 transition-all" data-i18n>解析并预览</button>
+                        </div>
+                    </div>
+
+                    <!-- 导入结果与诊断横幅：全宽、按状态着色（成功/失败/进行中/预检对比） -->
                     <div id="import-json-result" class="hidden items-start gap-2.5 px-3.5 py-3 rounded-xl border text-[11px] leading-relaxed"></div>
+
+                    <!-- 格式体检与异常题目明细折叠框 -->
+                    <div id="import-health-box" class="hidden rounded-xl border border-amber-200 dark:border-amber-800/70 bg-amber-50/70 dark:bg-amber-950/30 px-3.5 py-2.5 text-[11px] text-amber-800 dark:text-amber-300 space-y-1.5"></div>
 
                     <!-- 用 AI 生成题库：可复制的提示词 -->
                     <div class="border border-[var(--border)] rounded-xl bg-[var(--bg)] overflow-hidden">
@@ -2148,8 +2545,14 @@
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="space-y-2">
-                            <div class="flex items-center justify-between">
+                            <div class="flex items-center justify-between gap-2">
                                 <span class="text-[11px] font-bold text-[var(--sub)]">按科目 / 章节分布</span>
+                                <button type="button" id="import-sort-chapters-btn" onclick="App.ui.autoSortImportPreview()"
+                                    class="hidden items-center gap-1 text-[11px] font-bold text-primary-600 dark:text-primary-400 hover:underline whitespace-nowrap"
+                                    title="按章节编号（如 Chapter 1→4 / 第一章→第四章）自动排列">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path></svg>
+                                    <span data-i18n>按章节号自动排序</span>
+                                </button>
                             </div>
                             <div id="import-json-struct"
                                 class="border border-[var(--border)] rounded-xl p-2 bg-[var(--bg)] max-h-56 overflow-y-auto custom-scroll text-[11px] text-[var(--sub)]">
@@ -2167,20 +2570,20 @@
                         </div>
                     </div>
                 </div>
+            </div>
 
-            <div class="p-4 border-t border-[var(--border)] bg-[var(--bg)] flex justify-end gap-3 rounded-b-2xl">
+            <div class="p-4 border-t border-[var(--border)] bg-[var(--bg)] flex justify-end gap-3 rounded-b-2xl flex-shrink-0">
                 <button onclick="App.ui.closeModal('import-center')"
-                    class="btn px-3 py-2.5 bg-[var(--card)] border border-[var(--border)] text-[var(--text)] rounded-xl text-[11px] shadow-sm hover:bg-[var(--bg-hover)] active:scale-95">
+                    class="btn px-3 py-2.5 bg-[var(--card)] border border-[var(--border)] text-[var(--text)] rounded-xl text-[11px] shadow-sm hover:bg-[var(--bg-hover)] active:scale-95" data-i18n>
                     关闭
                 </button>
                 <button id="import-json-apply-btn" onclick="App.ui.applyJsonPreviewImport()"
                     class="btn px-4 py-2.5 bg-primary-600 text-white rounded-xl text-xs md:text-sm shadow-md hover:bg-primary-700 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-                    disabled>
+                    disabled data-i18n>
                     导入预览中的题目
                 </button>
             </div>
         </div>
-    </div>
     </div>
 
     <!-- 题目编辑 / 新增 弹窗 -->
@@ -2267,12 +2670,14 @@
                 </div>
                 <div id="qe-error" class="text-[11px] text-red-500"></div>
             </div>
-            <div class="p-4 border-t border-[var(--border)] bg-[var(--bg)] flex justify-end gap-3 rounded-b-2xl">
+            <div class="p-4 border-t border-[var(--border)] bg-[var(--bg)] flex flex-wrap justify-end gap-2.5 rounded-b-2xl">
                 <button id="qe-delete" onclick="App.ui.deleteQuestionFromEditor()"
                     class="btn mr-auto px-3 py-2.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 rounded-xl text-[11px] font-bold shadow-sm hover:bg-red-100 dark:hover:bg-red-900/40 active:scale-95 hidden">删除题目</button>
                 <button onclick="App.ui.closeModal('question-editor')"
                     class="btn px-3 py-2.5 bg-[var(--card)] border border-[var(--border)] text-[var(--text)] rounded-xl text-[11px] shadow-sm hover:bg-[var(--bg-hover)] active:scale-95" data-i18n>取消</button>
-                <button onclick="App.ui.saveQuestionFromEditor()"
+                <button id="qe-save-next" onclick="App.ui.saveQuestionFromEditor(true)"
+                    class="btn px-3.5 py-2.5 bg-primary-50 dark:bg-primary-950/40 border border-primary-200 dark:border-primary-800 text-primary-700 dark:text-primary-300 rounded-xl text-xs font-bold shadow-sm hover:bg-primary-100 active:scale-95 hidden" data-i18n>保存并继续下一题</button>
+                <button onclick="App.ui.saveQuestionFromEditor(false)"
                     class="btn px-4 py-2.5 bg-primary-600 text-white rounded-xl text-xs md:text-sm shadow-md hover:bg-primary-700 active:scale-95">保存</button>
             </div>
         </div>
@@ -2285,9 +2690,11 @@
             <div
                 class="p-4 md:p-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-hover)] rounded-t-2xl">
                 <h3 class="font-bold text-base">回收站 (Recycle Bin)</h3>
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2">
+                    <button onclick="App.data.restoreAllTrash()"
+                        class="text-[11px] text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/30 px-2.5 py-1 rounded-lg font-bold hover:bg-emerald-100 active:scale-95">全部恢复</button>
                     <button onclick="App.data.emptyTrash()"
-                        class="text-[11px] text-red-500 border border-red-200 bg-red-50 px-2 py-1 rounded hover:bg-red-100">清空</button>
+                        class="text-[11px] text-red-500 border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 px-2.5 py-1 rounded-lg font-bold hover:bg-red-100 active:scale-95">清空</button>
                     <button onclick="App.ui.closeModal('trash')" aria-label="关闭回收站" class="text-[var(--sub)] hover:text-[var(--text)] p-1">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -2336,6 +2743,38 @@
                 <button onclick="App.ui.applySimilarReview()"
                     class="btn px-4 py-2.5 bg-primary-600 text-white rounded-xl text-xs md:text-sm shadow-md hover:bg-primary-700 active:scale-95" data-i18n>
                     应用当前选择
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 全局页内确认/输入弹窗（替代易被浏览器拦截静默返回 false 的原生 confirm/prompt） -->
+    <div id="modal-app-dialog"
+        class="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm hidden opacity-0 pointer-events-none">
+        <div class="card w-full max-w-md rounded-2xl shadow-2xl p-0 flex flex-col overflow-hidden">
+            <div class="p-4 border-b border-[var(--border)] flex items-center justify-between bg-[var(--bg-hover)]">
+                <h3 id="app-dialog-title" class="font-bold text-sm text-[var(--text)]" data-i18n>操作确认</h3>
+                <button type="button" onclick="App.ui._resolveDialog(false)" aria-label="关闭" class="text-[var(--sub)] hover:text-[var(--text)] p-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-5 space-y-3">
+                <div id="app-dialog-message" class="text-xs md:text-sm text-[var(--text)] leading-relaxed whitespace-pre-line break-words"></div>
+                <div id="app-dialog-input-wrap" class="hidden">
+                    <input id="app-dialog-input" type="text"
+                        class="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-xs md:text-sm text-[var(--text)] outline-none focus:border-primary-500">
+                </div>
+            </div>
+            <div class="px-4 py-3 border-t border-[var(--border)] bg-[var(--bg)] flex justify-end gap-2.5">
+                <button type="button" id="app-dialog-cancel" onclick="App.ui._resolveDialog(false)"
+                    class="btn px-3.5 py-2 bg-[var(--card)] border border-[var(--border)] text-[var(--text)] rounded-xl text-xs font-bold hover:bg-[var(--bg-hover)] active:scale-95" data-i18n>
+                    取消
+                </button>
+                <button type="button" id="app-dialog-ok" onclick="App.ui._resolveDialog(true)"
+                    class="btn px-4 py-2 bg-primary-600 text-white rounded-xl text-xs font-bold shadow-sm hover:bg-primary-700 active:scale-95" data-i18n>
+                    确定
                 </button>
             </div>
         </div>

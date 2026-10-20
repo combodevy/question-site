@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>管理后台 - Question Site Admin</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230d9488' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'/%3E%3C/svg%3E">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
@@ -26,6 +26,7 @@
             font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
         }
     </style>
+    <link rel="stylesheet" href="css/tailwind.css">
 </head>
 
 <body class="bg-gray-50 min-h-screen font-sans text-gray-900 overflow-hidden">
@@ -744,9 +745,22 @@
 
             async init() {
                 try {
+                    const emailInput = document.getElementById('email');
+                    const pwdInput = document.getElementById('password');
+                    [emailInput, pwdInput].forEach(el => {
+                        if (el && !el._enterBound) {
+                            el._enterBound = true;
+                            el.addEventListener('keydown', (ev) => {
+                                if (ev.key === 'Enter') {
+                                    ev.preventDefault();
+                                    this.login();
+                                }
+                            });
+                        }
+                    });
                     this.token = localStorage.getItem('qs-admin-auth-token') || null;
                     if (this.token) {
-                        const payload = parseJwt(this.token);
+                        let payload = parseJwt(this.token);
                         // 本地预检：过期 token 先踢回登录页（服务端 403/401 仍是权威）
                         if (payload && payload.exp && payload.exp * 1000 < Date.now()) {
                             this.token = null;
@@ -773,6 +787,7 @@
             },
 
             toggleSelectAll(el) {
+                el.indeterminate = false;
                 const checkboxes = document.querySelectorAll('.user-checkbox');
                 checkboxes.forEach(cb => {
                     cb.checked = el.checked;
@@ -1316,6 +1331,7 @@
                     if (allCheckbox) {
                         const pageIds = (data.users || []).map(u => u.user_id);
                         allCheckbox.checked = pageIds.length > 0 && pageIds.every(pid => this.selectedUsers.has(pid));
+                        allCheckbox.indeterminate = pageIds.some(pid => this.selectedUsers.has(pid)) && !allCheckbox.checked;
                     }
 
                     // Populate the push-user-id select dropdown
@@ -1484,7 +1500,7 @@
                 tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Loading sets...</td></tr>';
 
                 try {
-                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/users-sets?userId=${userId}`, {
+                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/users-sets?userId=${encodeURIComponent(userId)}`, {
                         headers: {
                                                     }
                     });

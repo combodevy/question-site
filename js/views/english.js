@@ -28,6 +28,19 @@ export const english = {
     t(s) { return (window.App && App.t) ? App.t(s) : s; },
     esc(s) { return utils.escapeHTML(String(s == null ? '' : s)); },
 
+    /** 选词填空「词库」项的兜底净化。
+        PDF 双栏排版偶尔把下一个选项或页脚粘在词尾（"previously\\nB) consume"、
+        "dental0) underneath"），词库里每一项都只是一个单词，所以换行与
+        「字母)」片段一律不可信。只用于词库，不用于阅读题的长选项——
+        阅读题的选项是可能正常折行的完整句子。 */
+    _cleanWord(s) {
+        return String(s == null ? '' : s)
+            .split('\n')[0]
+            .replace(/^[A-O][\)\.]\s*/, '')
+            .replace(/\s*[0-9A-O][\)\.]\s*[A-Za-z].*$/, '')
+            .trim();
+    },
+
     /* ---------- 存储 ---------- */
 
     /** 内置答案键（站点随包发布）+ 用户本地覆盖，合并出有效 key */
@@ -39,14 +52,39 @@ export const english = {
         return merged;
     },
 
-    async _ensureKeys() {
-        if (this._keysCache) return;
-        try {
-            const r = await fetch('english/keys.json?b=' + Date.now());
-            this._keysCache = await r.json();
-        } catch (e) {
-            this._keysCache = {};
-        }
+    /**
+     * 拉取内置答案库（english/keys.json）。
+     * 注意：失败时绝不能把缓存写成 {}——空对象是 truthy，`if (this._keysCache) return`
+     *   会让后续所有调用直接返回，内置答案库在本次会话里**永久失效**：
+     *   每套卷都显示「未录入答案」，用户会以为站点把答案弄丢了（静默降级）。
+     *   现在失败置 null（下次仍会重试），并做并发去重 + 首次失败提示。
+     */
+    _ensureKeys() {
+        if (this._keysCache) return Promise.resolve(this._keysCache);
+        if (this._keysLoading) return this._keysLoading;
+        this._keysLoading = (async () => {
+            try {
+                const r = await fetch('english/keys.json?b=' + Date.now());
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                const data = await r.json();
+                if (!data || typeof data !== 'object') throw new Error('malformed keys.json');
+                this._keysCache = data;
+                this._keysFailed = false;
+                return data;
+            } catch (e) {
+                this._keysCache = null;          // 保持「未加载」，下次调用会重试
+                if (!this._keysFailed) {         // 同一波失败只提示一次，避免刷屏
+                    this._keysFailed = true;
+                    if (typeof showGlobalError === 'function') {
+                        showGlobalError(this.t('内置答案库加载失败，请检查网络后重试（当前卷子只能自测）。'));
+                    }
+                }
+                return null;
+            } finally {
+                this._keysLoading = null;
+            }
+        })();
+        return this._keysLoading;
     },
 
     answers() {
@@ -73,48 +111,47 @@ export const english = {
         } catch (e) { }
     },
 
-    /** 解析答案速录文本：支持 "26-30 CADBE"（区间+顺序字母）与 "26. A"（单题）混排 */
+    /** 解析答案速录文本：支持 "26-30 CADBE"（区间+顺序字母）与 "26. A"（单题）混排，兼容大小写 */
     parseKeyText(text) {
         const res = {};
-        const range = /(\d{1,3})\s*[-–—~]\s*(\d{1,3})\s*[,，:：]?\s*([A-O][A-O\s]*)/g;
+        const range = /(\d{1,3})\s*[-–—~]\s*(\d{1,3})\s*[,，:：]?\s*([A-Oa-o][A-Oa-o\s]*)/g;
         let m;
         while ((m = range.exec(text)) !== null) {
             const a = parseInt(m[1], 10), b = parseInt(m[2], 10);
-            const letters = m[3].replace(/\s+/g, '').split('');
+            const letters = m[3].replace(/\s+/g, '').toUpperCase().split('');
             if (b >= a && (b - a + 1) === letters.length) {
                 for (let i = 0; i < letters.length; i++) res[a + i] = letters[i];
             }
         }
-        const single = /(\d{1,3})\s*[.、\)）]?\s*([A-O])(?![A-O])/g;
+        const single = /(\d{1,3})\s*[.、\)）:：]?\s*([A-Oa-o])(?![A-Za-z])/g;
         while ((m = single.exec(text)) !== null) {
             const no = parseInt(m[1], 10);
-            if (!(no in res) && no >= 1 && no <= 99) res[no] = m[2];
+            if (!(no in res) && no >= 1 && no <= 99) res[no] = m[2].toUpperCase();
         }
         return res;
     },
 
-    /** PDF 断行重排：单换行接回空格；段落边界按行短+句末标点 / 行首标记判定 */
+    /** PDF 断行重排：单换行接回空格；\n\n 为数据端(PyMuPDF 段首缩进)标注的真实自然段边界；
+        段内仍按行首强标记（段落字母/题号/Section/Passage）保守分段 */
     reflowPassage(text) {
         let t = (text || '').replace(/\r/g, '');
         t = t.replace(/^\s*Questions?\s+\d+\s+to\s+\d+[^\n]*$/gim, '');
-        const lines = t.split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
-        // 保守分段：只在强标记（段落字母/题号/Section/Passage）处分段，
-        // 其余行一律空格接回——绝不在句中截断（启发式猜段落误判率高，用户实测踩坑）
         const markerStart = new RegExp('^(\\[[A-O]\\]|[A-O][\\)\\.]\\s+\\S|\\d{1,2}[\\.\\s]\\s*[A-Z\u201c]|(Section|Part|Passage)\\b)', 'i');
-        let out = '';
-        let prevLine = null;
-        for (let li = 0; li < lines.length; li++) {
-            const line = lines[li];
-            if (prevLine === null) {
-                out = line;
-            } else if (markerStart.test(line)) {
-                out += '\n\n' + line;
-            } else {
-                out += ' ' + line;
+        const paras = t.split(/\n{2,}/);
+        const outParas = [];
+        for (const para of paras) {
+            const lines = para.split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
+            if (!lines.length) continue;
+            let out = '';
+            for (let li = 0; li < lines.length; li++) {
+                const line = lines[li];
+                if (li === 0) out = line;
+                else if (markerStart.test(line)) out += '\n\n' + line;
+                else out += ' ' + line;
             }
-            prevLine = line;
+            outParas.push(out);
         }
-        return out;
+        return outParas.join('\n\n');
     },
 
     /* ---------- 试卷列表 ---------- */
@@ -158,7 +195,9 @@ export const english = {
         const list = document.getElementById('eng-list');
         if (!list) return;
         const cat = this._cat;
-        if (!this._keysCache) this._ensureKeys();
+        // 先等内置答案库就绪再渲染列表：否则首屏的「答案已录入 / 未录入答案」徽标
+        // 会因为 keys 还没到而全部显示成「未录入答案」，看着像答案丢了。
+        await this._ensureKeys();
         if (!this._indexCache[cat]) {
             this._loading = true;
             list.innerHTML = '<div class="text-xs text-[var(--sub)] text-center py-8">' + this.t('正在加载题库索引…') + '</div>';
@@ -276,7 +315,9 @@ export const english = {
                 delete all[id];
                 this.saveAnswers(all);
                 modal.remove();
-                if (this._sess && this._sess.id === id) this._sess.key = {};
+                // 与 effectiveKey() 口径一致：清空只删掉「用户粘贴的那一层」，
+                // 内置答案库仍然生效（否则会话内退化成自测、重进又变回判分）。
+                if (this._sess && this._sess.id === id) this._sess.key = this.effectiveKey(id);
                 this._renderList();
             }
             if (e.target.closest('[data-save]')) {
@@ -289,7 +330,9 @@ export const english = {
                 const all = this.answers();
                 all[id] = parsed;
                 this.saveAnswers(all);
-                if (this._sess && this._sess.id === id) this._sess.key = parsed;
+                // 与 effectiveKey() 口径一致：内置 ∪ 用户（用户逐题覆盖内置），
+                // 而不是只用用户粘贴的那一层——否则会话内分母与重新进入后不一致。
+                if (this._sess && this._sess.id === id) this._sess.key = this.effectiveKey(id);
                 modal.remove();
                 this._renderList();
             }
@@ -314,19 +357,28 @@ export const english = {
             return;
         }
         const sections = data.sections || {};
+        // 词库兜底净化（就地改写 sections[sec].words，后面的词库渲染与空位取值都走这一份）
+        for (const sk of Object.keys(sections)) {
+            const meta = sections[sk] || {};
+            if (Array.isArray(meta.words) && meta.words.length) {
+                meta.words = meta.words.map(w => this._cleanWord(w));
+            }
+        }
         const questions = (data.questions || []).slice().sort((a, b) => a.no - b.no).map(q => {
             const sec = sections[q.sec] || {};
+            const bank = (sec.words && sec.words.length) ? sec.words : null;
             const parts = [];
-            if (sec.label) parts.push('【' + sec.label + ' · Q' + q.no + '】');
-            if (q.sec === 'A' && sec.words && sec.words.length) {
-                parts.push(sec.words.map((w, i) => String.fromCharCode(65 + i) + '. ' + w).join('   '));
+            if (sec.label) parts.push('【' + sec.label + ' / Q' + q.no + '】');
+            if (q.sec === 'A' && bank) {
+                parts.push(bank.map((w, i) => String.fromCharCode(65 + i) + '. ' + w).join('   '));
             }
             parts.push(q.q);
             return {
                 no: q.no,
                 sec: q.sec,
                 stem: parts.join('\n\n'),
-                o: (q.o && q.o.length ? q.o.map(x => String(x).replace(/^[A-O][\)\.]\s*/, '')) : (sec.words || []).slice()),
+                // 有词库的节（选词填空）：选项就是词库，避免与 q.o 各存一份而出现不一致
+                o: bank ? bank.slice() : (q.o || []).map(x => String(x).replace(/^[A-O][\)\.]\s*/, '')),
                 psg: sec.passage ? this.reflowPassage(sec.passage) : null
             };
         });
@@ -339,11 +391,17 @@ export const english = {
             const secMeta = sections[sec] || {};
             if (secMeta.passage) secPassages[sec] = this.reflowPassage(secMeta.passage);
         }
-        // 完形型 Section：文章内含空号，题干冗余 → 卡片只留选项
+        // 完形型 Section：文章内含空号，题干冗余 → 卡片只留选项。
+        // 注意：判定依据是「本节有词库」或「标题写明选词填空/完形」，不能只看
+        //   「题号是否都出现在文章里」——仔细阅读/长篇阅读的文章末尾常常连带把
+        //   题目一起解析进来，题号会全部命中，于是被误判成完形节，整节渲染成
+        //   「在文章里点空位作答」，用户根本没法正常做题（实测 16 个小节中招）。
         const clozeSecs = secOrder.filter(sec => {
-            if (!secPassages[sec]) return false;
-            const nos = questions.filter(q => q.sec === sec).map(q => q.no);
-            return nos.length > 0 && nos.every(no => new RegExp('(?<![\\d])' + no + '(?![\\d])').test(secPassages[sec]));
+            const meta = sections[sec] || {};
+            if (!secPassages[sec]) return false;          // 没有文章就没有空位可点
+            if (!questions.some(q => q.sec === sec)) return false;
+            const hasBank = Array.isArray(meta.words) && meta.words.length > 0;
+            return hasBank || /选词填空|完形|cloze/i.test(String(meta.label || ''));
         });
         const saved = this.loadSession(id) || {};
         this._sess = {
@@ -360,7 +418,75 @@ export const english = {
             result: saved.result || null,
             curSec: secOrder[0]
         };
+        // 答案速录的题号可能与本卷对不上（少数卷子的题号体系不同，如 36–65），
+        // 会导致「明明录了答案却仍在自测」；这种情况必须明说，不能静默自测。
+        this._warnKeyMismatch();
         this.renderSession();
+    },
+
+    /** 答案编号与本卷题号完全对不上时给出明确提示（返回是否已提示） */
+    _warnKeyMismatch() {
+        const s = this._sess;
+        if (!s) return false;
+        const keyNos = Object.keys(s.key || {});
+        if (!keyNos.length) return false;
+        const paperNos = new Set(s.questions.map(q => String(q.no)));
+        if (keyNos.some(no => paperNos.has(no))) return false;
+        const nums = s.questions.map(q => q.no).slice().sort((a, b) => a - b);
+        const range = nums.length ? nums[0] + '–' + nums[nums.length - 1] : '';
+        if (typeof showGlobalToast === 'function') {
+            showGlobalToast(this.t('答案速录的 N 条答案编号与本卷题号（R）完全对不上，本卷将按自测模式作答。')
+                .replace('N', keyNos.length).replace('R', range), 'warn');
+        }
+        return true;
+    },
+
+    /** 判分后把头部「交卷」按钮就地换成「已判分」标签与「重做本卷」按钮（幂等） */
+    _lockSubmitBtn() {
+        const root = document.getElementById('english-root');
+        if (!root) return;
+        const btn = root.querySelector('[data-submit]');
+        if (!btn) return;
+        const frag = document.createDocumentFragment();
+        const span = document.createElement('span');
+        span.className = 'px-3 py-1.5 rounded-lg bg-[var(--bg)] text-[var(--sub)] text-[11px] font-bold';
+        span.textContent = this.t('已判分');
+        const redoBtn = document.createElement('button');
+        redoBtn.setAttribute('data-redo-head', '');
+        redoBtn.className = 'px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--text)] text-[11px] font-bold hover:border-primary-400 active:scale-95 transition-all';
+        redoBtn.textContent = this.t('重做本卷');
+        redoBtn.addEventListener('click', () => this.redoSession());
+        frag.appendChild(span);
+        frag.appendChild(redoBtn);
+        btn.replaceWith(frag);
+    },
+
+    /** 渲染或更新顶部判分结果横幅（包含重做入口） */
+    _renderResultBanner() {
+        const root = document.getElementById('english-root');
+        const s = this._sess;
+        if (!root || !s || !s.graded || !s.result) return;
+        const oldBanner = document.getElementById('eng-result-banner');
+        if (oldBanner) oldBanner.remove();
+        const keyed = s.questions.filter(q => s.key[q.no]);
+        const total = s.result.total || keyed.length || s.questions.length;
+        const correct = s.result.correct || 0;
+        const full = keyed.length === s.questions.length;
+        const banner = document.createElement('div');
+        banner.id = 'eng-result-banner';
+        banner.className = 'card p-4 rounded-xl text-center';
+        const rate = total ? Math.round(correct / total * 100) : 0;
+        banner.innerHTML =
+            '<div class="text-2xl font-bold ' + (rate >= 60 ? 'text-emerald-500' : 'text-red-500') + '">' +
+            rate + '%</div>' +
+            '<div class="text-xs text-[var(--sub)] mt-1">' + this.t('正确') + ' ' + correct + ' / ' + total +
+            ' <button data-redo class="ml-2 underline font-bold hover:text-[var(--text)]">' + this.t('重做本卷') + '</button></div>' +
+            (full ? '' :
+                '<div class="text-[11px] text-amber-600 dark:text-amber-400 mt-1.5">' +
+                this.t('N 题未录入答案，未计入本次判分。').replace('N', s.questions.length - keyed.length) +
+                '</div>');
+        root.prepend(banner);
+        banner.querySelector('[data-redo]').addEventListener('click', () => this.redoSession());
     },
 
     /** 完形空位槽：已填显示词，未填显示空号；点击弹选词面板 */
@@ -379,11 +505,29 @@ export const english = {
     openPicker(no) {
         const s = this._sess;
         if (!s || s.graded) return;
-        const q = s.questions.find(q => q.no === no);
+        const secQs = s.questions.filter(x => x.sec === s.curSec).sort((a, b) => a.no - b.no);
+        const q = secQs.find(x => x.no === no) || s.questions.find(x => x.no === no);
         if (!q) return;
         const pk = document.getElementById('eng-picker');
         if (!pk) return;
         pk.querySelector('#eng-pk-title').textContent = 'Q' + no;
+        const idxInSec = secQs.findIndex(x => x.no === no);
+        const prevBtn = pk.querySelector('[data-pk-prev]');
+        const nextBtn = pk.querySelector('[data-pk-next]');
+        if (prevBtn) {
+            const hasPrev = idxInSec > 0;
+            prevBtn.disabled = !hasPrev;
+            prevBtn.classList.toggle('opacity-40', !hasPrev);
+            prevBtn.classList.toggle('pointer-events-none', !hasPrev);
+            prevBtn.dataset.targetNo = hasPrev ? String(secQs[idxInSec - 1].no) : '';
+        }
+        if (nextBtn) {
+            const hasNext = idxInSec !== -1 && idxInSec < secQs.length - 1;
+            nextBtn.disabled = !hasNext;
+            nextBtn.classList.toggle('opacity-40', !hasNext);
+            nextBtn.classList.toggle('pointer-events-none', !hasNext);
+            nextBtn.dataset.targetNo = hasNext ? String(secQs[idxInSec + 1].no) : '';
+        }
         const cur = s.answers[no] || '';
         pk.querySelector('#eng-pk-opts').innerHTML = q.o.map((opt, i) => {
             const letter = String.fromCharCode(65 + i);
@@ -406,23 +550,29 @@ export const english = {
         return s.label || sec;
     },
 
+    /* Section 标签的样式与文案（renderSession 首次渲染 / _syncTabs 局部刷新共用）。
+       原先 _syncTabs 只改 className 不改文案，导致答完题后标签上的「已答/总数」永远停在 0。 */
+    _tabClass(sec) {
+        const on = sec === this._sess.curSec;
+        return 'px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ' +
+            (on ? 'bg-primary-600 text-white border-primary-600'
+                : 'border-[var(--border)] text-[var(--sub)] hover:bg-[var(--bg)]');
+    },
+    _tabLabel(sec) {
+        const s = this._sess;
+        const done = s.questions.filter(q => q.sec === sec && s.answers[q.no]).length;
+        const total = s.questions.filter(q => q.sec === sec).length;
+        return this.esc(this.secLabel(sec)) + ' <span class="opacity-75">' + done + '/' + total + '</span>';
+    },
+
     renderSession() {
         const root = document.getElementById('english-root');
         if (!root || !this._sess) return;
         const s = this._sess;
         const answered = Object.keys(s.answers).length;
-        const tabs = s.secOrder.map(sec => {
-            const on = sec === s.curSec;
-            const done = s.questions.filter(q => q.sec === sec && s.answers[q.no]).length;
-            const total = s.questions.filter(q => q.sec === sec).length;
-            return '<button data-sec="' + sec + '" class="px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ' +
-                (on ? 'bg-primary-600 text-white border-primary-600' : 'border-[var(--border)] text-[var(--sub)] hover:bg-[var(--bg)]') + '">' +
-                this.esc(this.secLabel(sec)) +
-                (this._sess.key && Object.keys(this._sess.key).length >= s.questions.length
-                    ? ''
-                    : '') +
-                ' <span class="opacity-75">' + done + '/' + total + '</span></button>';
-        }).join('');
+        const tabs = s.secOrder.map(sec =>
+            '<button data-sec="' + this.esc(sec) + '" class="' + this._tabClass(sec) + '">' +
+            this._tabLabel(sec) + '</button>').join('');
         const psgText = s.secPassages[s.curSec] || '';
         root.innerHTML =
             '<div class="flex items-center justify-between gap-2 flex-wrap">' +
@@ -431,8 +581,11 @@ export const english = {
             '<div class="text-xs font-bold text-[var(--text)] truncate">' + this.esc(s.title) + '</div>' +
             '</div>' +
             '<div class="flex items-center gap-2">' +
-            '<span class="text-[11px] text-[var(--sub)]">' + this.t('已答') + ' <b class="text-[var(--text)]">' + answered + '</b>/' + s.questions.length + '</span>' +
-            '<button data-submit class="px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700 active:scale-95 transition-all shadow-sm">' + this.t('交卷') + '</button>' +
+            '<span id="eng-answered" class="text-[11px] text-[var(--sub)]">' + this.t('已答') + ' <b class="text-[var(--text)]">' + answered + '</b>/' + s.questions.length + '</span>' +
+            (s.graded
+                ? '<span class="px-3 py-1.5 rounded-lg bg-[var(--bg)] text-[var(--sub)] text-[11px] font-bold">' + this.t('已判分') + '</span>' +
+                  '<button data-redo-head class="px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--text)] text-[11px] font-bold hover:border-primary-400 active:scale-95 transition-all">' + this.t('重做本卷') + '</button>'
+                : '<button data-submit class="px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700 active:scale-95 transition-all shadow-sm">' + this.t('交卷') + '</button>') +
             '</div></div>' +
             '<div class="eng-session grid gap-3 md:gap-4">' +
             '<div class="eng-psg-col card p-4 md:p-5 rounded-2xl flex flex-col bg-[var(--card)] border border-[var(--border)]">' +
@@ -455,9 +608,13 @@ export const english = {
             '<div class="eng-psg-backdrop fixed inset-0 bg-black/40 z-[55] hidden md:hidden"></div>' +
             '<div id="eng-picker" class="fixed inset-0 z-[65] hidden">' +
             '<div class="absolute inset-0 bg-black/40" data-pk-close></div>' +
-            '<div class="absolute bottom-0 left-0 right-0 card rounded-t-2xl p-4 max-h-[72vh] overflow-y-auto custom-scroll animate-slide-up">' +
-            '<div class="flex justify-between items-center mb-2.5">' +
-            '<b class="text-sm text-[var(--text)]" id="eng-pk-title">Q</b>' +
+            '<div class="absolute bottom-0 left-0 right-0 card rounded-t-2xl p-4 max-h-[72vh] overflow-y-auto custom-scroll anim-view-in">' +
+            '<div class="flex justify-between items-center mb-2.5 gap-2">' +
+            '<div class="flex items-center gap-2">' +
+            '<button data-pk-prev class="px-2.5 py-1 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[11px] font-bold text-[var(--text)] active:scale-95 transition-all">← ' + this.t('上一题') + '</button>' +
+            '<b class="text-sm text-[var(--text)] px-1" id="eng-pk-title">Q</b>' +
+            '<button data-pk-next class="px-2.5 py-1 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[11px] font-bold text-[var(--text)] active:scale-95 transition-all">' + this.t('下一题') + ' →</button>' +
+            '</div>' +
             '<button data-pk-close aria-label="关闭" class="text-[var(--sub)] hover:text-[var(--text)] p-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>' +
             '</div>' +
             '<div id="eng-pk-opts" class="flex flex-col gap-1.5"></div>' +
@@ -465,7 +622,10 @@ export const english = {
             '</div></div>';
         // 事件绑定
         root.querySelector('[data-back]').addEventListener('click', () => this.render());
-        root.querySelector('[data-submit]').addEventListener('click', () => this.submitSession());
+        const submitBtn = root.querySelector('[data-submit]');
+        if (submitBtn) submitBtn.addEventListener('click', () => this.submitSession());
+        const redoHeadBtn = root.querySelector('[data-redo-head]');
+        if (redoHeadBtn) redoHeadBtn.addEventListener('click', () => this.redoSession());
         root.querySelector('[data-psg-close]').addEventListener('click', () => this.togglePsg(false));
         const psgOpen = root.querySelector('[data-psg-open]');
         if (psgOpen) psgOpen.addEventListener('click', () => this.togglePsg(true));
@@ -481,7 +641,18 @@ export const english = {
         const picker = root.querySelector('#eng-picker');
         picker.addEventListener('click', (e) => {
             if (e.target.closest('[data-pk-close]') || e.target === picker) this.closePicker();
+            const prevBtn = e.target.closest('[data-pk-prev]');
+            if (prevBtn && prevBtn.dataset.targetNo) {
+                this.openPicker(parseInt(prevBtn.dataset.targetNo, 10));
+                return;
+            }
+            const nextBtn = e.target.closest('[data-pk-next]');
+            if (nextBtn && nextBtn.dataset.targetNo) {
+                this.openPicker(parseInt(nextBtn.dataset.targetNo, 10));
+                return;
+            }
             if (e.target.closest('[data-pk-clear]')) {
+                if (!this._sess || this._sess.graded) return;
                 const no = parseInt(picker.dataset.no, 10);
                 delete this._sess.answers[no];
                 this.saveSession();
@@ -489,6 +660,7 @@ export const english = {
                 this._syncPassage();
                 this.renderQuestions();
                 this._updateCounter();
+                this._syncTabs();
             }
             const opt = e.target.closest('#eng-pk-opts .eng-opt');
             if (opt) {
@@ -497,6 +669,9 @@ export const english = {
             }
         });
         this.renderQuestions();
+        if (s.graded && s.result) {
+            this._renderResultBanner();
+        }
     },
 
     /** 完形赋值：写入答案 → 刷新槽位 + 作答条 + 计数 */
@@ -537,8 +712,10 @@ export const english = {
             const re = new RegExp('(?<!\w)(' + nos.join('|') + ')(?!\w)(?!\.\d)', 'g');
             txt.innerHTML = this.esc(psg).replace(re, (m, no) => this._slotHtml(parseInt(no, 10)));
         } else {
-            // 阅读节：段落标记醒目化（[A] / A. 行首），便于长篇阅读定位
-            txt.innerHTML = this.esc(psg).replace(/(^|\n)(\[?[A-L]\]?[.\)])\s+/g, '$1<span class="eng-para-mark">$2</span> ');
+            // 阅读节：段落标记醒目化（[A] / A. 行首），便于长篇阅读定位。
+            // 范围必须到 O——长篇阅读的段落标记是 A–O，写到 L 会让 M/N/O 段
+            // 失去醒目化（33 个小节有 M/N/O，而答案选项里就会出现这些字母）。
+            txt.innerHTML = this.esc(psg).replace(/(^|\n)(\[?[A-O]\]?[.\)])\s+/g, '$1<span class="eng-para-mark">$2</span> ');
         }
         // 选词填空：词库挂在文章下方（仅参考，作答点空位弹面板）
         const words = (s.sections[s.curSec] || {}).words || [];
@@ -550,7 +727,8 @@ export const english = {
             bankEl.classList.add('hidden');
             bankEl.innerHTML = '';
         }
-        if (openBtn) openBtn.style.display = psg ? 'flex' : 'none';
+        // 「阅读文章」按钮：只在手机端有意义（桌面文章栏常驻），可见性交给 CSS 媒体查询
+        if (openBtn) openBtn.classList.toggle('psg-open-avail', !!psg);
         if (!psg) this.togglePsg(false);
     },
 
@@ -559,9 +737,10 @@ export const english = {
         const root = document.getElementById('english-root');
         if (!root || !s) return;
         root.querySelectorAll('[data-sec]').forEach(b => {
-            const on = b.dataset.sec === s.curSec;
-            b.className = 'px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ' +
-                (on ? 'bg-primary-600 text-white border-primary-600' : 'border-[var(--border)] text-[var(--sub)] hover:bg-[var(--bg)]');
+            const sec = b.dataset.sec;
+            // 就地改 class 与文案（不换元素，事件监听保持有效）
+            b.className = this._tabClass(sec);
+            b.innerHTML = this._tabLabel(sec);
         });
     },
 
@@ -582,8 +761,10 @@ export const english = {
                 let mark = '';
                 if (graded && keyAns) {
                     cls += letter === keyAns ? ' ok' : ' bad';
-                    mark = '<span class="text-[10px] font-bold flex-shrink-0 ' + (letter === keyAns ? 'text-emerald-500' : 'text-red-500') + '">' +
-                        (letter === keyAns ? '✓' : '✕ ' + keyAns) + '</span>';
+                    const okIcon = '<svg class="w-3.5 h-3.5 inline-block" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+                    const errIcon = '<svg class="w-3.5 h-3.5 inline-block mr-0.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>';
+                    mark = '<span class="text-[10px] font-bold flex-shrink-0 inline-flex items-center ' + (letter === keyAns ? 'text-emerald-500' : 'text-red-500') + '">' +
+                        (letter === keyAns ? okIcon : errIcon + keyAns) + '</span>';
                 }
                 return '<button data-no="' + q.no + '" class="' + cls.trim() + '">' +
                     '<span class="font-mono font-bold text-[11px] flex-shrink-0">Q' + q.no + '</span>' +
@@ -613,7 +794,7 @@ export const english = {
                 const sel = picked === letter;
                 let cls = (letterOnly ? 'eng-chip' : 'eng-opt') + (sel ? ' sel' : '') + (graded && keyAns ? (letter === keyAns ? ' ok' : (sel ? ' bad' : '')) : '');
                 return '<button data-no="' + q.no + '" data-letter="' + letter + '" class="' + cls.trim() + '" ' +
-                    (letterOnly ? 'aria-label="段落 ' + letter + '"' : '') + '>' +
+                    (letterOnly ? 'aria-label="' + this.t('段落') + ' ' + letter + '"' : '') + '>' +
                     '<span class="font-bold flex-shrink-0">' + letter + '</span>' +
                     (this.isLetterOnly(opt, letter) ? '' : '<span class="min-w-0">' + this.esc(opt) + '</span>') +
                     '</button>';
@@ -653,9 +834,8 @@ export const english = {
         if (s.answers[no] === letter) delete s.answers[no];   // 再点一次取消选择
         else s.answers[no] = letter;
         this.saveSession();
-        // 局部刷新该题选中态 + 顶部计数
+        // 局部刷新该题选中态 + 顶部计数 + 标签进度
         this.renderQuestions();
-        const counter = document.querySelector('#english-root [data-submit]') ? document.querySelector('#english-root .text-\\[11px\\]') : null;
         this._updateCounter();
         this._syncTabs();
     },
@@ -663,7 +843,9 @@ export const english = {
     _updateCounter() {
         const s = this._sess;
         if (!s) return;
-        const span = [...document.querySelectorAll('#english-root span')].find(x => x.textContent.indexOf(this.t('已答')) === 0);
+        // 用固定 id 定位（旧实现靠「文本以『已答』开头的第一个 span」去找，
+        // 页面文案一变就会找不到，计数静默不更新）
+        const span = document.getElementById('eng-answered');
         if (span) span.innerHTML = this.t('已答') + ' <b class="text-[var(--text)]">' + Object.keys(s.answers).length + '</b>/' + s.questions.length;
     },
 
@@ -690,63 +872,78 @@ export const english = {
         if (txt) txt.style.fontSize = this._psgFont + 'px';
     },
 
-    submitSession() {
+    async submitSession() {
         const s = this._sess;
         if (!s) return;
+        if (s.graded) return;   // 已判分的卷子不允许重复交卷（重做入口会重置 graded）
         const answered = Object.keys(s.answers).length;
         if (answered === 0) {
-            if (typeof showGlobalError === 'function') showGlobalError(this.t('还没有作答任何题目。'));
+            if (typeof showGlobalToast === 'function') showGlobalToast(this.t('还没有作答任何题目。'), 'warn');
             return;
         }
         const unanswered = s.questions.length - answered;
-        if (unanswered > 0 && !confirm(this.t('还有 N 题未作答，确定交卷吗？').replace('N', unanswered))) return;
-        const keyCount = Object.keys(s.key).length;
-        if (keyCount < s.questions.length) {
-            // 自测完成：不判分
+        if (unanswered > 0) {
+            const msg = this.t('还有 N 题未作答，确定交卷吗？').replace('N', unanswered);
+            const ok = (window.App && App.ui && typeof App.ui.confirm === 'function')
+                ? await App.ui.confirm(msg)
+                : confirm(msg);
+            if (!ok) return;
+        }
+
+        // 只认「本题号确实有答案」的题目。
+        // 旧实现拿 Object.keys(s.key).length 与题目总数比，只要 key 条目够多就当作答案齐全——
+        // 用户粘贴的答案速查编号与试卷对不上时（例如把 26-55 的卷子按 1-30 粘贴），
+        // 会整卷进入判分且所有题被误判为错。这里改为按题号逐题核对。
+        const keyed = s.questions.filter(q => s.key[q.no]);
+        const full = keyed.length === s.questions.length;
+
+        if (!keyed.length) {
+            // 完全没有可用答案 → 自测模式，不判分
             s.graded = false;
             s.result = { correct: 0, total: s.questions.length, ts: Date.now(), selfCheck: true };
             const results = this.results();
             results[s.id] = s.result;
             this.saveResults(results);
             this.saveSession();
-            if (typeof showGlobalError === 'function') showGlobalError(this.t('自测完成（未录入答案，不判分）。点「答案」补录后可重做自动判分。'));
-            this.render();
+            // 区分「压根没录答案」和「录了但题号全对不上」：后者要说明具体原因，
+            // 否则用户以为答案录错了却查不出来（本卷题号体系与答案速查不一致）。
+            if (!this._warnKeyMismatch() && typeof showGlobalToast === 'function') {
+                showGlobalToast(this.t('自测完成（未录入答案，不判分）。点「答案」补录后可重做自动判分。'), 'success');
+            }
+            // 与判分路径一致：留在本卷（回列表会让用户以为作答丢了）
+            this.renderSession();
             return;
         }
-        // 判分
+        // 判分：只统计有答案的题；缺答案的题不计分（旧实现会因为 1~2 题缺答案而整卷降级为自测，
+        // 用户明明录入过大部分答案却拿不到分数）
         let correct = 0;
-        for (const q of s.questions) {
+        for (const q of keyed) {
             if ((s.answers[q.no] || '') === (s.key[q.no] || '').toUpperCase()) correct++;
         }
         s.graded = true;
-        s.result = { correct, total: s.questions.length, ts: Date.now() };
+        s.result = { correct, total: keyed.length, ts: Date.now(), partial: !full };
         const results = this.results();
         results[s.id] = s.result;
         this.saveResults(results);
         this.saveSession();
-        // 重渲染题目列表：正确/错误标记 + 正确答案提示（renderQuestions 读取 graded 态）
+        // 重渲染题目列表与完形文章槽位：正确/错误标记 + 正确答案提示
+        this._syncPassage();
         this.renderQuestions();
-        // 结果横幅 + 重做入口
-        const root = document.getElementById('english-root');
-        if (root) {
-            const banner = document.createElement('div');
-            banner.className = 'card p-4 rounded-xl text-center';
-            banner.innerHTML =
-                '<div class="text-2xl font-bold ' + (correct / s.questions.length >= 0.6 ? 'text-emerald-500' : 'text-red-500') + '">' +
-                Math.round(correct / s.questions.length * 100) + '%</div>' +
-                '<div class="text-xs text-[var(--sub)] mt-1">' + this.t('正确') + ' ' + correct + ' / ' + s.questions.length +
-                ' · <button data-redo class="underline font-bold hover:text-[var(--text)]">' + this.t('重做本卷') + '</button></div>';
-            root.prepend(banner);
-            banner.querySelector('[data-redo]').addEventListener('click', () => this.redoSession());
-        }
+        this._renderResultBanner();
         this._syncTabs();
-        if (typeof showGlobalError === 'function') showGlobalError(this.t('判分完成：正确 X/Y').replace('X', correct).replace('/Y', '/' + s.questions.length));
+        // 头部「交卷」就地换成「已判分」+「重做本卷」
+        this._lockSubmitBtn();
+        if (typeof showGlobalToast === 'function') showGlobalToast(this.t('判分完成：正确 X/Y').replace('X', correct).replace('/Y', '/' + keyed.length), 'success');
     },
 
-    redoSession() {
+    async redoSession() {
         const s = this._sess;
         if (!s) return;
-        if (!confirm(this.t('清空本卷作答并重做？（答案速录保留）'))) return;
+        const msg = this.t('清空本卷作答并重做？（答案速录保留）');
+        const ok = (window.App && App.ui && typeof App.ui.confirm === 'function')
+            ? await App.ui.confirm(msg)
+            : confirm(msg);
+        if (!ok) return;
         s.answers = {};
         s.graded = false;
         s.result = null;

@@ -1,4 +1,4 @@
-﻿export const auth = {
+export const auth = {
 
                 token: null,
                 session: null,
@@ -48,11 +48,8 @@
                 async login(loginId, password) {
                     const username = (loginId || '').trim();
                     if (!username) return { error: { message: '用户名不能为空' } };
-                    // 告诉密码管理器这是「登录已有账号」：避免 Chrome 把登录框
-                    // 误判成注册表单而乱弹保存/泄露检查提示
                     const pwEl = document.getElementById('auth-password');
-                    if (pwEl) pwEl.setAttribute('autocomplete', 'current-password');
-                    
+
                     try {
                         const res = await fetch((App.apiBase || '') + '/api/auth/login', {
                             method: 'POST',
@@ -70,6 +67,7 @@
                         if (!data || typeof data.token !== 'string' || !data.token) {
                             return { error: { message: '服务器未返回登录凭证，请稍后重试' } };
                         }
+                        if (pwEl) { pwEl.value = ''; pwEl.classList.add('pw-masked'); }
                         this.token = data.token;
                         localStorage.setItem('qs-auth-token', this.token);
                         const payload = this.parseJwt(this.token);
@@ -93,10 +91,7 @@
                     }
                 },
                 async signup(loginId, password) {
-                    // 注册 = 设定新密码：标记为 new-password，Chrome 才会按
-                    // 「新密码」流程处理（含正常的泄露检查），而不是按登录复用处理
                     const pwEl2 = document.getElementById('auth-password');
-                    if (pwEl2) pwEl2.setAttribute('autocomplete', 'new-password');
                     const username = (loginId || '').trim();
                     if (!username) return { error: { message: '用户名不能为空' } };
                     if (username.includes('@')) return { error: { message: App.t('用户名不能包含 @ 符号') } };
@@ -116,6 +111,7 @@
                         if (!data || typeof data.token !== 'string' || !data.token) {
                             return { error: { message: '服务器未返回注册凭证，请稍后重试' } };
                         }
+                        if (pwEl2) { pwEl2.value = ''; pwEl2.classList.add('pw-masked'); }
                         this.token = data.token;
                         localStorage.setItem('qs-auth-token', this.token);
                         const payload = this.parseJwt(this.token);
@@ -147,7 +143,10 @@
                         const d = App.data;
                         const hasPending = d._bankDirty || (Array.isArray(d._historyAppendBuffer) && d._historyAppendBuffer.length > 0) || d._isSaving;
                         if (hasPending) {
-                            const choice = confirm(
+                            const confirmFn = (window.App && App.ui && typeof App.ui.confirm === 'function')
+                                ? (m) => App.ui.confirm(m)
+                                : (m) => Promise.resolve(confirm(m));
+                            const choice = await confirmFn(
                                 App.t('本地还有未同步到云端的修改。') + '\n\n' +
                                 App.t('点击「确定」= 先把修改上传到云端，成功后自动退出；') + '\n' +
                                 App.t('点击「取消」= 留在本页等待同步完成。') + '\n\n' +
@@ -172,7 +171,7 @@
                                 }
                             }
                             if (!settled) {
-                                const force2 = confirm(
+                                const force2 = await confirmFn(
                                     App.t('上传没有在预期时间内完成（可能已离线）。') + '\n\n' +
                                     App.t('现在退出会丢失未上传的修改。') + '\n\n' +
                                     App.t('点击「确定」= 仍然退出（丢失未上传的修改）；') + '\n' +

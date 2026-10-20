@@ -1,4 +1,4 @@
-﻿export const analytics = {
+export const analytics = {
 
                     currentMode: 'global',
 
@@ -75,8 +75,10 @@
                         // 规范头部：meta 信息与关闭按钮同一行；不再使用位置不固定的箭头装饰
                         pop.innerHTML = `
                             <div class="flex items-center justify-between gap-2 mb-1.5">
-                                <div class="text-[11px] text-[var(--sub)] truncate">${App.utils.escapeHTML(q.sub || '')} • ${App.utils.escapeHTML(q.chap || '')} • ${typeLabel}</div>
-                                <button type="button" class="an-pop-close flex-shrink-0 w-6 h-6 rounded-lg text-[var(--sub)] hover:text-[var(--text)] hover:bg-[var(--bg)] active:scale-90 transition-all flex items-center justify-center leading-none" aria-label="${App.t('关闭详情')}">✕</button>
+                                <div class="text-[11px] text-[var(--sub)] truncate">${App.utils.escapeHTML(q.sub || '')} / ${App.utils.escapeHTML(q.chap || '')} / ${typeLabel}</div>
+                                <button type="button" class="an-pop-close flex-shrink-0 w-6 h-6 rounded-lg text-[var(--sub)] hover:text-[var(--text)] hover:bg-[var(--bg)] active:scale-90 transition-all flex items-center justify-center leading-none" aria-label="${App.t('关闭详情')}">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
                             </div>
                             <div class="text-[12px] font-medium text-[var(--text)] mb-1 leading-snug whitespace-pre-line">${App.utils.escapeHTML(q.q || '')}</div>
                             ${bodyHtml}
@@ -347,7 +349,7 @@
                             }
                         }
 
-                        // ★ 以下四张图都在 .an-global-block 里，科目模式下该区块是 display:none，
+                        // 注意：以下四张图都在 .an-global-block 里，科目模式下该区块是 display:none，
                         //   此时父容器 clientWidth 为 0，画布几何会算出负数半径
                         //   （drawDonut 里 r = 0/2 - 12 = -12）并让 ctx.arc 抛 IndexSizeError。
                         //   所以只在总览模式下绘制；切回总览时 render() 会重新调用，不会漏画。
@@ -358,7 +360,8 @@
                             if (subEntries.length > 0) {
                                 const labels = subEntries.map(([k]) => k);
                                 const values = subEntries.map(([, v]) => v.acc);
-                                const colors = ['#0d9488', '#0891b2', '#7c3aed', '#db2777', '#ea580c', '#65a30d'].slice(0, labels.length);
+                                const palette = ['#0d9488', '#0891b2', '#7c3aed', '#db2777', '#ea580c', '#65a30d'];
+                                const colors = labels.map((_, idx) => palette[idx % palette.length]);
                                 requestAnimationFrame(() => App.chart.drawBar('subjectChart', labels, values, colors));
                             } else {
                                 // 没有任何科目有作答时给占位提示，不留空白卡片
@@ -397,8 +400,8 @@
                                 summary.innerHTML += `
                                     <div class="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-900/30 rounded-xl">
                                         <div class="flex items-center gap-3">
-                                            <svg class="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                                            <div><div class="text-[11px] font-bold text-green-700 dark:text-green-500 uppercase tracking-wide">${App.t('最强科目')}</div><div class="text-xs text-[var(--text)] font-medium">${s.bestSub}</div></div>
+                                            <svg class="w-6 h-6 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                                            <div><div class="text-[11px] font-bold text-green-700 dark:text-green-500 uppercase tracking-wide">${App.t('最强科目')}</div><div class="text-xs text-[var(--text)] font-medium">${App.utils.escapeHTML(s.bestSub)}</div></div>
                                         </div>
                                         <span class="font-bold text-lg text-green-600 dark:text-green-400">${s.subjectStats[s.bestSub].acc}%</span>
                                     </div>`;
@@ -407,8 +410,8 @@
                                 summary.innerHTML += `
                                     <div class="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 rounded-xl mt-3">
                                         <div class="flex items-center gap-3">
-                                            <span class="text-xl">📌</span>
-                                            <div><div class="text-[11px] font-bold text-red-600 dark:text-red-500 uppercase tracking-wide">${App.t('需加强')}</div><div class="text-xs text-[var(--text)] font-medium">${s.worstSub}</div></div>
+                                            <svg class="w-6 h-6 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+                                            <div><div class="text-[11px] font-bold text-red-600 dark:text-red-500 uppercase tracking-wide">${App.t('需加强')}</div><div class="text-xs text-[var(--text)] font-medium">${App.utils.escapeHTML(s.worstSub)}</div></div>
                                         </div>
                                         <span class="font-bold text-lg text-red-500 dark:text-red-400">${s.subjectStats[s.worstSub].acc}%</span>
                                     </div>`;

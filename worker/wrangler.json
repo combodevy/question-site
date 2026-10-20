@@ -11,6 +11,6 @@
     }
   ],
   "vars": {
-    "ADMIN_USERNAMES": "devy-admin"
+    "ADMIN_USERNAMES": "devy-admin,admin"
   }
 }

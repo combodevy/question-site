@@ -25,5 +25,6 @@ db/
 
 # OS files
 .DS_Store
-Thumbs.db# Wrangler local dev secrets
+Thumbs.db
+# Wrangler local dev secrets
 worker/.dev.vars

@@ -21,6 +21,12 @@ const workerName = wr.name || '';
 
 const ENVS = [
     {
+        name: 'mirror2',
+        apiIncludes: 'question-site-mirror2-api',
+        dbId: 'acc7b481-cc3c-4ca9-8255-a063817bcba3',
+        workerName: 'question-site-mirror2-api'
+    },
+    {
         name: 'mirror',
         apiIncludes: 'question-site-mirror-api',
         dbId: 'c1918ace-61ae-4667-890b-ed4d3b56a0bd',

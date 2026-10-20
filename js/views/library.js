@@ -1,4 +1,4 @@
-﻿export const library = {
+export const library = {
 
                     currentMode: 'all',
                     _searchQuery: '',
@@ -17,8 +17,49 @@
                     _renderedCount: 0,
                     _lazyAttached: false,
                     _lazyContainer: null,
+                    _pendingFilterSub: null,
+                    _pendingFilterChap: null,
+
+                    handleSubjectChange() {
+                        const chapFilter = App.dom.get('lib-chapter');
+                        if (chapFilter) chapFilter.value = 'all';
+                        this.render();
+                    },
 
                     handleTypeChange() { this.render(); },
+
+                    switchMode(mode) {
+                        if (!mode) return;
+                        this.render(mode);
+                    },
+
+                    _updateModeTabs() {
+                        const allQs = App.data.getQuestions();
+                        const hidden = new Set(Array.isArray(App.data.hiddenMistakeIds) ? App.data.hiddenMistakeIds : []);
+                        const errSet = new Set(App.data.getSafeHistory().filter(h => !h.r && !hidden.has(h.id)).map(h => h.id));
+                        let errCount = 0;
+                        let starCount = 0;
+                        for (const q of allQs) {
+                            if (errSet.has(q.id)) errCount++;
+                            if (App.data.isStarred(q.id)) starCount++;
+                        }
+                        App.dom.setText('lib-tab-all-count', String(allQs.length));
+                        App.dom.setText('lib-tab-mistakes-count', String(errCount));
+                        App.dom.setText('lib-tab-starred-count', String(starCount));
+
+                        const tabs = [
+                            ['lib-tab-all', 'all'],
+                            ['lib-tab-mistakes', 'mistakes'],
+                            ['lib-tab-starred', 'starred']
+                        ];
+                        for (const [id, m] of tabs) {
+                            const btn = App.dom.get(id);
+                            if (!btn) continue;
+                            const active = this.currentMode === m;
+                            btn.classList.toggle('is-active', active);
+                            btn.setAttribute('aria-selected', String(active));
+                        }
+                    },
 
                     handleSearch(val) {
                         clearTimeout(this._debounceTimer);
@@ -121,20 +162,51 @@
                         App.dom.setText('lib-selected-count', String(this._selectedIds.size));
                     },
 
+                    selectAllFiltered() {
+                        if (!this._manageMode) return;
+                        const list = this._fullList || [];
+                        list.forEach(q => { if (q && q.id) this._selectedIds.add(q.id); });
+                        const listEl = App.dom.get('lib-list');
+                        if (listEl) {
+                            listEl.querySelectorAll('.lib-select-chk').forEach(chk => {
+                                if (chk.dataset.id && this._selectedIds.has(chk.dataset.id)) chk.checked = true;
+                            });
+                        }
+                        App.dom.setText('lib-selected-count', String(this._selectedIds.size));
+                    },
+
+                    clearSelection() {
+                        this._selectedIds = new Set();
+                        const listEl = App.dom.get('lib-list');
+                        if (listEl) {
+                            listEl.querySelectorAll('.lib-select-chk').forEach(chk => { chk.checked = false; });
+                        }
+                        App.dom.setText('lib-selected-count', '0');
+                    },
+
+                    practiceCurrentList() {
+                        const list = this._fullList || [];
+                        if (!list.length) {
+                            alert(App.t("没有找到符合条件的题目！(No questions match your criteria)"));
+                            return;
+                        }
+                        App.quiz.init('filtered', { questions: list });
+                    },
+
                     // 单题删除：软删除到回收站
-                    deleteSingle(id) {
-                        if (!confirm(App.t("确定删除这道题吗？此操作会将题目放入回收站，可在回收站中恢复。"))) return;
+                    async deleteSingle(id) {
+                        if (!(await App.ui.confirm(App.t("确定删除这道题吗？此操作会将题目放入回收站，可在回收站中恢复。")))) return;
                         App.data.softDeleteByIds(new Set([id]), 'manual-delete');
                         this.render(this.currentMode);
                     },
 
                     // 批量删除选中
-                    bulkDeleteSelected() {
+                    async bulkDeleteSelected() {
                         if (!this._selectedIds || this._selectedIds.size === 0) {
                             alert(App.t("请先勾选至少一题再执行批量删除。"));
                             return;
                         }
-                        if (!confirm(`${App.t('确定删除选中的 ')}${this._selectedIds.size}${App.t(' 道题目吗？这些题将被移入回收站，可在回收站中恢复。')}`)) return;
+                        if (!(await App.ui.confirm(`${App.t('确定删除选中的 ')}${this._selectedIds.size}${App.t(' 道题目吗？这些题将被移入回收站，可在回收站中恢复。')}`))) return;
                         App.data.softDeleteByIds(this._selectedIds, 'manual-delete-bulk');
                         this._selectedIds = new Set();
                         App.dom.setText('lib-selected-count', '0');
@@ -142,13 +214,13 @@
                     },
 
                     // 批量导出选中为 JSON
-                    exportSelected() {
+                    async exportSelected() {
                         if (!this._selectedIds || this._selectedIds.size === 0) {
                             alert(App.t("请先勾选至少一题再导出。"));
                             return;
                         }
                         if (this._selectedIds.size > 500) {
-                            if (!confirm(`${App.t("您选中了 ")}${this._selectedIds.size}${App.t(" 道题，导出可能需要较长时间，确认继续吗？")}`)) {
+                            if (!(await App.ui.confirm(`${App.t("您选中了 ")}${this._selectedIds.size}${App.t(" 道题，导出可能需要较长时间，确认继续吗？")}`))) {
                                 return;
                             }
                         }
@@ -180,9 +252,11 @@
                     // 构建列表中的一项（返回 DOM 节点，不负责插入容器）
                     _buildItem(q, index) {
                         const d = document.createElement('div');
-                        // 错题本模式下加左侧红色标记条，与总题库在视觉上区分
-                        d.className = "p-4 border-b border-[var(--border)] hover:bg-[var(--bg-hover)] transition-colors"
-                            + (this.currentMode === 'mistakes' ? ' border-l-2 border-l-red-400 dark:border-l-red-600' : '');
+                        // 错题本模式下加左侧红色标记条，收藏模式下加左侧琥珀金标记条，与总题库在视觉上区分
+                        const leftBorder = this.currentMode === 'mistakes'
+                            ? ' border-l-2 border-l-red-400 dark:border-l-red-600'
+                            : (this.currentMode === 'starred' ? ' border-l-2 border-l-amber-400 dark:border-l-amber-500' : '');
+                        d.className = "p-4 border-b border-[var(--border)] hover:bg-[var(--bg-hover)] transition-colors" + leftBorder;
                         d.dataset.qid = q.id;
 
                         let mistakeBadge = '';
@@ -195,7 +269,8 @@
 
                         // 星标按钮：所有模式都显示；已收藏高亮实心星（SVG 加粗，字符星太细小）
                         const starred = App.data.isStarred(q.id);
-                        const starBtn = `<button class="leading-none mr-1.5 ${starred ? 'text-amber-400' : 'text-[var(--sub)] hover:text-amber-400'} transition-colors" data-role="star" data-id="${App.utils.escapeHTML(String(q.id || ''))}" title="${starred ? '取消收藏' : '收藏'}" aria-label="${starred ? '取消收藏' : '收藏'}"><svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="${starred ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></button>`;
+                        const starTitle = App.t(starred ? '取消收藏' : '收藏');
+                        const starBtn = `<button class="leading-none mr-1.5 ${starred ? 'text-amber-400' : 'text-[var(--sub)] hover:text-amber-400'} transition-colors" data-role="star" data-id="${App.utils.escapeHTML(String(q.id || ''))}" title="${starTitle}" aria-label="${starTitle}"><svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="${starred ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></button>`;
 
                         let ansPreview = '';
                         let detailsHtml = '';
@@ -242,20 +317,29 @@
                         }
 
                         const safeSub = App.utils.escapeHTML(q.sub || '');
+                        const safeChap = App.utils.escapeHTML(q.chap || '');
+                        const isChecked = this._selectedIds.has(q.id) ? 'checked' : '';
+                        const editTitle = App.t('编辑题目');
+                        const chatTitle = App.t('详情与作答记录');
                         d.innerHTML = `
                             <div class="flex justify-between mb-1 items-center gap-2">
-                                <label class="flex items-center gap-2 cursor-pointer select-none min-w-0">
-                                    <input type="checkbox" class="lib-select-chk w-4 h-4 mr-1 ${this._manageMode ? '' : 'hidden'}" data-id="${App.utils.escapeHTML(String(q.id || ''))}" onchange="App.views.library.handleSelectChange(this)">
-                                    <span class="text-[11px] font-bold text-[var(--sub)] mr-1 flex-shrink-0">#${index + 1}</span>
-                                    <span class="text-[11px] font-bold text-primary-600 bg-primary-50 dark:bg-primary-900/30 dark:text-primary-400 px-1 rounded border border-primary-100 dark:border-primary-900 truncate">${safeSub}</span>
-                                    <span class="text-[11px] text-[var(--sub)] border border-[var(--border)] px-1 rounded flex-shrink-0">${typeLabel}</span>
+                                <label class="flex items-center gap-1.5 cursor-pointer select-none min-w-0 flex-wrap">
+                                    <input type="checkbox" class="lib-select-chk w-4 h-4 mr-1 ${this._manageMode ? '' : 'hidden'}" data-id="${App.utils.escapeHTML(String(q.id || ''))}" ${isChecked} onchange="App.views.library.handleSelectChange(this)">
+                                    <span class="text-[11px] font-bold text-[var(--sub)] mr-0.5 flex-shrink-0">#${index + 1}</span>
+                                    <span class="text-[11px] font-bold text-primary-600 bg-primary-50 dark:bg-primary-900/30 dark:text-primary-400 px-1.5 py-0.5 rounded border border-primary-100 dark:border-primary-900 truncate max-w-[160px]" title="${safeSub}">${safeSub}</span>
+                                    ${safeChap ? `<span class="text-[11px] text-[var(--sub)] bg-[var(--bg)] border border-[var(--border)] px-1.5 py-0.5 rounded truncate max-w-[180px]" title="${safeChap}">${safeChap}</span>` : ''}
+                                    <span class="text-[11px] text-[var(--sub)] border border-[var(--border)] px-1 py-0.5 rounded flex-shrink-0">${typeLabel}</span>
                                     ${mistakeBadge}
                                 </label>
                                 <div class="flex items-center gap-0.5 flex-shrink-0">
                                     ${starBtn}
                                     ${delBtn}
-                                    <button class="w-7 h-7 rounded-lg text-[var(--sub)] hover:text-primary-600 hover:bg-[var(--bg)] active:scale-90 transition-all flex items-center justify-center" data-role="edit" title="编辑题目" aria-label="编辑题目">✎</button>
-                                    <button class="w-7 h-7 rounded-lg text-[var(--sub)] hover:text-primary-600 hover:bg-[var(--bg)] active:scale-90 transition-all flex items-center justify-center" data-role="chat" title="详情与作答记录" aria-label="详情与作答记录">
+                                    <button class="w-7 h-7 rounded-lg text-[var(--sub)] hover:text-primary-600 hover:bg-[var(--bg)] active:scale-90 transition-all flex items-center justify-center" data-role="edit" title="${editTitle}" aria-label="${editTitle}">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                    </button>
+                                    <button class="w-7 h-7 rounded-lg text-[var(--sub)] hover:text-primary-600 hover:bg-[var(--bg)] active:scale-90 transition-all flex items-center justify-center" data-role="chat" title="${chatTitle}" aria-label="${chatTitle}">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -372,24 +456,20 @@
                             App.dom.setText('lib-selected-count', String(this._selectedIds.size));
                         }
 
-                        App.dom.setText('lib-title', mode === 'mistakes' ? '错题本' : (mode === 'starred' ? '收藏' : '总题库'));
+                        App.dom.setText('lib-title', App.t(mode === 'mistakes' ? '错题本' : (mode === 'starred' ? '已收藏' : '总题库')));
+                        this._updateModeTabs();
 
                         const filter = App.dom.get('lib-filter');
+                        const chapFilter = App.dom.get('lib-chapter');
                         const typeFilter = App.dom.get('lib-type');
                         const sortSel = App.dom.get('lib-sort');
 
                         let currentSortValue = sortSel ? sortSel.value : 'default';
 
-                        // 列表内容身份变了（模式/筛选/题型/搜索/数量）才播 160ms 淡入；
-                        // 同步轮询触发的同状态重渲染不重播，避免列表每 15 秒眨一次眼
-                        const listKey = [this.currentMode, filter && filter.value, typeFilter && typeFilter.value,
-                            this._searchQuery, App.data.getQuestions().length].join('|');
-                        const listChanged = listKey !== this._lastListKey;
-                        this._lastListKey = listKey;
-
                         if (filter) {
-                            const savedFilterValue = filter.value;
-                            filter.innerHTML = '<option value="all">全科目</option>';
+                            const savedFilterValue = this._pendingFilterSub != null ? this._pendingFilterSub : filter.value;
+                            this._pendingFilterSub = null;
+                            filter.innerHTML = `<option value="all">${App.t('全科目')}</option>`;
                             const subjects = App.data.getSubjects();
                             subjects.forEach(s => filter.add(new Option(s, s)));
                             if (savedFilterValue === 'all' || subjects.includes(savedFilterValue)) {
@@ -399,16 +479,58 @@
                             }
                         }
 
+                        const activeSub = (filter && filter.value && filter.value !== 'all') ? filter.value : 'all';
+
+                        if (chapFilter) {
+                            const savedChapValue = this._pendingFilterChap != null ? this._pendingFilterChap : chapFilter.value;
+                            this._pendingFilterChap = null;
+                            chapFilter.innerHTML = `<option value="all">${App.t('全章节')}</option>`;
+                            const subjects = App.data.getSubjects();
+                            const validValues = new Set(['all']);
+                            if (activeSub !== 'all') {
+                                const chaps = App.data.getChapters(activeSub);
+                                chaps.forEach(c => {
+                                    const count = (App.data.bank[activeSub] && Array.isArray(App.data.bank[activeSub][c])) ? App.data.bank[activeSub][c].length : 0;
+                                    chapFilter.add(new Option(`${c} (${count})`, c));
+                                    validValues.add(c);
+                                });
+                            } else {
+                                const multiSub = subjects.length > 1;
+                                subjects.forEach(s => {
+                                    const chaps = App.data.getChapters(s);
+                                    chaps.forEach(c => {
+                                        const count = (App.data.bank[s] && Array.isArray(App.data.bank[s][c])) ? App.data.bank[s][c].length : 0;
+                                        const val = `${s}\u0001${c}`;
+                                        const label = multiSub ? `${s} / ${c} (${count})` : `${c} (${count})`;
+                                        chapFilter.add(new Option(label, val));
+                                        validValues.add(val);
+                                    });
+                                });
+                            }
+                            if (validValues.has(savedChapValue)) {
+                                chapFilter.value = savedChapValue;
+                            } else {
+                                chapFilter.value = 'all';
+                            }
+                        }
+
+                        // 列表内容身份变了（模式/科目/章节/题型/搜索/数量）才播 160ms 淡入；
+                        // 同步轮询触发的同状态重渲染不重播，避免列表每 15 秒眨一次眼
+                        const listKey = [this.currentMode, filter && filter.value, chapFilter && chapFilter.value, typeFilter && typeFilter.value,
+                            this._searchQuery, App.data.getQuestions().length].join('|');
+                        const listChanged = listKey !== this._lastListKey;
+                        this._lastListKey = listKey;
+
                         if (sortSel) {
                             const currentType = typeFilter ? typeFilter.value : 'all';
                             let html = `
-                                <option value="default">默认</option>
-                                <option value="err_desc">错率↓</option>
-                                <option value="ans_asc">答案A-Z</option>
+                                <option value="default">${App.t('默认')}</option>
+                                <option value="err_desc">${App.t('错率↓')}</option>
+                                <option value="ans_asc">${App.t('答案A-Z')}</option>
                             `;
                             if (currentType === 'tf') {
-                                html += `<option value="tf_true">答案 (对->错)</option>`;
-                                html += `<option value="tf_false">答案 (错->对)</option>`;
+                                html += `<option value="tf_true">${App.t('答案 (对->错)')}</option>`;
+                                html += `<option value="tf_false">${App.t('答案 (错->对)')}</option>`;
                             }
                             sortSel.innerHTML = html;
 
@@ -424,8 +546,17 @@
 
                         let qs = App.data.getQuestions();
 
-                        // 科目筛选在错题本模式下同样生效（控件不再隐藏）
+                        // 科目与章节筛选在总题库/错题本/收藏模式下均生效
                         if (filter && filter.value !== 'all') qs = qs.filter(q => q.sub === filter.value);
+                        if (chapFilter && chapFilter.value && chapFilter.value !== 'all') {
+                            const cv = chapFilter.value;
+                            if (cv.includes('\u0001')) {
+                                const [sPart, cPart] = cv.split('\u0001');
+                                qs = qs.filter(q => q.sub === sPart && q.chap === cPart);
+                            } else {
+                                qs = qs.filter(q => q.chap === cv);
+                            }
+                        }
                         if (mode === 'mistakes') {
                             const hidden = new Set(Array.isArray(App.data.hiddenMistakeIds) ? App.data.hiddenMistakeIds : []);
                             const errSet = new Set(App.data.getSafeHistory().filter(h => !h.r && !hidden.has(h.id)).map(h => h.id));
@@ -500,7 +631,7 @@
 
                         if (qs.length === 0) {
                             if (mode === 'starred') {
-                                c.innerHTML = `<div class="p-8 text-center text-xs text-[var(--sub)] flex flex-col items-center gap-2"><div>${App.t("还没有收藏的题目。")}</div><div class="opacity-75">${App.t("在题库或错题本中点击题目右侧的 ☆ 即可收藏，考前突击复习更方便。")}</div></div>`;
+                                c.innerHTML = `<div class="p-8 text-center text-xs text-[var(--sub)] flex flex-col items-center gap-2"><div>${App.t("还没有收藏的题目。")}</div><div class="opacity-75">${App.t("在题库或错题本中点击题目右侧的星标图标即可收藏，考前突击复习更方便。")}</div></div>`;
                             } else if (mode === 'mistakes' && Array.isArray(App.data.hiddenMistakeIds) && App.data.hiddenMistakeIds.length) {
                                 // 错题本空但有被「移除」的错题：给一个恢复显示的入口，
                                 // 否则被移除的题如果一直不再答错就永远找不回来
@@ -513,7 +644,13 @@
                                 const safeQuery = App.utils.escapeHTML(this._searchQuery);
                                 c.innerHTML = `<div class="p-8 text-center text-xs text-[var(--sub)]">${App.i18n.lang === 'en' ? `No results for "<span class="font-bold text-primary-600">${safeQuery}</span>".` : `未找到与 "<span class="font-bold text-primary-600">${safeQuery}</span>" 相关的题目。`}</div>`;
                             } else {
-                                c.innerHTML = `<div class="p-8 text-center text-xs text-[var(--sub)]">${App.t("尚未加载题目。请导入题库或更改筛选条件。")}</div>`;
+                                c.innerHTML = `<div class="p-8 text-center text-xs text-[var(--sub)] flex flex-col items-center gap-3">
+                                    <div>${App.t("尚未加载题目。请导入题库或更改筛选条件。")}</div>
+                                    <div class="flex flex-wrap items-center justify-center gap-2">
+                                        <button type="button" onclick="App.ui.openImportCenter()" class="px-3.5 py-1.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-[11px] font-bold active:scale-95 transition-all">${App.t('导入题库')}</button>
+                                        <button type="button" onclick="App.ui.openQuestionEditor()" class="px-3.5 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--card)] text-[var(--text)] hover:border-primary-400 text-[11px] font-bold active:scale-95 transition-all">+ ${App.t('新增题目')}</button>
+                                    </div>
+                                </div>`;
                             }
                             return;
                         }
@@ -538,6 +675,18 @@
                         this._appendChunk(c, this.PAGE_SIZE);
                         this._ensureLazyLoader(c);
 
+                        // 错题本非空且存在被移除的错题时，在顶部/底部提供一键恢复入口
+                        if (mode === 'mistakes' && Array.isArray(App.data.hiddenMistakeIds) && App.data.hiddenMistakeIds.length) {
+                            const hiddenCount = App.data.hiddenMistakeIds.length;
+                            const hiddenBar = document.createElement('div');
+                            hiddenBar.className = 'px-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border-b border-[var(--border)] flex items-center justify-between text-xs text-[var(--sub)]';
+                            hiddenBar.innerHTML = `
+                                <span><span class="font-bold text-[var(--text)]">${hiddenCount}</span> ${App.t(' 道题曾被移出错题本。')}</span>
+                                <button onclick="App.data.restoreHiddenMistakes()" class="px-2.5 py-1 rounded-lg border border-[var(--border)] bg-[var(--card)] text-primary-600 font-bold hover:border-primary-400 active:scale-95 transition-all">${App.t('全部恢复显示')}</button>
+                            `;
+                            c.insertBefore(hiddenBar, c.firstChild);
+                        }
+
 
                         // 列表内按钮点击委托（edit=编辑题目 / chat=AI 抽屉 / forget=移出错题本）
                         if (!this._listClickDelegated) {
@@ -549,17 +698,20 @@
                                 if (btn.dataset.role === 'star') {
                                     App.data.toggleStar(qid);
                                     const starred = App.data.isStarred(qid);
-                                    // 收藏模式下取消收藏：该行已不符合列表条件，整列表重渲染
+                                    this._updateModeTabs();
+                                    // 收藏模式下取消收藏：该行已不符合列表条件，整列表重渲染（保留滚动位置）
                                     if (!starred && this.currentMode === 'starred') {
-                                        this.render('starred');
+                                        this.render('starred', { resetScroll: false });
                                         return;
                                     }
-                                    // 只更新这一颗星的状态，不重渲染整个列表
+                                    // 只更新这一颗星的状态，不重渲染整个列表，并赋予微弹跳动效
                                     const starSvg = btn.querySelector('svg');
                                     if (starSvg) starSvg.setAttribute('fill', starred ? 'currentColor' : 'none');
-                                    else btn.textContent = starred ? '★' : '☆';
                                     btn.classList.toggle('text-amber-400', starred);
                                     btn.classList.toggle('text-[var(--sub)]', !starred);
+                                    btn.classList.remove('anim-star-pop');
+                                    void btn.offsetWidth;
+                                    btn.classList.add('anim-star-pop');
                                     btn.title = App.t(starred ? '取消收藏' : '收藏');
                                     return;
                                 }

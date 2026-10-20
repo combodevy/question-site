@@ -9,6 +9,7 @@
 const ALLOWED_ORIGINS = [
     'https://question-site-front.pages.dev',
     'https://question-site-mirror.pages.dev',
+    'https://question-site-mirror2.pages.dev',
     'http://localhost:8788',
     'http://127.0.0.1:8788'
 ];
@@ -16,7 +17,8 @@ const ALLOWED_ORIGINS = [
 // 允许的来源后缀（Pages 的预览部署会带随机子域，例如 20c89728.xxx.pages.dev）
 const ALLOWED_ORIGIN_SUFFIXES = [
     '.question-site-front.pages.dev',
-    '.question-site-mirror.pages.dev'
+    '.question-site-mirror.pages.dev',
+    '.question-site-mirror2.pages.dev'
 ];
 
 // 支持 CORS_ORIGINS（逗号分隔多个）与旧的单值 CORS_ORIGIN，两者可共存
@@ -26,17 +28,30 @@ function parseConfiguredOrigins(env) {
 }
 
 function isOriginAllowed(origin, env) {
-    if (!origin) return false;
+    if (!origin || typeof origin !== 'string') return false;
     if (parseConfiguredOrigins(env).includes(origin)) return true;
     if (ALLOWED_ORIGINS.includes(origin)) return true;
-    return ALLOWED_ORIGIN_SUFFIXES.some(suffix => origin.endsWith(suffix));
+    try {
+        const u = new URL(origin);
+        if (u.protocol !== 'https:') return false;
+        const host = u.hostname.toLowerCase();
+        for (const suffix of ALLOWED_ORIGIN_SUFFIXES) {
+            if (host.endsWith(suffix)) {
+                const sub = host.slice(0, host.length - suffix.length);
+                if (sub && /^[a-z0-9-]+$/i.test(sub)) return true;
+            }
+        }
+    } catch (e) {
+        return false;
+    }
+    return false;
 }
 
 function corsHeaders(env, request) {
     const requestOrigin = request ? (request.headers.get('Origin') || '') : '';
     const headers = {
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, If-None-Match',
+        'Access-Control-Allow-Headers': 'Content-Type, Content-Encoding, Authorization, If-None-Match',
         'Access-Control-Expose-Headers': 'ETag',
         'Access-Control-Max-Age': '86400',
         'Vary': 'Origin'
@@ -44,10 +59,9 @@ function corsHeaders(env, request) {
     if (isOriginAllowed(requestOrigin, env)) {
         headers['Access-Control-Allow-Origin'] = requestOrigin;
     } else if (!requestOrigin) {
-        // 不带 Origin 的请求（同源调用、curl、服务端调用）不涉及 CORS，回 * 无风险
+        // 不带 Origin 的同源/CLI 请求
         headers['Access-Control-Allow-Origin'] = '*';
     }
-    // 带 Origin 但不在白名单 → 不回 Access-Control-Allow-Origin，浏览器会按 CORS 规则拦截
     return headers;
 }
 
@@ -62,7 +76,8 @@ function jsonResponse(data, status = 200, headers = {}) {
     return new Response(JSON.stringify(data), {
         status,
         headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/json; charset=utf-8',
+            'Cache-Control': 'no-store',
             // 安全响应头：API 层统一注入（CSP 由 Pages 的 _headers 提供）
             'X-Content-Type-Options': 'nosniff',
             'Referrer-Policy': 'no-referrer',
@@ -72,20 +87,90 @@ function jsonResponse(data, status = 200, headers = {}) {
     });
 }
 
-// 安全读取 JSON 请求体：畸形 JSON 返回 null，由调用方转成 400（而不是冒泡成 500）
-// 请求体大小上限：题库 JSON 前端限 5MB，state 含 history 会更大，
-// 取 10MB 上限——既防恶意超大 body 白白烧 CPU 配额，又不误伤真实大题库
+// 安全读取 JSON 请求体（支持客户端 gzip 压缩传输 + 严格真实字节数上限防 Zip 炸弹 / Chunked 绕过 Content-Length）
 const MAX_JSON_BYTES = 10 * 1024 * 1024;
+const MAX_AUTH_BYTES = 16 * 1024;
+const MAX_PASSWORD_LEN = 128;
+const UNSAFE_KEYS = new Set(['__proto__', 'prototype', 'constructor', 'toString', 'valueOf', 'hasOwnProperty']);
 
-async function readJson(request) {
+function isSafeKey(k) {
+    return typeof k === 'string' && k.trim().length > 0 && k.length <= 200 && !UNSAFE_KEYS.has(k);
+}
+
+async function readStreamWithLimit(stream, maxBytes) {
+    const reader = stream.getReader();
+    const chunks = [];
+    let total = 0;
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) {
+                total += value.byteLength;
+                if (total > maxBytes) {
+                    try { await reader.cancel(); } catch (_) {}
+                    return null;
+                }
+                chunks.push(value);
+            }
+        }
+    } finally {
+        try { reader.releaseLock(); } catch (_) {}
+    }
+    const merged = new Uint8Array(total);
+    let offset = 0;
+    for (const c of chunks) {
+        merged.set(c, offset);
+        offset += c.byteLength;
+    }
+    return new TextDecoder().decode(merged);
+}
+
+async function readJson(request, maxBytes = MAX_JSON_BYTES) {
     try {
         const len = parseInt(request.headers.get("content-length") || "0", 10);
-        if (Number.isFinite(len) && len > MAX_JSON_BYTES) return null;
-        const body = await request.json();
-        return (body && typeof body === 'object' && !Array.isArray(body)) ? body : null;
+        if (Number.isFinite(len) && len > maxBytes) return null;
+        const encoding = (request.headers.get("content-encoding") || "").toLowerCase();
+        let rawText = null;
+        if (encoding === "gzip" && request.body && typeof DecompressionStream !== "undefined") {
+            const decompressed = request.body.pipeThrough(new DecompressionStream("gzip"));
+            rawText = await readStreamWithLimit(decompressed, maxBytes);
+        } else if (request.body && typeof request.body.getReader === "function") {
+            rawText = await readStreamWithLimit(request.body, maxBytes);
+        } else {
+            rawText = await request.text();
+            if (rawText.length > maxBytes) return null;
+        }
+        if (rawText === null || rawText.length > maxBytes) return null;
+        const body = JSON.parse(rawText);
+        if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
+        return body;
     } catch (e) {
         return null;
     }
+}
+
+// D1 批量插入优化：每条 INSERT 合并最多 40 行（80 个绑定参数，低于 D1 单条 100 参数上限），
+// 将 2000 题保存从 2000 条 SQL 降至 50 条 SQL，大幅降低 Worker 与 D1 往返开销。
+function buildQuestionInsertStatements(db, setId, questionList) {
+    const stmts = [];
+    const CHUNK = 40;
+    for (let i = 0; i < questionList.length; i += CHUNK) {
+        const slice = questionList.slice(i, i + CHUNK);
+        const placeholders = slice.map(() => "(?, ?)").join(", ");
+        const binds = [];
+        for (const q of slice) {
+            binds.push(setId, JSON.stringify(q));
+        }
+        stmts.push(db.prepare(`INSERT INTO questions (question_set_id, content) VALUES ${placeholders}`).bind(...binds));
+    }
+    return stmts;
+}
+
+function chunkArray(arr, size = 50) {
+    const out = [];
+    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+    return out;
 }
 
 function badJson(headers) {
@@ -133,10 +218,29 @@ async function hashPassword(password, salt) {
 }
 
 function bufToBase64Url(buf) {
-    return btoa(String.fromCharCode(...new Uint8Array(buf)))
+    const bytes = new Uint8Array(buf);
+    let binary = "";
+    for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary)
         .replace(/=/g, "")
         .replace(/\+/g, "-")
         .replace(/\//g, "_");
+}
+
+// 恒定时间字符串比对（防止密码哈希逐字节短路比对产生时序侧信道泄露）
+function timingSafeEqualStr(a, b) {
+    if (typeof a !== "string" || typeof b !== "string") return false;
+    const enc = new TextEncoder();
+    const ba = enc.encode(a);
+    const bb = enc.encode(b);
+    if (ba.byteLength !== bb.byteLength) return false;
+    let diff = 0;
+    for (let i = 0; i < ba.byteLength; i++) {
+        diff |= (ba[i] ^ bb[i]);
+    }
+    return diff === 0;
 }
 
 function base64UrlToBytes(base64url) {
@@ -293,22 +397,22 @@ export default {
                 if (!secret || secret.trim().length < 8) {
                     return jsonResponse({ error: "服务器配置错误: JWT密钥缺失或过短 (JWT Secret is unsafe or missing)" }, 500, headers);
                 }
-                const body = await readJson(request);
+                const body = await readJson(request, MAX_AUTH_BYTES);
                 if (!body) return badJson(headers);
                 const { email, password, username } = body;
-                const rawUsername = (username || email || "").trim();
+                const rawUsername = String(username || email || "").trim();
                 if (!rawUsername || !password) {
-                    return jsonResponse({ error: "Username and password are required" }, 400, headers);
+                    return jsonResponse({ error: "请输入用户名和密码" }, 400, headers);
                 }
                 if (rawUsername.includes("@")) {
-                    return jsonResponse({ error: "Username cannot contain '@'" }, 400, headers);
+                    return jsonResponse({ error: "用户名不能包含 @ 符号" }, 400, headers);
                 }
-                if (typeof password !== "string" || password.length < 6) {
-                    return jsonResponse({ error: "密码至少需要 6 位 (Password must be at least 6 characters)" }, 400, headers);
+                if (typeof password !== "string" || password.length < 6 || password.length > MAX_PASSWORD_LEN) {
+                    return jsonResponse({ error: `密码长度需在 6–${MAX_PASSWORD_LEN} 位之间` }, 400, headers);
                 }
-                // 用户名规范化：长度与字符集限制（字母/数字/下划线/点/横线/中文/空格内缩进）
+                // 用户名规范化：长度与字符集限制（字母/数字/下划线/点/横线/中文）
                 if (rawUsername.length < 2 || rawUsername.length > 32) {
-                    return jsonResponse({ error: "用户名长度需在 2-32 位之间" }, 400, headers);
+                    return jsonResponse({ error: "用户名长度需在 2–32 位之间" }, 400, headers);
                 }
                 if (!/^[a-zA-Z0-9_\u4e00-\u9fa5.-]+$/.test(rawUsername)) {
                     return jsonResponse({ error: "用户名只能包含字母、数字、下划线、点、横线或中文" }, 400, headers);
@@ -316,7 +420,7 @@ export default {
                 // 保留用户名：ADMIN_USERNAMES 里的名字不允许被公开注册抢注（TOFU 提权面）
                 const reservedNames = String(env.ADMIN_USERNAMES || "admin").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
                 if (reservedNames.includes(rawUsername.toLowerCase())) {
-                    return jsonResponse({ error: "该用户名被保留，请换一个 (Username reserved)" }, 400, headers);
+                    return jsonResponse({ error: "该用户名被保留，请换一个" }, 400, headers);
                 }
 
                 // 注册限流：按 IP，1 小时最多 5 个新账号（防批量注册垃圾号）
@@ -329,7 +433,7 @@ export default {
                     .bind(rawUsername.toLowerCase())
                     .first();
                 if (existing) {
-                    return jsonResponse({ error: "用户名已被注册" }, 400, headers);
+                    return jsonResponse({ error: "该用户名已被注册" }, 400, headers);
                 }
 
                 const userId = crypto.randomUUID();
@@ -343,7 +447,7 @@ export default {
                 } catch (e) {
                     // UNIQUE 约束兜底：并发注册同名用户时给友好提示；其他错误如实 500
                     if (String((e && e.message) || '').includes('UNIQUE')) {
-                        return jsonResponse({ error: "用户名已被注册" }, 400, headers);
+                        return jsonResponse({ error: "该用户名已被注册" }, 400, headers);
                     }
                     return jsonResponse({ error: "注册失败，请稍后重试" }, 500, headers);
                 }
@@ -370,12 +474,15 @@ export default {
                 if (!secret || secret.trim().length < 8) {
                     return jsonResponse({ error: "服务器配置错误: JWT密钥缺失或过短 (JWT Secret is unsafe or missing)" }, 500, headers);
                 }
-                const body = await readJson(request);
+                const body = await readJson(request, MAX_AUTH_BYTES);
                 if (!body) return badJson(headers);
                 const { email, username, password } = body;
-                const rawUsername = (username || email || "").trim();
-                if (!rawUsername || !password) {
-                    return jsonResponse({ error: "Username/Email and password are required" }, 400, headers);
+                const rawUsername = String(username || email || "").trim();
+                if (!rawUsername || typeof password !== "string" || !password) {
+                    return jsonResponse({ error: "请输入用户名和密码" }, 400, headers);
+                }
+                if (password.length > MAX_PASSWORD_LEN || rawUsername.length > 64) {
+                    return jsonResponse({ error: "用户不存在或密码错误" }, 400, headers);
                 }
 
                 // Map email virtual address to username
@@ -384,26 +491,25 @@ export default {
                     queryName = queryName.split("@")[0];
                 }
 
-                const user = await env.DB.prepare("SELECT id, username, password_hash, salt FROM users WHERE username = ?")
-                    .bind(queryName)
-                    .first();
-
                 const failKey = 'fail:' + clientIp(request) + ':' + queryName;
                 const failRec = _rateBuckets.get(failKey);
                 if (failRec && failRec.count >= 10 && Date.now() < failRec.resetAt) {
                     return jsonResponse({ error: "失败次数过多，该账号已临时锁定，请 15 分钟后再试" }, 429, headers);
                 }
+
+                const user = await env.DB.prepare("SELECT id, username, password_hash, salt FROM users WHERE username = ?")
+                    .bind(queryName)
+                    .first();
+
                 if (!user) {
-                    // 用户不存在也要计数：否则爆破者换随机用户名就能绕过逐账号锁定
+                    // 防用户名枚举时序攻击：用户不存在时同样执行一次等量 PBKDF2 计算，消除响应耗时差异
+                    await hashPassword(password, "00000000000000000000000000000000");
                     checkRateLimit(failKey, 10, 15 * 60 * 1000);
                     return jsonResponse({ error: "用户不存在或密码错误" }, 400, headers);
                 }
 
-                if (failRec && failRec.count >= 10 && Date.now() < failRec.resetAt) {
-                    return jsonResponse({ error: "失败次数过多，该账号已临时锁定，请 15 分钟后再试" }, 429, headers);
-                }
                 const currentHash = await hashPassword(password, user.salt);
-                if (currentHash !== user.password_hash) {
+                if (!timingSafeEqualStr(currentHash, user.password_hash)) {
                     checkRateLimit(failKey, 10, 15 * 60 * 1000);
                     return jsonResponse({ error: "用户不存在或密码错误" }, 400, headers);
                 }
@@ -475,10 +581,10 @@ export default {
                 }
                 const payload = await getAuthUser(request, env);
                 if (!payload) return jsonResponse({ error: "Unauthorized" }, 401, headers);
-                const delBody = await readJson(request);
+                const delBody = await readJson(request, MAX_AUTH_BYTES);
                 if (!delBody) return badJson(headers);
                 const delPw = typeof delBody.password === "string" ? delBody.password : "";
-                if (!delPw) return jsonResponse({ error: "请输入密码确认注销" }, 400, headers);
+                if (!delPw || delPw.length > MAX_PASSWORD_LEN) return jsonResponse({ error: "请输入密码确认注销" }, 400, headers);
 
                 const delUser = await env.DB.prepare("SELECT id, username, password_hash, salt FROM users WHERE id = ?")
                     .bind(payload.sub).first();
@@ -487,22 +593,23 @@ export default {
                     return jsonResponse({ error: "管理员账号不能自助注销，请联系其他管理员处理" }, 403, headers);
                 }
                 const delHash = await hashPassword(delPw, delUser.salt);
-                if (delHash !== delUser.password_hash) {
+                if (!timingSafeEqualStr(delHash, delUser.password_hash)) {
                     return jsonResponse({ error: "密码不正确，注销已取消" }, 400, headers);
                 }
 
-                // 级联清理：questions → sets → logs → snapshots → user（与 admin delete-user 同序）
+                // 级联清理：questions → sets → logs → snapshots → backups → user（分块防超 D1 100 参数上限）
                 const delSetRows = await env.DB.prepare("SELECT id FROM question_sets WHERE user_id = ?").bind(delUser.id).all();
                 const statements = [];
                 const delSetIds = (delSetRows.results || []).map(r => r.id);
-                if (delSetIds.length > 0) {
-                    const delPh = delSetIds.map(() => "?").join(",");
-                    statements.push(env.DB.prepare(`DELETE FROM questions WHERE question_set_id IN (${delPh})`).bind(...delSetIds));
+                for (const idChunk of chunkArray(delSetIds, 50)) {
+                    const delPh = idChunk.map(() => "?").join(",");
+                    statements.push(env.DB.prepare(`DELETE FROM questions WHERE question_set_id IN (${delPh})`).bind(...idChunk));
                 }
                 statements.push(
                     env.DB.prepare("DELETE FROM question_sets WHERE user_id = ?").bind(delUser.id),
                     env.DB.prepare("DELETE FROM sync_logs WHERE user_id = ?").bind(delUser.id),
                     env.DB.prepare("DELETE FROM bank_snapshots WHERE user_id = ?").bind(delUser.id),
+                    env.DB.prepare("DELETE FROM user_backups WHERE user_id = ?").bind(delUser.id),
                     env.DB.prepare("DELETE FROM users WHERE id = ?").bind(delUser.id)
                 );
                 await env.DB.batch(statements);
@@ -510,15 +617,15 @@ export default {
             }
 
             if (path === "/api/auth/change-password" && request.method === "POST") {
-                const body = await readJson(request);
+                const body = await readJson(request, MAX_AUTH_BYTES);
                 if (!body) return badJson(headers);
                 const oldPassword = typeof body.oldPassword === "string" ? body.oldPassword : "";
                 const newPassword = typeof body.newPassword === "string" ? body.newPassword : "";
                 if (!oldPassword || !newPassword) {
                     return jsonResponse({ error: "请填写原密码和新密码" }, 400, headers);
                 }
-                if (newPassword.length < 6) {
-                    return jsonResponse({ error: "新密码至少需要 6 位" }, 400, headers);
+                if (oldPassword.length > MAX_PASSWORD_LEN || newPassword.length < 6 || newPassword.length > MAX_PASSWORD_LEN) {
+                    return jsonResponse({ error: `新密码长度需在 6–${MAX_PASSWORD_LEN} 位之间` }, 400, headers);
                 }
                 if (newPassword === oldPassword) {
                     return jsonResponse({ error: "新密码不能与原密码相同" }, 400, headers);
@@ -530,7 +637,7 @@ export default {
                     return jsonResponse({ error: "账户不存在或已被删除" }, 401, headers);
                 }
                 const oldHash = await hashPassword(oldPassword, row.salt);
-                if (oldHash !== row.password_hash) {
+                if (!timingSafeEqualStr(oldHash, row.password_hash)) {
                     return jsonResponse({ error: "原密码不正确" }, 400, headers);
                 }
                 const newSalt = generateSalt();
@@ -612,6 +719,17 @@ export default {
 
                 const setId = set.id;
                 const version = typeof set.version === "number" ? set.version : 0;
+                const historyAfter = parseInt(url.searchParams.get("historyAfter") || "0", 10);
+
+                // Fast ETag 短路：所有写路径（save-question-set / push-broadcast / users-update-bank）
+                // 均会递增 question_sets.version，因此 (setId, version, historyAfter) 唯一决定响应内容。
+                // 在读取 questions 全表前先行比对 ETag，未变化时立回 304，省去全表读取与 SHA-256 计算。
+                const fastEtag = `W/"s${setId}-v${version}-h${Number.isFinite(historyAfter) && historyAfter > 0 ? historyAfter : 0}"`;
+                const ifNoneMatch = request.headers.get("if-none-match") || request.headers.get("If-None-Match");
+                if (ifNoneMatch && ifNoneMatch === fastEtag) {
+                    return new Response(null, { status: 304, headers: { ...headers, ETag: fastEtag } });
+                }
+
                 let baseState = null;
                 if (set.state) {
                     try { baseState = JSON.parse(set.state); } catch (e) {}
@@ -622,30 +740,24 @@ export default {
                     .bind(setId)
                     .all();
 
-                const bank = {};
+                const bank = Object.create(null);
                 for (const row of results) {
                     let q = null;
                     try { q = JSON.parse(row.content); } catch (e) {}
                     if (!q || typeof q !== "object") continue;
-                    const sub = q.sub || "默认科目";
-                    const chap = q.chap || "默认章节";
-                    if (!bank[sub]) bank[sub] = {};
-                    if (!bank[sub][chap]) bank[sub][chap] = [];
+                    const rawSub = typeof q.sub === "string" && q.sub.trim() ? q.sub.trim() : "默认科目";
+                    const rawChap = typeof q.chap === "string" && q.chap.trim() ? q.chap.trim() : "默认章节";
+                    const sub = isSafeKey(rawSub) ? rawSub : "默认科目";
+                    const chap = isSafeKey(rawChap) ? rawChap : "默认章节";
+                    if (!Object.prototype.hasOwnProperty.call(bank, sub)) bank[sub] = Object.create(null);
+                    if (!Object.prototype.hasOwnProperty.call(bank[sub], chap)) bank[sub][chap] = [];
                     bank[sub][chap].push(q);
                 }
 
                 // questions 表是题目的唯一权威数据源（所有写入路径都会同步重建它）。
-                // 旧版按「state.bank 与表的数量谁大」猜测哪份较新——管理端删题后旧 JSON 数量更多，
-                // 会把已删除的题目复活。现在一律以表重建的 bank 为准。
-                const historyAfter = parseInt(url.searchParams.get("historyAfter") || "0", 10);
                 let historyPartial = false;
                 let historyList = baseState && Array.isArray(baseState.history) ? baseState.history : [];
                 if (historyAfter > 0) {
-                    // 只要客户端带了增量游标，就必须标记为「增量」——
-                    // 否则服务端 history 恰好为空时 historyPartial 会是 false，
-                    // 客户端会走「整体替换」分支，把本地尚未上传的作答记录清掉。
-                    // 游标语义：t >= historyAfter 全部下发（而非严格大于），同毫秒记录不漏；
-                    // 客户端按稳定 rid 幂等去重，重复下发无害。
                     historyList = historyList.filter(h => (h.t || 0) >= historyAfter);
                     historyPartial = true;
                 }
@@ -661,22 +773,18 @@ export default {
                 };
 
                 const responseBody = JSON.stringify({ ok: true, setId, name: set.name, state, version, historyPartial });
-                
-                // ETag implementation
-                const hashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(responseBody));
-                const etag = `W/"${bufToHex(hashBuffer).slice(0, 16)}"`;
 
-                const ifNoneMatch = request.headers.get("if-none-match") || request.headers.get("If-None-Match");
-                if (ifNoneMatch && ifNoneMatch === etag) {
-                    return new Response(null, { status: 304, headers: { ...headers, ETag: etag } });
+                if (ifNoneMatch && ifNoneMatch === fastEtag) {
+                    return new Response(null, { status: 304, headers: { ...headers, ETag: fastEtag } });
                 }
 
                 return new Response(responseBody, {
                     status: 200,
                     headers: {
                         ...headers,
-                        'Content-Type': 'application/json',
-                        ETag: etag
+                        'Content-Type': 'application/json; charset=utf-8',
+                        'Cache-Control': 'no-cache',
+                        ETag: fastEtag
                     }
                 });
             }
@@ -785,7 +893,7 @@ export default {
                         parsedState.history = parsedState.history.concat(fresh);
                         
                         for (const field of partialFields) {
-                            const allowed = ['lastPracticeTime', 'hiddenMistakeIds', 'trash', 'bankName'];
+                            const allowed = ['lastPracticeTime', 'hiddenMistakeIds', 'trash', 'bankName', 'starred'];
                             if (!allowed.includes(field)) continue;
                             const val = body.partialValues && body.partialValues[field];
                             if (val !== undefined) {
@@ -809,6 +917,30 @@ export default {
                         return jsonResponse({ error: "state is required" }, 400, headers);
                     }
 
+                    // 传输优化：客户端在全量上传 questions 时可省略重复的 state.bank（节省 50% 请求体积），
+                    // 由 Worker 从 questions（或 skipQuestionsUpdate 时的旧 state.bank）补齐，保证快照与 state 结构完整。
+                    if (!statePartial && (!finalState.bank || typeof finalState.bank !== 'object')) {
+                        if (!skipQuestionsUpdate && questions.length > 0) {
+                            const rebuiltBank = Object.create(null);
+                            for (const q of questions) {
+                                if (!q || typeof q !== 'object') continue;
+                                const s = isSafeKey(q.sub) ? q.sub : '默认科目';
+                                const c = isSafeKey(q.chap) ? q.chap : '默认章节';
+                                if (!Object.prototype.hasOwnProperty.call(rebuiltBank, s)) rebuiltBank[s] = Object.create(null);
+                                if (!Object.prototype.hasOwnProperty.call(rebuiltBank[s], c)) rebuiltBank[s][c] = [];
+                                rebuiltBank[s][c].push(q);
+                            }
+                            finalState.bank = rebuiltBank;
+                        } else if (skipQuestionsUpdate && existing.state) {
+                            try {
+                                const oldSt = JSON.parse(existing.state);
+                                if (oldSt && oldSt.bank && typeof oldSt.bank === 'object') {
+                                    finalState.bank = oldSt.bank;
+                                }
+                            } catch (_) {}
+                        }
+                    }
+
                     // Prepare batch SQL executions to replace transactions
                     const statements = [];
                     if (snapshotStatement) statements.push(snapshotStatement);
@@ -826,6 +958,10 @@ export default {
                         const uniqueQuestions = [];
                         const seenFingerprints = new Set();
                         for (const q of questions) {
+                            if (!q || typeof q !== 'object') continue;
+                            if (!['mcq', 'multi', 'tf', 'fill'].includes(q.type)) {
+                                q.type = 'mcq';
+                            }
                             try {
                                 const fingerprint = JSON.stringify({ q: q.q, o: q.o, a: q.a, type: q.type, sub: q.sub, chap: q.chap });
                                 if (!seenFingerprints.has(fingerprint)) {
@@ -837,16 +973,7 @@ export default {
                             }
                         }
 
-                        for (const q of uniqueQuestions) {
-                            // type 白名单化：API 直写绕过前端校验时，未知 type 一律降级为 mcq
-                            if (q && typeof q === 'object' && !['mcq', 'multi', 'tf', 'fill'].includes(q.type)) {
-                                q.type = 'mcq';
-                            }
-                            statements.push(
-                                env.DB.prepare("INSERT INTO questions (question_set_id, content) VALUES (?, ?)")
-                                    .bind(setId, JSON.stringify(q))
-                            );
-                        }
+                        statements.push(...buildQuestionInsertStatements(env.DB, setId, uniqueQuestions));
                     }
 
                     statements.push(
@@ -862,15 +989,25 @@ export default {
                 } else {
                     // Create new set
                     nextVersion = 1;
+                    const initState = state && typeof state === 'object' ? { ...state } : {};
+                    if ((!initState.bank || typeof initState.bank !== 'object') && questions.length > 0) {
+                        const rebuiltBank = Object.create(null);
+                        for (const q of questions) {
+                            if (!q || typeof q !== 'object') continue;
+                            const s = isSafeKey(q.sub) ? q.sub : '默认科目';
+                            const c = isSafeKey(q.chap) ? q.chap : '默认章节';
+                            if (!Object.prototype.hasOwnProperty.call(rebuiltBank, s)) rebuiltBank[s] = Object.create(null);
+                            if (!Object.prototype.hasOwnProperty.call(rebuiltBank[s], c)) rebuiltBank[s][c] = [];
+                            rebuiltBank[s][c].push(q);
+                        }
+                        initState.bank = rebuiltBank;
+                    }
                     let inserted;
                     try {
                         inserted = await env.DB.prepare("INSERT INTO question_sets (user_id, name, state, version) VALUES (?, ?, ?, ?) RETURNING id")
-                            .bind(userId, name, JSON.stringify(state || {}), nextVersion)
+                            .bind(userId, name, JSON.stringify(initState), nextVersion)
                             .first();
                     } catch (insertErr) {
-                        // user_id 唯一索引竞态：两个标签页在全新账号上并发首次保存，
-                        // 都看不到已有行而走了 INSERT。返回 409 让客户端走
-                        // 「拉取云端 → 三方合并 → 重试」的既有管线，而不是 500。
                         if (String(insertErr && insertErr.message || '').includes('UNIQUE')) {
                             const latestRow = await env.DB.prepare("SELECT version FROM question_sets WHERE user_id = ? ORDER BY id DESC LIMIT 1")
                                 .bind(userId).first();
@@ -880,20 +1017,19 @@ export default {
                     }
                     setId = inserted.id;
 
-                    const statements = [];
+                    const validQs = [];
                     for (const q of questions) {
-                        if (q && typeof q === 'object' && !['mcq', 'multi', 'tf', 'fill'].includes(q.type)) {
+                        if (!q || typeof q !== 'object') continue;
+                        if (!['mcq', 'multi', 'tf', 'fill'].includes(q.type)) {
                             q.type = 'mcq';
                         }
-                        statements.push(
-                            env.DB.prepare("INSERT INTO questions (question_set_id, content) VALUES (?, ?)")
-                                .bind(setId, JSON.stringify(q))
-                        );
+                        validQs.push(q);
                     }
-                    statements.push(
+                    const statements = [
+                        ...buildQuestionInsertStatements(env.DB, setId, validQs),
                         env.DB.prepare("INSERT INTO sync_logs (user_id, delta, status, error) VALUES (?, ?, ?, ?)")
                             .bind(userId, JSON.stringify(logDelta), "success", null)
-                    );
+                    ];
 
                     await env.DB.batch(statements);
                 }
@@ -1131,28 +1267,33 @@ export default {
                         return jsonResponse({ error: "不能删除当前登录的管理员账号" }, 400, headers);
                     }
 
-                    const placeholders = userIds.map(() => "?").join(",");
+                    // 分块执行 IN (...) 查询与删除（防止单次勾选超 100 用户触发 D1 SQLite 参数上限溢出）
+                    const setIds = [];
+                    for (const uChunk of chunkArray(userIds, 50)) {
+                        const ph = uChunk.map(() => "?").join(",");
+                        const { results: setRows } = await env.DB.prepare(
+                            `SELECT id FROM question_sets WHERE user_id IN (${ph})`
+                        ).bind(...uChunk).all();
+                        for (const r of (setRows || [])) setIds.push(r.id);
+                    }
 
-                    // First, find all question_set IDs owned by these users
-                    const { results: setRows } = await env.DB.prepare(
-                        `SELECT id FROM question_sets WHERE user_id IN (${placeholders})`
-                    ).bind(...userIds).all();
-                    const setIds = setRows.map(r => r.id);
-
-                    // D1 batch delete statements (cascade: questions → sets → logs → users)
                     const statements = [];
-                    if (setIds.length > 0) {
-                        const setPlaceholders = setIds.map(() => "?").join(",");
+                    for (const sChunk of chunkArray(setIds, 50)) {
+                        const setPh = sChunk.map(() => "?").join(",");
                         statements.push(
-                            env.DB.prepare(`DELETE FROM questions WHERE question_set_id IN (${setPlaceholders})`).bind(...setIds)
+                            env.DB.prepare(`DELETE FROM questions WHERE question_set_id IN (${setPh})`).bind(...sChunk)
                         );
                     }
-                    statements.push(
-                        env.DB.prepare(`DELETE FROM question_sets WHERE user_id IN (${placeholders})`).bind(...userIds),
-                        env.DB.prepare(`DELETE FROM sync_logs WHERE user_id IN (${placeholders})`).bind(...userIds),
-                        env.DB.prepare(`DELETE FROM bank_snapshots WHERE user_id IN (${placeholders})`).bind(...userIds),
-                        env.DB.prepare(`DELETE FROM users WHERE id IN (${placeholders})`).bind(...userIds)
-                    );
+                    for (const uChunk of chunkArray(userIds, 50)) {
+                        const ph = uChunk.map(() => "?").join(",");
+                        statements.push(
+                            env.DB.prepare(`DELETE FROM question_sets WHERE user_id IN (${ph})`).bind(...uChunk),
+                            env.DB.prepare(`DELETE FROM sync_logs WHERE user_id IN (${ph})`).bind(...uChunk),
+                            env.DB.prepare(`DELETE FROM bank_snapshots WHERE user_id IN (${ph})`).bind(...uChunk),
+                            env.DB.prepare(`DELETE FROM user_backups WHERE user_id IN (${ph})`).bind(...uChunk),
+                            env.DB.prepare(`DELETE FROM users WHERE id IN (${ph})`).bind(...uChunk)
+                        );
+                    }
 
                     await env.DB.batch(statements);
 
@@ -1259,32 +1400,30 @@ export default {
                                 }
                             }
 
-                            const statements = [];
-                            let added = 0;
+                            const toInsertQs = [];
                             for (const t of template) {
                                 // 关键：每个用户一份独立副本 + 独立 id（原来在循环里原地改 questions，导致跨用户复用同一个 id）
                                 const q = { ...t, id: crypto.randomUUID() };
+                                if (!isSafeKey(q.sub)) q.sub = '默认科目';
+                                if (!isSafeKey(q.chap)) q.chap = '默认章节';
                                 const fingerprint = JSON.stringify({ q: q.q, o: q.o, a: q.a, type: q.type, sub: q.sub, chap: q.chap });
                                 if (seen.has(fingerprint)) { skippedDuplicate++; continue; }
                                 seen.add(fingerprint);
 
-                                statements.push(
-                                    env.DB.prepare("INSERT INTO questions (question_set_id, content) VALUES (?, ?)")
-                                        .bind(setId, JSON.stringify(q))
-                                );
+                                toInsertQs.push(q);
                                 // 同步写入 state.bank，让两处表示保持一致（原来只改 questions 表，state 不动）
-                                if (!setState.bank[q.sub]) setState.bank[q.sub] = {};
+                                if (!Object.prototype.hasOwnProperty.call(setState.bank, q.sub)) setState.bank[q.sub] = {};
                                 if (!Array.isArray(setState.bank[q.sub][q.chap])) setState.bank[q.sub][q.chap] = [];
                                 setState.bank[q.sub][q.chap].push(q);
-                                added++;
                             }
 
-                            if (added === 0) { successCount++; continue; }   // 全是重复题，无需写库
+                            if (toInsertQs.length === 0) { successCount++; continue; }   // 全是重复题，无需写库
 
-                            statements.push(
+                            const statements = [
+                                ...buildQuestionInsertStatements(env.DB, setId, toInsertQs),
                                 env.DB.prepare("UPDATE question_sets SET state = ?, version = ? WHERE id = ?")
                                     .bind(JSON.stringify(setState), currentVersion + 1, setId)
-                            );
+                            ];
 
                             await env.DB.batch(statements);
                             successCount++;
@@ -1399,15 +1538,20 @@ export default {
                     // questions 表与 state.bank 双写（两处表示保持一致）：
                     // load 时以 questions 表为权威源重建 bank，若不同步 state.bank，
                     // 管理端的删改可能被旧 JSON 里的题目数量回退逻辑"复活"。
-                    const newState = { bank: {}, history: [], trash: {}, hiddenMistakeIds: [], starred: [] };
+                    const newState = { bank: Object.create(null), history: [], trash: {}, hiddenMistakeIds: [], starred: [] };
+                    const validUpdateQs = [];
                     for (const q of questions) {
                         if (!q || typeof q !== 'object') continue;
                         if (!q.id) q.id = crypto.randomUUID();
-                        const sub = (typeof q.sub === 'string' && q.sub) || '默认科目';
-                        const chap = (typeof q.chap === 'string' && q.chap) || '默认章节';
-                        if (!newState.bank[sub]) newState.bank[sub] = {};
+                        if (!['mcq', 'multi', 'tf', 'fill'].includes(q.type)) q.type = 'mcq';
+                        const rawSub = (typeof q.sub === 'string' && q.sub.trim()) || '默认科目';
+                        const rawChap = (typeof q.chap === 'string' && q.chap.trim()) || '默认章节';
+                        const sub = isSafeKey(rawSub) ? rawSub : '默认科目';
+                        const chap = isSafeKey(rawChap) ? rawChap : '默认章节';
+                        if (!Object.prototype.hasOwnProperty.call(newState.bank, sub)) newState.bank[sub] = Object.create(null);
                         if (!Array.isArray(newState.bank[sub][chap])) newState.bank[sub][chap] = [];
                         newState.bank[sub][chap].push(q);
+                        validUpdateQs.push(q);
                     }
                     // 保留既有 state 中的历史记录等元数据（题目内容以外的东西不能丢）
                     try {
@@ -1423,19 +1567,12 @@ export default {
                         }
                     } catch (e) { }
 
-                    // Transaction replacement using D1 batch
+                    // Transaction replacement using D1 batch (multi-row batched insert)
                     const statements = [
                         env.DB.prepare("UPDATE question_sets SET name = ?, state = ?, version = version + 1 WHERE id = ?").bind(name, JSON.stringify(newState), setId),
-                        env.DB.prepare("DELETE FROM questions WHERE question_set_id = ?").bind(setId)
+                        env.DB.prepare("DELETE FROM questions WHERE question_set_id = ?").bind(setId),
+                        ...buildQuestionInsertStatements(env.DB, setId, validUpdateQs)
                     ];
-
-                    for (const q of questions) {
-                        if (!q.id) q.id = crypto.randomUUID();
-                        statements.push(
-                            env.DB.prepare("INSERT INTO questions (question_set_id, content) VALUES (?, ?)")
-                                .bind(setId, JSON.stringify(q))
-                        );
-                    }
 
                     await env.DB.batch(statements);
 

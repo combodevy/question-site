@@ -250,7 +250,34 @@ export const i18n = {
         '下载': { en: 'Download' },
         '下载失败。': { en: 'Download failed.' },
         '刷题记录': { en: 'Practice history' },
-        '清空题库/记录时会自动在此保留备份；每类最多保留最近 5 份。': { en: 'Emptying the bank/history automatically keeps a backup here; up to 5 recent per type.' },
+        // ---- 云端备份：预览 + 覆盖恢复 ----
+        '预览并恢复': { en: 'Preview & restore' },
+        '下载备份文件': { en: 'Download backup file' },
+        '恢复预览': { en: 'Restore preview' },
+        '正在读取备份…': { en: 'Loading backup…' },
+        '备份时间': { en: 'Backed up' },
+        '覆盖式恢复（不是合并）': { en: 'Overwrite restore (not a merge)' },
+        '新增': { en: 'Added' },
+        '修改': { en: 'Modified' },
+        '不变': { en: 'Unchanged' },
+        '仅变化': { en: 'Changes only' },
+        '当前 N 题（S 个科目 / H 个章节） → 恢复后 M 题（P 个科目 / Q 个章节）': { en: 'Now N question(s) — S subjects / H chapters → M question(s) after restore — P subjects / Q chapters' },
+        '当前 N 条记录 → 恢复后 M 条记录': { en: 'Now N record(s) → M record(s) after restore' },
+        '最后练习时间：A → B': { en: 'Last practice time: A → B' },
+        '备份里有 R 条记录格式非法，恢复时会被丢弃。': { en: 'R record(s) in this backup are malformed and will be dropped.' },
+        '搜索题号 / 题干…': { en: 'Search question no. / text…' },
+        '显示 N / M 项': { en: 'Showing N / M' },
+        '显示更多（还有 R 项）': { en: 'Show more (R left)' },
+        '没有符合条件的差异项。': { en: 'No matching changes.' },
+        '将用这份备份完整覆盖当前数据。恢复前会自动把当前状态另存一份云端备份，可再恢复回来。': { en: 'This backup will fully overwrite your current data. Your current state is saved as a new cloud backup first, so you can always restore it back.' },
+        '这份备份与当前数据完全一致，无需恢复。': { en: 'This backup is identical to your current data — nothing to restore.' },
+        '确认覆盖恢复': { en: 'Overwrite & restore' },
+        '恢复中…': { en: 'Restoring…' },
+        '无法先把当前状态备份到云端': { en: 'Could not back up the current state to the cloud first' },
+        '已恢复题库：N 题 / S 个科目': { en: 'Bank restored: N questions / S subjects' },
+        '已恢复刷题记录：N 条': { en: 'History restored: N records' },
+        '恢复失败：': { en: 'Restore failed: ' },
+        '清空题库/记录时会自动在此保留备份；每类最多保留最近 5 份。可先完整预览改动再一键覆盖恢复。': { en: 'Emptying the bank/history automatically keeps a backup here; up to 5 recent per type. Preview every change, then restore with one click.' },
         '云端备份失败，已取消清空。请检查网络后重试，或先在账户菜单「导出全部题库」手动备份。': { en: 'Cloud backup failed — clearing cancelled. Check your network and retry, or export a backup manually first.' },
 
         // ---- 设置新分区 ----
@@ -515,9 +542,23 @@ export const i18n = {
         '已自测': { en: 'Self-tested' },
         '已答': { en: 'Answered' },
         '交卷': { en: 'Submit' },
+        '已判分': { en: 'Graded' },
         '还没有作答任何题目。': { en: 'No questions answered yet.' },
         '还有 N 题未作答，确定交卷吗？': { en: 'N question(s) unanswered. Submit anyway?' },
+        '还有 N 题未作答，确定提前交卷吗？': { en: 'N question(s) unanswered. Submit early anyway?' },
+        '确定提前交卷吗？': { en: 'Submit early and see results?' },
         '自测完成（未录入答案，不判分）。点「答案」补录后可重做自动判分。': { en: 'Self-test finished (no answer key, not graded). Add the key via "Answer Key" and redo for grading.' },
+        '答案速录的 N 条答案编号与本卷题号（R）完全对不上，本卷将按自测模式作答。': { en: 'None of the N recorded answers match the question numbers of this paper (R). This paper will run in self-test mode.' },
+        // —— 英文模式下曾残留中文的 UI 文案（静态扫描 + 实测补齐）——
+        '加载中…': { en: 'Loading…' },
+        '从未练习 (Never Practiced)': { en: 'Never practiced' },
+        '同步记录加载失败，请稍后重试。': { en: 'Failed to load the sync log. Please try again later.' },
+        '收藏本题': { en: 'Star this question' },
+        '放大字体': { en: 'Larger text' },
+        '缩小字体': { en: 'Smaller text' },
+        '段落': { en: 'Paragraph' },
+        '内置答案库加载失败，请检查网络后重试（当前卷子只能自测）。': { en: 'Failed to load the built-in answer library. Check your network and try again (papers will run in self-test mode for now).' },
+        '把下面的提示词连同你的资料（笔记 / 大纲 / 文档内容）一起发给任意 AI， 它输出的 JSON 直接选择文件或拖进本窗口即可导入。': { en: 'Send the prompt below together with your material (notes / outline / document text) to any AI. Paste the JSON it returns into this window, or pick the file directly, to import.' },
         '判分完成：正确 X/Y': { en: 'Graded: X/Y correct' },
         '重做本卷': { en: 'Redo' },
         '清空本卷作答并重做？（答案速录保留）': { en: 'Clear your answers and redo this paper? (The answer key is kept.)' },
@@ -548,7 +589,8 @@ export const i18n = {
         '试卷加载失败，请重试。': { en: 'Failed to load the paper. Try again.' },
         '该卷解析结果为空。': { en: 'This paper parsed to zero questions.' },
         'N 道题缺少答案，请补全后再开始。': { en: 'N question(s) lack answers. Complete the key first.' },
-        '题目来源：zhenti.burningvocabulary.cn（公开真题 PDF 解析生成）。答案请使用「答案」按钮粘贴任意公开渠道的答案速查，保存在本机后自动判分。': { en: 'Source: zhenti.burningvocabulary.cn (parsed from public paper PDFs). Tap "Key" to paste an answer block from any public source — stored locally and used for grading.' },
+        '题目来源：zhenti.burningvocabulary.cn（公开真题 PDF 解析生成）。点「答案」粘贴任意公开渠道的答案速查后可自动判分；未录入答案则以自测模式完成。': { en: 'Source: zhenti.burningvocabulary.cn (parsed from public paper PDFs). Tap "Key" to paste an answer block from any public source for automatic grading; without a key the paper runs in self-check mode.' },
+        'N 题未录入答案，未计入本次判分。': { en: 'N question(s) have no answer key and were excluded from this score.' },
         '未检测到题库，请点击右上角头像，通过「导入题库」导入 JSON 文件。': { en: 'No question bank detected. Click the avatar (top right) and import a JSON file via "Import questions".' },
         '注册成功，已自动登录': { en: 'Account created — you are now signed in.' },
         '此筛选条件下没有符合的题目。': { en: 'No questions match your filter.' },
@@ -768,7 +810,151 @@ export const i18n = {
         '确定清空所有刷题记录吗？': { en: 'Clear all practice history?' },
         '确定要永久删除这道题吗？此操作不可恢复。': { en: 'Permanently delete this question? This cannot be undone.' },
         '确定要退出吗？': { en: 'Exit?' },
-        '请输入你的答案 (Please type your answer)': { en: 'Type your answer first.' }
+        '请输入你的答案 (Please type your answer)': { en: 'Type your answer first.' },
+        '确定恢复回收站中的全部 ': { en: 'Restore all ' },
+        ' 道题目吗？': { en: ' questions from the Recycle Bin?' },
+        '回收站为空。': { en: 'Recycle Bin is empty.' },
+        '全部恢复': { en: 'Restore All' },
+        '重练本轮错题': { en: 'Retry Wrong' },
+        '练当前列表': { en: 'Practice List' },
+        '练习当前列表题目': { en: 'Practice questions in current list' },
+        '练习当前筛选列表中的题目': { en: 'Practice currently filtered questions' },
+        '全选当前筛选': { en: 'Select Filtered' },
+        '清空选择': { en: 'Clear' },
+        '已收藏题目': { en: 'Starred Questions' },
+        '已收藏': { en: 'Starred' },
+        '浏览': { en: 'Browse' },
+        '开练': { en: 'Practice' },
+        '进入已收藏题目列表': { en: 'Open Starred Questions' },
+        '专项练习全部已收藏题目': { en: 'Practice All Starred Questions' },
+        '上一题': { en: 'Previous' },
+        '下一题': { en: 'Next' },
+        '← 上一题': { en: '← Prev' },
+        '下一题 →': { en: 'Next →' },
+        '完成交卷': { en: 'Finish Quiz' },
+        '完成练习 →': { en: 'Finish Quiz →' },
+        '下一题 (Next) →': { en: 'Next Question →', zh: '下一题 →' },
+        '重答本题': { en: 'Retry This' },
+        '重做当前这道题': { en: 'Retry Current Question' },
+        '打开题号跳转面板': { en: 'Open Question Navigator' },
+        '查看全部题号并快速跳转': { en: 'View all questions and jump quickly' },
+        '题卡': { en: 'Card' },
+        '题号跳转': { en: 'Question Navigator' },
+        '当前': { en: 'Current' },
+        '答对': { en: 'Correct' },
+        '答错': { en: 'Wrong' },
+        '未答': { en: 'Unanswered' },
+        '未作答': { en: 'Unanswered' },
+        '已答对': { en: 'Correct' },
+        '已答错': { en: 'Incorrect' },
+        '你的选择：': { en: 'Your choice: ' },
+        '操作确认': { en: 'Confirm' },
+        '请输入': { en: 'Input' },
+        '确定': { en: 'OK' },
+        '选择或粘贴 JSON': { en: 'Select or Paste JSON' },
+        '格式体检与预览': { en: 'Health Check & Preview' },
+        '导入入库与同步': { en: 'Import & Cloud Sync' },
+        '粘贴 JSON 文本': { en: 'Paste JSON Text' },
+        '尚未选择文件（支持拖拽 .json/.txt 到此窗口）': { en: 'No file selected (drag & drop .json/.txt supported)' },
+        '直接粘贴 JSON 内容（支持带 ```json 代码块或 AI 前后说明文字）': { en: 'Paste JSON directly (markdown ```json fences & surrounding text supported)' },
+        '从剪贴板读取': { en: 'Paste from Clipboard' },
+        '在此粘贴题库 JSON 内容，或点击上方「从剪贴板读取」…': { en: 'Paste your question bank JSON here, or click "Paste from Clipboard" above…' },
+        '收起': { en: 'Collapse' },
+        '解析并预览': { en: 'Parse & Preview' },
+        '请直接在输入框内按 Ctrl+V / ⌘+V 粘贴': { en: 'Press Ctrl+V / ⌘+V inside the text box to paste' },
+        '请先在文本框中粘贴 JSON 内容后再点击「解析并预览」。': { en: 'Please paste JSON content into the text box before clicking "Parse & Preview".' },
+        '粘贴的 JSON 文本': { en: 'Pasted JSON' },
+        '读取本地文件失败，请重新选择文件或改用「粘贴 JSON 文本」导入。': { en: 'Failed to read file. Please re-select or use "Paste JSON Text".' },
+        'JSON 语法解析失败': { en: 'JSON Syntax Error' },
+        '未检测到任何符合条件的题目。': { en: 'No eligible questions found.' },
+        '未找到刚刚导入的题目。': { en: 'Could not find the imported questions.' },
+        '全章节': { en: 'All Chapters' },
+        '+ 新增题目': { en: '+ Add Question' },
+        '手动新增一道题目到题库': { en: 'Manually add a new question to the bank' },
+        '手动新增题目': { en: 'Manually add a question' },
+        '排序': { en: 'Sort' },
+        '按科目名称自然排序': { en: 'Sort subjects naturally by name' },
+        '按章节号排序': { en: 'Sort Chapters' },
+        '按章节号自动排序': { en: 'Auto-sort Chapters' },
+        '按章节编号（如 Chapter 1→4 / 第一章→第四章）自动排序': { en: 'Auto-sort by chapter number (e.g. Chapter 1→4)' },
+        '按章节编号（如 Chapter 1→4 / 第一章→第四章）自动排列': { en: 'Auto-sort by chapter number (e.g. Chapter 1→4)' },
+        '按章节编号自动排序': { en: 'Auto-sort by chapter number' },
+        '章节排序': { en: 'Sort Chapters' },
+        '一键排好章节顺序': { en: 'Auto-sort Chapters' },
+        '管理章节': { en: 'Manage Chapters' },
+        '上移章节': { en: 'Move chapter up' },
+        '下移章节': { en: 'Move chapter down' },
+        '上移科目': { en: 'Move subject up' },
+        '下移科目': { en: 'Move subject down' },
+        '当前章节已经是自然顺序，无需调整。': { en: 'Chapters are already in natural order.' },
+        '已按章节序号重新排列。': { en: 'Chapters reordered by chapter number.' },
+        '已按章节序号自动排好顺序。': { en: 'Chapters auto-sorted by chapter number.' },
+        '当前科目已经是自然顺序，无需调整。': { en: 'Subjects are already in natural order.' },
+        '已按科目名称重新排列。': { en: 'Subjects reordered by name.' },
+        '（请在右侧输入新科目）': { en: '(Enter new subject on the right)' },
+        '（请在右侧输入新章节）': { en: '(Enter new chapter on the right)' },
+        '最多支持 16 个选项（A–P）。': { en: 'Up to 16 options (A–P) are supported.' },
+        '选项内容': { en: 'Option text' },
+        '删除此选项': { en: 'Delete this option' },
+        '已勾选为「正确」的选项内容不能为空，请填写该选项内容或改勾其他选项。': { en: 'A checked "correct" option cannot be empty. Fill it in or check another option.' },
+        '存在内容完全相同的重复选项，请检查修正。': { en: 'Duplicate identical options found. Please make options distinct.' },
+        '保存并继续下一题': { en: 'Save & Add Next' },
+        '题目已保存，可继续录入下一题。': { en: 'Question saved. Ready to enter the next one.' },
+        '题目修改已保存。': { en: 'Question changes saved.' },
+        '新题目已添加到题库。': { en: 'New question added to the bank.' },
+        '已保存': { en: 'Saved' },
+        '直练本章': { en: 'Practice' },
+        '注意：注销账号将永久删除：': { en: 'Warning: Deleting your account will permanently remove:' },
+        '全部刷题记录与学习数据': { en: 'All practice history and learning data' },
+        '收藏、错题本与云端备份': { en: 'Starred questions, mistake book, and cloud backups' },
+        '现有题（题库中已有） / ID:': { en: 'Existing question in bank / ID:' },
+        '新导入题 / ID:': { en: 'Incoming question / ID:' },
+        '在题库或错题本中点击题目右侧的星标图标即可收藏，考前突击复习更方便。': { en: 'Click the star icon on any question in the library or mistake book to bookmark it for review.' },
+        '快捷选择:': { en: 'Quick Select:' },
+        '全选全部': { en: 'Select All' },
+        '清空全选': { en: 'Clear All' },
+        '反选': { en: 'Invert' },
+        '只练单科:': { en: 'Single Subject:' },
+        '取消其他所有章节，只勾选此章节': { en: 'Uncheck all other chapters and select only this one' },
+        '仅此章': { en: 'Only This' },
+        '直接开始刷这一章的题目': { en: 'Immediately start practicing this chapter' },
+        '直练': { en: 'Practice' },
+        '整章练习': { en: 'Chapter Practice' },
+        '整章练习配置': { en: 'Chapter Practice Setup' },
+        '关闭整章练习配置': { en: 'Close Chapter Practice Setup' },
+        '选择题型:': { en: 'Question Type:' },
+        '题目数量:': { en: 'Question Limit:' },
+        '整章全部 (All)': { en: 'Entire Chapter (All)' },
+        '点击章节直接开刷，或勾选多章合并练习:': { en: 'Click "Practice" on a chapter to start immediately, or check multiple chapters:' },
+        '开始整章练习': { en: 'Start Chapter Practice' },
+        '历年真题 / 阅读专项刷题': { en: 'Past Papers / Reading Practice' },
+        '键盘 左/右 切题 | A–D 作答 | S 收藏': { en: 'Left/Right Prev/Next | A–D Answer | S Star' },
+        '顺序:': { en: 'Order:' },
+        '随机乱序': { en: 'Shuffled' },
+        '题库原序': { en: 'Original Order' },
+        '在线刷题系统': { en: 'Online Quiz System' },
+        '注册新账号': { en: 'Create Account' },
+        '请输入用户名': { en: 'Enter username' },
+        '2–32 位字母、数字、中文、下划线或横线，不含 @': { en: '2–32 letters, digits, Chinese chars, _ or - (no @)' },
+        '至少 6 位，建议字母+数字组合': { en: 'At least 6 chars; letters + numbers recommended' },
+        '密码长度不足 6 位': { en: 'Password must be at least 6 characters' },
+        '密码强度：中等（建议混合字母与数字）': { en: 'Strength: Medium (mix letters & digits)' },
+        '密码强度：高': { en: 'Strength: Strong' },
+        '确认密码': { en: 'Confirm Password' },
+        '再次输入密码': { en: 'Re-enter password' },
+        '注册并登录': { en: 'Sign Up & Log In' },
+        '请输入用户名和密码': { en: 'Please enter username and password' },
+        '用户名长度需在 2–32 位之间': { en: 'Username must be 2–32 characters' },
+        '密码长度需在 6–128 位之间': { en: 'Password must be 6–128 characters' },
+        '用户名只能包含字母、数字、下划线、点、横线或中文': { en: 'Username may only contain letters, digits, _, ., - or Chinese' },
+        '请再次输入确认密码': { en: 'Please confirm your password' },
+        '两次输入的密码不一致，请核对后重试': { en: 'Passwords do not match. Please check and try again.' },
+        '该用户名已被注册': { en: 'This username is already taken' },
+        '登录中...': { en: 'Logging in...' },
+        '登录失败': { en: 'Login failed' },
+        '登录成功': { en: 'Logged in' },
+        '注册中...': { en: 'Signing up...' },
+        '注册失败': { en: 'Sign up failed' }
     },
 
     // 读取当前语言与偏好
@@ -808,7 +994,9 @@ export const i18n = {
     // ============ DOM 静态文本 walker ============
     // 只处理「整节点文本精确命中字典」或「整节点命中尾括注模式」的文本节点，
     // 且跳过所有题库内容容器——用户内容零风险。
-    skipSelector: '#q-text, #fb-desc, #lib-list, #drawer-q, #modal-dup-review, .stem, .qt, #print-root, #setup-options, #smart-subjects-list, .qe-opt-row, #import-json-list, #import-json-struct, textarea, input, #res-score, #am-stats, #profile-root',
+    // #eng-psg-text / #eng-psg-bank / #eng-q-list 是英语专题的试卷正文与选项：
+    // 正文里含中文注释（如 "obesity/(肥胖症）"），绝不能走「中文 (English)」尾括注剥离逻辑。
+    skipSelector: '#q-text, #fb-desc, #lib-list, #drawer-q, #modal-dup-review, .stem, .qt, #print-root, #setup-options, #smart-subjects-list, .qe-opt-row, #import-json-list, #import-json-struct, textarea, input, #res-score, #am-stats, #profile-root, #eng-psg-text, #eng-psg-bank, #eng-q-list',
     walk(root) {
         const walker = document.createTreeWalker(root || document.body, NodeFilter.SHOW_TEXT, {
             acceptNode: (n) => {
@@ -866,7 +1054,12 @@ export const i18n = {
     // 翻译 title/aria-label/placeholder 属性
     walkAttrs(root) {
         const sel = '[title], [aria-label], [placeholder]';
-        const els = (root || document).querySelectorAll(sel);
+        const scope = root || document;
+        // 必须把「root 自身」也算进来：动态改属性的场景传进来的就是那个元素，
+        // 只查后代会把被改的那个元素漏掉（同步按钮的 tooltip 就是这么漏的）。
+        const els = [];
+        if (scope.nodeType === 1 && scope.matches && scope.matches(sel)) els.push(scope);
+        if (scope.querySelectorAll) els.push(...scope.querySelectorAll(sel));
         for (const el of els) {
             // placeholder/title/aria 是 UI 机制属性，不会携带题库内容——不做 skip 豁免
             for (const attr of ['title', 'aria-label', 'placeholder']) {
@@ -912,6 +1105,15 @@ export const i18n = {
         const pending = new Set();
         const obs = new MutationObserver((muts) => {
             for (const m of muts) {
+                // 属性变更（JS 动态设置的 title / aria-label / placeholder）也要入队。
+                // 旧实现只监听 childList，导致 data.js 这类「给已有元素赋 title」的文案
+                // 在英文模式下永远保持中文（例如同步状态按钮的 tooltip）。
+                // 只在「新值仍含中文」时入队，避免翻译结果再次触发观察者造成回环。
+                if (m.type === 'attributes') {
+                    const v = m.target && m.target.getAttribute && m.target.getAttribute(m.attributeName);
+                    if (v && /[\u4e00-\u9fff]/.test(v)) pending.add(m.target);
+                    continue;
+                }
                 for (const n of m.addedNodes) {
                     // 文本节点变更（textContent 赋值）也要入队——否则动态设置的
                     // 标题/状态文字永远不会被翻译
@@ -931,6 +1133,6 @@ export const i18n = {
                 }, 120);
             }
         });
-        obs.observe(document.body, { childList: true, subtree: true });
+        obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['title', 'aria-label', 'placeholder'] });
     }
 };

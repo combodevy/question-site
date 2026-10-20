@@ -1,4 +1,4 @@
-﻿export const chart = {
+export const chart = {
 
                 // ===== 内部工具 =====
 
@@ -430,7 +430,7 @@
                     const size = Math.max(Math.min(parent.clientWidth, 160), 32);
                     this._sizeCanvas(cvs, size, size);
                     const cx = size / 2, cy = size / 2;
-                    // ★ 半径必须为正：容器宽度为 0 时 size/2 - 12 会算成 -12，
+                    // 注意：半径必须为正：容器宽度为 0 时 size/2 - 12 会算成 -12，
                     //   ctx.arc 会抛 IndexSizeError（线上实际报过这个错）
                     const r = Math.max(size / 2 - 12, 1);
                     const innerR = Math.max(r * 0.58, 0);
@@ -466,7 +466,8 @@
                     ctx.font = `bold ${Math.round(size / 8)}px Inter`;
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
-                    ctx.fillText(total + '次', cx, cy);
+                    const isEn = window.App && App.i18n && App.i18n.lang === 'en';
+                    ctx.fillText(isEn ? `${total}` : `${total}次`, cx, cy);
                 },
 
                 // ===== 热力图 =====

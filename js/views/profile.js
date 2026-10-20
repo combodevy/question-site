@@ -31,7 +31,11 @@ export const profile = {
         let createdText = '…';
         if (me && me.createdAt) {
             const m = String(me.createdAt).match(/(\d{4})-(\d{2})-(\d{2})/);
-            if (m) createdText = `${m[1]} 年 ${parseInt(m[2], 10)} 月 ${parseInt(m[3], 10)} 日`;
+            if (m) {
+                createdText = (App.i18n && App.i18n.lang === 'en')
+                    ? `${m[1]}-${m[2]}-${m[3]}`
+                    : `${m[1]} 年 ${parseInt(m[2], 10)} 月 ${parseInt(m[3], 10)} 日`;
+            }
         }
         const payload = App.auth && App.auth.token ? App.auth.parseJwt(App.auth.token) : null;
         const isAdmin = (me && me.isAdmin) || (payload && payload.role === 'admin');
@@ -83,7 +87,7 @@ export const profile = {
             return `<div class="space-y-1">
                 <div class="flex items-center justify-between text-xs">
                     <span class="font-medium text-[var(--text)] truncate mr-2">${esc(sub)}</span>
-                    <span class="text-[11px] text-[var(--sub)] flex-shrink-0">${App.i18n.lang === 'en' ? `${v.attempts} · ${v.attempts ? v.acc + '%' : 'none'}` : `${v.attempts} 次 · ${v.attempts ? v.acc + '%' : '未作答'}`}</span>
+                    <span class="text-[11px] text-[var(--sub)] flex-shrink-0">${App.i18n.lang === 'en' ? `${v.attempts} / ${v.attempts ? v.acc + '%' : 'none'}` : `${v.attempts} 次 / ${v.attempts ? v.acc + '%' : '未作答'}`}</span>
                 </div>
                 <div class="h-2 rounded-full bg-[var(--bg)] overflow-hidden">
                     <div class="h-full rounded-full ${color} transition-all" style="width:${v.attempts ? Math.max(4, v.acc) : 0}%"></div>
@@ -97,10 +101,12 @@ export const profile = {
             const p = (x) => String(x).padStart(2, '0');
             return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
         };
+        const okSvg = '<svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+        const errSvg = '<svg class="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>';
         const recent = hist.slice(-10).reverse().map(x => {
             const q = App.data.getQuestionById(x.id);
-            const title = q ? (q.q || '').slice(0, 32) : '题目已删除';
-            const loc = q ? `${q.sub} · ${q.chap}` : '—';
+            const title = q ? (q.q || '').slice(0, 32) : t('题目已删除');
+            const loc = q ? `${q.sub} / ${q.chap}` : '—';
             const dur = x.d > 0 ? (App.i18n.lang === 'en' ? Math.round(x.d / 1000) + 's' : Math.round(x.d / 1000) + ' 秒') : '—';
             return `<div class="flex items-center gap-3 py-2 border-b border-[var(--border)] last:border-b-0">
                 <span class="text-[11px] text-[var(--sub)] font-mono flex-shrink-0 w-24">${fmtTime(x.t)}</span>
@@ -109,7 +115,7 @@ export const profile = {
                     <div class="text-[10px] text-[var(--sub)] truncate">${esc(loc)}</div>
                 </div>
                 <span class="text-[11px] text-[var(--sub)] flex-shrink-0">${dur}</span>
-                <span class="text-xs font-bold flex-shrink-0 ${x.r ? 'text-emerald-500' : 'text-red-500'}">${x.r ? '✓' : '✕'}</span>
+                ${x.r ? okSvg : errSvg}
             </div>`;
         }).join('') || t('还没有作答记录，去练习一轮吧。');
 
@@ -141,7 +147,7 @@ export const profile = {
                         <span class="text-lg font-bold text-[var(--text)] truncate">${esc(username)}</span>
                         ${isAdmin ? '<span class="text-[10px] font-bold text-purple-700 bg-purple-100 dark:text-purple-300 dark:bg-purple-900/40 px-1.5 py-0.5 rounded-full">管理员</span>' : ''}
                     </div>
-                    <div class="text-[11px] text-[var(--sub)] mt-1">${App.i18n.lang === 'en' ? 'Joined' : '注册于'} ${esc(createdText)} · ID <span class="font-mono">${esc(shortId)}</span><button id="pf-copy-id" class="ml-1 text-primary-600 hover:underline">${t('复制')}</button></div>
+                    <div class="text-[11px] text-[var(--sub)] mt-1">${App.i18n.lang === 'en' ? 'Joined' : '注册于'} ${esc(createdText)} / ID <span class="font-mono">${esc(shortId)}</span><button id="pf-copy-id" class="ml-1 text-primary-600 hover:underline">${t('复制')}</button></div>
                 </div>
                 <div class="flex-shrink-0 text-center rounded-xl bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-900 px-3 py-2">
                     <div class="text-base font-bold text-orange-500 flex items-center gap-0.5"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" /></svg> ${s.streak}</div>
@@ -224,8 +230,8 @@ export const profile = {
             if (m && el) {
                 const line = el.parentElement;
                 if (line) line.firstChild.textContent = App.i18n.lang === 'en'
-                    ? `Joined ${m[1]}-${m[2]}-${m[3]} · ID `
-                    : `注册于 ${m[1]} 年 ${parseInt(m[2], 10)} 月 ${parseInt(m[3], 10)} 日 · ID `;
+                    ? `Joined ${m[1]}-${m[2]}-${m[3]} / ID `
+                    : `注册于 ${m[1]} 年 ${parseInt(m[2], 10)} 月 ${parseInt(m[3], 10)} 日 / ID `;
             }
         });
     },

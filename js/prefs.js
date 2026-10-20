@@ -35,6 +35,11 @@ export const prefs = {
                 localStorage.setItem('qs_daily_goal', String(Math.max(0, Math.min(9999, parseInt(goalEl.value, 10) || 0))));
             }
             if (limitEl && limitEl.value) localStorage.setItem('qs_default_limit', limitEl.value);
+            if (window.App && App.router) {
+                const view = App.router.currentView || 'dashboard';
+                const libMode = (view === 'library' && App.views && App.views.library) ? (App.views.library.currentMode || 'all') : 'all';
+                sessionStorage.setItem('qs_restore_nav', JSON.stringify({ view, libMode }));
+            }
         } catch (e) { }
         // 语言立即生效需要翻译全部已渲染文本：整页刷新最干净
         location.reload();
@@ -54,7 +59,7 @@ export const prefs = {
             const t = window.App && App.t ? App.t : (s) => s;
             // 目标/题数即时生效，不需要刷新页面——短暂显示「已保存」后恢复按钮，
             // 旧实现承诺「即将刷新」却从不刷新，按钮永久卡在禁用态（bug）
-            btn.textContent = t('已保存 ✓');
+            btn.textContent = t('已保存');
             btn.disabled = true;
             setTimeout(() => {
                 btn.textContent = t('保存');

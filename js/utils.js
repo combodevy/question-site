@@ -3,6 +3,58 @@ export const utils = {
         if (!text || typeof pinyinPro === 'undefined') return text ? String(text).toLowerCase() : '';
         return pinyinPro.pinyin(text, { toneType: 'none', separator: '' }).toLowerCase();
     },
+
+    // 将中文数字（如「十二」「二十三」「一百零五」）转为阿拉伯数字字符串，供章节自然排序使用
+    _zhNumToInt(zh) {
+        if (!zh) return null;
+        const map = { '零': 0, '〇': 0, '一': 1, '二': 2, '两': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9 };
+        const units = { '十': 10, '百': 100, '千': 1000 };
+        let total = 0;
+        let current = 0;
+        for (let i = 0; i < zh.length; i++) {
+            const ch = zh[i];
+            if (ch in map) {
+                current = map[ch];
+            } else if (ch in units) {
+                const u = units[ch];
+                total += (current === 0 ? 1 : current) * u;
+                current = 0;
+            } else {
+                return null;
+            }
+        }
+        return total + current;
+    },
+
+    _normalizeForSort(str) {
+        let s = String(str == null ? '' : str).trim();
+        // 归一「第X章/节/课/单元/部分/篇/讲」或开头的「一、」「（一）」中的中文数字
+        s = s.replace(/第([零〇一二两三四五六七八九十百千]+)\s*([章节课单元部分篇讲])/g, (m, zh, unit) => {
+            const n = this._zhNumToInt(zh);
+            return n !== null ? `第${n}${unit}` : m;
+        });
+        s = s.replace(/^([（(]?)\s*([零〇一二两三四五六七八九十百千]+)\s*([)）、.．\s])/, (m, pre, zh, suf) => {
+            const n = this._zhNumToInt(zh);
+            return n !== null ? `${pre}${n}${suf}` : m;
+        });
+        return s;
+    },
+
+    naturalCompare(a, b) {
+        const na = this._normalizeForSort(a);
+        const nb = this._normalizeForSort(b);
+        return na.localeCompare(nb, undefined, { numeric: true, sensitivity: 'base' });
+    },
+
+    // 检测章节列表是否存在明显的章节编号乱序（如 Chapter 2, 3, 4, 1）
+    isChapterListOutOfOrder(chapters) {
+        if (!Array.isArray(chapters) || chapters.length < 2) return false;
+        const numberedRe = /(?:^|\b)(?:chapter|chap|ch|unit|part|section|lesson|module|week|lecture)\s*\.?\s*\d+|第\s*[0-9零〇一二两三四五六七八九十百千]+\s*[章节课单元部分篇讲]|^\s*[（(]?[0-9零〇一二两三四五六七八九十]+[)）、.．\s-]/i;
+        const numberedCount = chapters.filter(c => numberedRe.test(String(c || ''))).length;
+        if (numberedCount < 2) return false;
+        const sorted = [...chapters].sort((a, b) => this.naturalCompare(a, b));
+        return chapters.some((c, i) => c !== sorted[i]);
+    },
     // ===== 题目富媒体（图片/表格）渲染 =====
     // 设计：题干中用 [图N] / [表N] 占位，JSON 的 media 数组提供内容：
     //   { type: 'img', key: '图1', src: 'https://...' 或 'data:image/...;base64,...', alt?: '' }
@@ -33,7 +85,7 @@ export const utils = {
                 // 表格 HTML 做白名单过滤：只保留 table/thead/tbody/tr/th/td/caption + 无属性或极简属性
                 const clean = this.sanitizeTableHTML(m.html);
                 tag = `<div class="media-table">${clean}</div>`;
-            } else if (typeof m.src === 'string' && /^(https:\/\/|data:image\/)/.test(m.src)) {
+            } else if (typeof m.src === 'string' && /^(https:\/\/|data:image\/(?:png|jpe?g|gif|webp);base64,)/i.test(m.src)) {
                 const alt = esc(m.alt || key);
                 tag = `<img src="${esc(m.src)}" alt="${alt}" class="media-img ${opts2.imgClass || ''}" loading="lazy">`;
             } else {
@@ -64,11 +116,15 @@ export const utils = {
                 if (child.nodeType !== 1) continue;
                 const tag = child.tagName;
                 if (!ALLOWED.has(tag)) { out.push(this.escapeHTML(child.textContent)); continue; }
-                const attrs = (tag === 'TD' || tag === 'TH') && child.hasAttribute('colspan')
-                    ? ` colspan="${parseInt(child.getAttribute('colspan'), 10) || 1}"`
-                    : ((tag === 'TD' || tag === 'TH') && child.hasAttribute('rowspan')
-                        ? ` rowspan="${parseInt(child.getAttribute('rowspan'), 10) || 1}"`
-                        : '');
+                let attrs = '';
+                if (tag === 'TD' || tag === 'TH') {
+                    if (child.hasAttribute('colspan')) {
+                        attrs += ` colspan="${Math.max(1, parseInt(child.getAttribute('colspan'), 10) || 1)}"`;
+                    }
+                    if (child.hasAttribute('rowspan')) {
+                        attrs += ` rowspan="${Math.max(1, parseInt(child.getAttribute('rowspan'), 10) || 1)}"`;
+                    }
+                }
                 out.push(`<${tag.toLowerCase()}${attrs}>` + clean(child) + `</${tag.toLowerCase()}>`);
             }
             return out.join('');
@@ -209,112 +265,286 @@ export const utils = {
         return escapedText.replace(reg, '<mark class="bg-yellow-200 dark:bg-yellow-700/50 rounded px-0.5 text-inherit">$1</mark>');
     },
 
-    // 导入清洗：剥控制字符、规范 tf 答案、改写重复/缺失 ID、剔除非法题型。
-    // 返回与输入同构的 bank；stats 接收 { fixedIds, ignored }。
+    // 导入清洗：剥控制字符、规范 tf/mcq/multi 答案、自动推断缺失题型、改写重复/缺失 ID、
+    // 逐题拦截并记录损坏题目（stats.invalidItems），避免单道坏题导致整份题库连坐失败。
     sanitizeImportedBank(obj, stats) {
         const allowed = new Set(['mcq', 'multi', 'tf', 'fill']);
         const result = {};
         const seenIds = new Set();
         let fixedIds = 0;
         let ignored = 0;
+        let autoFixed = 0;
+        const invalidItems = [];
+        const isEn = window.App && App.i18n && App.i18n.lang === 'en';
         const hashId = (s) => {
             let h = 5381;
             for (let i = 0; i < s.length; i++) { h = ((h << 5) + h + s.charCodeAt(i)) | 0; }
             return 'auto-' + (h >>> 0).toString(36);
         };
-        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
-            if (stats) { stats.fixedIds = 0; stats.ignored = 0; }
+        if (!obj || typeof obj !== 'object') {
+            if (stats) { stats.fixedIds = 0; stats.ignored = 0; stats.autoFixed = 0; stats.invalidItems = invalidItems; }
             return result;
         }
-        const stripCtrl = (s) => String(s).replace(/[\u0000-\u001F\u007F]/g, '').trim();
-        // 形状归一化：顶层数组与 { questions: [...] } 是常见的外部格式，
-        // 归一成 { 科目: { 章节: [题] } } 后再统一清洗，避免被静默丢成空库
-        let bank = obj;
+        const stripCtrl = (s) => String(s == null ? '' : s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim();
         const defSub = (window.App && typeof App.t === 'function') ? App.t('导入题目') : '导入题目';
         const defChap = (window.App && typeof App.t === 'function') ? App.t('未分类') : '未分类';
-        if (Array.isArray(bank)) {
-            bank = { [defSub]: { [defChap]: bank } };
-        } else if (bank && typeof bank === 'object' && Array.isArray(bank.questions)) {
+        const unsafeKeys = new Set(['__proto__', 'prototype', 'constructor', 'toString', 'valueOf', 'hasOwnProperty']);
+
+        const groupFlatList = (arr) => {
             const grouped = {};
-            for (const q of bank.questions) {
-                if (!q || typeof q !== 'object') continue;
-                const s = (typeof q.subject === 'string' && q.subject.trim()) ? q.subject.trim() : defSub;
-                const c = (typeof q.chapter === 'string' && q.chapter.trim()) ? q.chapter.trim() : defChap;
-                if (!grouped[s]) grouped[s] = {};
-                if (!grouped[s][c]) grouped[s][c] = [];
+            for (const q of arr) {
+                if (!q || typeof q !== 'object') { ignored++; continue; }
+                const sRaw = q.sub || q.subject || q.category || q.course || '';
+                const cRaw = q.chap || q.chapter || q.section || q.unit || '';
+                const sClean = (typeof sRaw === 'string' && stripCtrl(sRaw)) ? stripCtrl(sRaw) : defSub;
+                const cClean = (typeof cRaw === 'string' && stripCtrl(cRaw)) ? stripCtrl(cRaw) : defChap;
+                const s = unsafeKeys.has(sClean) ? defSub : sClean;
+                const c = unsafeKeys.has(cClean) ? defChap : cClean;
+                if (!Object.prototype.hasOwnProperty.call(grouped, s)) grouped[s] = {};
+                if (!Object.prototype.hasOwnProperty.call(grouped[s], c)) grouped[s][c] = [];
                 grouped[s][c].push(q);
             }
-            bank = grouped;
+            return grouped;
+        };
+
+        // 形状归一化：支持顶层数组 [...]、{ questions/data/items/list: [...] }、
+        // 单题对象 { q, a, ... }、以及 { 科目: [题] }（缺省章节层级）
+        let bank = obj;
+        if (Array.isArray(bank)) {
+            bank = groupFlatList(bank);
+            autoFixed++;
+        } else if (Array.isArray(bank.questions || bank.data || bank.items || bank.list)) {
+            bank = groupFlatList(bank.questions || bank.data || bank.items || bank.list);
+            autoFixed++;
+        } else if (typeof bank.q === 'string' || typeof bank.question === 'string' || typeof bank.stem === 'string') {
+            bank = groupFlatList([bank]);
+            autoFixed++;
+        } else {
+            const normalizedBank = {};
+            for (const [k, v] of Object.entries(bank)) {
+                if (unsafeKeys.has(k)) { ignored++; continue; }
+                if (Array.isArray(v)) {
+                    normalizedBank[k] = { [defChap]: v };
+                    autoFixed++;
+                } else if (v && typeof v === 'object') {
+                    normalizedBank[k] = v;
+                }
+            }
+            bank = normalizedBank;
         }
+
+        const recordInvalid = (sub, chap, idx, copy, zhReason, enReason) => {
+            ignored++;
+            if (invalidItems.length < 50) {
+                const qPreview = stripCtrl(copy && (copy.q || copy.question || copy.stem || '')).slice(0, 60);
+                invalidItems.push({
+                    loc: `${sub} / ${chap} #${idx + 1}`,
+                    id: (copy && typeof copy.id === 'string' && copy.id) ? copy.id : `#${idx + 1}`,
+                    q: qPreview || (isEn ? '(empty question text)' : '（无题干内容）'),
+                    reason: isEn ? enReason : zhReason
+                });
+            }
+        };
+
         for (const [rawSub, chapDict] of Object.entries(bank)) {
             if (!chapDict || typeof chapDict !== 'object' || Array.isArray(chapDict)) continue;
             const sub = stripCtrl(rawSub);
-            if (!sub) { ignored++; continue; }
+            if (!sub || unsafeKeys.has(sub)) { ignored++; continue; }
             const cleanedChaps = {};
             for (const [rawChap, arr] of Object.entries(chapDict)) {
                 if (!Array.isArray(arr)) continue;
                 const chap = stripCtrl(rawChap);
-                if (!chap) { ignored += arr.length; continue; }
-                const cleanedQs = arr
-                    .map(q => {
-                        if (!q || typeof q !== 'object') { ignored++; return null; }
-                        const copy = { ...q };
-                        // 字段别名归一：AI 输出常用 question/answer/options/stem/choices 等写法
-                        if (copy.q == null && copy.question != null) copy.q = copy.question;
-                        if (copy.q == null && copy.stem != null) copy.q = copy.stem;
-                        if (copy.a == null && copy.answer != null) copy.a = copy.answer;
-                        if (copy.a == null && copy.correct != null) copy.a = copy.correct;
+                if (!chap || unsafeKeys.has(chap)) { ignored += arr.length; continue; }
+                const cleanedQs = [];
+                arr.forEach((q, idx) => {
+                    if (!q || typeof q !== 'object' || Array.isArray(q)) {
+                        recordInvalid(sub, chap, idx, {}, '题目条目不是合法对象', 'Item is not a valid object');
+                        return;
+                    }
+                    const copy = { ...q };
+                    // 字段别名归一：AI 输出常用 question/answer/options/stem/choices 等写法
+                    if (copy.q == null && copy.question != null) { copy.q = copy.question; autoFixed++; }
+                    if (copy.q == null && copy.stem != null) { copy.q = copy.stem; autoFixed++; }
+                    if (copy.q == null && copy.title != null) { copy.q = copy.title; autoFixed++; }
+                    if (copy.a == null && copy.answer != null) { copy.a = copy.answer; autoFixed++; }
+                    if (copy.a == null && copy.correct != null) { copy.a = copy.correct; autoFixed++; }
+                    if (copy.a == null && copy.ans != null) { copy.a = copy.ans; autoFixed++; }
+                    if (!Array.isArray(copy.o)) {
+                        if (Array.isArray(copy.options)) { copy.o = copy.options; autoFixed++; }
+                        else if (Array.isArray(copy.choices)) { copy.o = copy.choices; autoFixed++; }
+                    }
+
+                    // 答案若是数组（如多选 ["A","C"] 或填空 ["TCP","传输控制协议"]），自动转字符串
+                    if (Array.isArray(copy.a)) {
+                        const isOpts = Array.isArray(copy.o) && copy.o.length >= 2;
+                        copy.a = copy.a.map(x => String(x == null ? '' : x).trim()).filter(Boolean).join(isOpts ? '' : '|');
+                        autoFixed++;
+                    } else if (typeof copy.a === 'boolean') {
+                        copy.a = copy.a ? 'T' : 'F';
+                        autoFixed++;
+                    } else if (typeof copy.a === 'number') {
+                        copy.a = String(copy.a);
+                    }
+
+                    // 题型别名归一与缺省自动推断
+                    if (typeof copy.type === 'string') {
+                        const alias = {
+                            mcq: 'mcq', single: 'mcq', singlechoice: 'mcq', '单选': 'mcq', '单选题': 'mcq',
+                            multi: 'multi', multiple: 'multi', multiplechoice: 'multi', '多选': 'multi', '多选题': 'multi',
+                            tf: 'tf', judge: 'tf', boolean: 'tf', truefalse: 'tf', '判断': 'tf', '判断题': 'tf',
+                            fill: 'fill', blank: 'fill', completion: 'fill', '填空': 'fill', '填空题': 'fill'
+                        };
+                        const tl = copy.type.trim().toLowerCase();
+                        if (alias[tl]) {
+                            if (copy.type !== alias[tl]) autoFixed++;
+                            copy.type = alias[tl];
+                        }
+                    } else if (!copy.type) {
+                        const ansRaw = String(copy.a == null ? '' : copy.a).trim();
+                        if (Array.isArray(copy.o) && copy.o.length >= 2) {
+                            const lettersOnly = ansRaw.replace(/[^A-Za-z]/g, '');
+                            copy.type = lettersOnly.length > 1 ? 'multi' : 'mcq';
+                            autoFixed++;
+                        } else if (['t', 'f', 'true', 'false', '对', '错', '正确', '错误', '√', '×', '是', '否'].includes(ansRaw.toLowerCase())) {
+                            copy.type = 'tf';
+                            autoFixed++;
+                        } else if (ansRaw) {
+                            copy.type = 'fill';
+                            autoFixed++;
+                        }
+                    }
+
+                    if (!allowed.has(copy.type)) {
+                        recordInvalid(sub, chap, idx, copy, `不支持或无法识别的题型 "${copy.type || '空'}"（仅支持单选/多选/判断/填空，主观简答题已自动跳过）`, `Unsupported question type "${copy.type || 'empty'}" (only mcq/multi/tf/fill are supported)`);
+                        return;
+                    }
+
+                    copy.q = typeof copy.q === 'string' ? copy.q.trim() : String(copy.q == null ? '' : copy.q).trim();
+                    copy.a = typeof copy.a === 'string' ? copy.a.trim() : String(copy.a == null ? '' : copy.a).trim();
+
+                    if (!copy.q) {
+                        recordInvalid(sub, chap, idx, copy, '缺少题干内容 (q)', 'Missing question text (q)');
+                        return;
+                    }
+                    if (copy.q.length > 20000) {
+                        recordInvalid(sub, chap, idx, copy, '题干过长（超过 20000 字符）', 'Question text too long (>20000 chars)');
+                        return;
+                    }
+                    if (!copy.a) {
+                        recordInvalid(sub, chap, idx, copy, '缺少正确答案 (a)', 'Missing correct answer (a)');
+                        return;
+                    }
+
+                    if (copy.type === 'mcq' || copy.type === 'multi') {
                         if (!Array.isArray(copy.o)) {
-                            if (Array.isArray(copy.options)) copy.o = copy.options;
-                            else if (Array.isArray(copy.choices)) copy.o = copy.choices;
+                            recordInvalid(sub, chap, idx, copy, '选择题缺少选项列表 (o)', 'Missing options array (o)');
+                            return;
                         }
-                        // 题型别名归一：single/multiple/judge/blank 等
-                        if (typeof copy.type === 'string') {
-                            const alias = { mcq: 'mcq', single: 'mcq', singlechoice: 'mcq', multi: 'multi', multiple: 'multi', multiplechoice: 'multi', tf: 'tf', judge: 'tf', boolean: 'tf', truefalse: 'tf', fill: 'fill', blank: 'fill', completion: 'fill' };
-                            const tl = copy.type.trim().toLowerCase();
-                            if (alias[tl]) copy.type = alias[tl];
-                        }
-                        if (!allowed.has(copy.type)) { ignored++; return null; }
-                        return copy;
-                    })
-                    .filter(Boolean)
-                    .map(copy => {
-                        if ((copy.type === 'mcq' || copy.type === 'multi') && Array.isArray(copy.o)) {
-                            copy.o = copy.o.map(opt => {
+                        copy.o = copy.o
+                            .map(opt => {
                                 if (opt == null) return '';
                                 const str = typeof opt === 'string' ? opt : String(opt);
-                                return str.replace(/^\s*[A-ZＡ-Ｚ][\.．、，\)\）]\s*/, '');
-                            });
+                                return str.replace(/^\s*[A-ZＡ-Ｚ][\.．、，\)\）]\s*/, '').trim();
+                            })
+                            .filter(s => s.length > 0);
+                        if (copy.o.length < 2) {
+                            recordInvalid(sub, chap, idx, copy, `有效选项不足 2 个（当前 ${copy.o.length} 个）`, `Fewer than 2 non-empty options (found ${copy.o.length})`);
+                            return;
                         }
-                        if (copy.type === 'tf') {
-                            // 宽容归一：true/false、对/错、√/×、是/否、y/n 等常见写法统一成 T/F
-                            const raw = String(copy.a == null ? '' : copy.a).trim().toLowerCase();
-                            if (['t', 'true', '√', '✓', '✔', 'y', 'yes', '对', '正确', '是'].indexOf(raw) >= 0) copy.a = 'T';
-                            else if (['f', 'false', '×', '✕', '✖', 'n', 'no', '错', '错误', '否'].indexOf(raw) >= 0) copy.a = 'F';
+                        if (copy.o.length > 16) {
+                            recordInvalid(sub, chap, idx, copy, `选项过多（${copy.o.length} 个，上限 16 个）`, `Too many options (${copy.o.length}, max 16)`);
+                            return;
                         }
-                        if (typeof copy.id !== 'string' || !copy.id.trim()) {
-                            copy.id = hashId(JSON.stringify([sub, chap, copy.type, copy.q, copy.a, Array.isArray(copy.o) ? copy.o : []]));
-                            fixedIds++;
-                        } else if (seenIds.has(copy.id)) {
-                            const base = copy.id;
-                            let n = 2;
-                            while (seenIds.has(base + '-d' + n)) n++;
-                            copy.id = base + '-d' + n;
-                            fixedIds++;
+                        const maxLetter = String.fromCharCode(64 + copy.o.length);
+                        if (copy.type === 'mcq') {
+                            let aUp = copy.a.toUpperCase();
+                            // 兼容 "B. 80" 或 "选项B" 形式
+                            const leadMatch = aUp.match(/^(?:选项|ANSWER\s*[:：]?\s*)?([A-Z])(?:[\.．、，\)\）\s].*)?$/i);
+                            if (leadMatch && leadMatch[1] <= maxLetter && aUp.length > 1) {
+                                aUp = leadMatch[1].toUpperCase();
+                                autoFixed++;
+                            } else if (!/^[A-Z]$/.test(aUp)) {
+                                // 兼容答案直接写成某个选项的文本内容
+                                const matchIdx = copy.o.findIndex(opt => opt.toLowerCase() === copy.a.toLowerCase());
+                                if (matchIdx >= 0) {
+                                    aUp = String.fromCharCode(65 + matchIdx);
+                                    autoFixed++;
+                                }
+                            }
+                            if (!/^[A-Z]$/.test(aUp) || aUp > maxLetter) {
+                                recordInvalid(sub, chap, idx, copy, `单选题答案 "${copy.a}" 不在有效选项范围 A–${maxLetter} 内`, `MCQ answer "${copy.a}" is outside valid option range A–${maxLetter}`);
+                                return;
+                            }
+                            copy.a = aUp;
+                        } else {
+                            // 多选题：剥除逗号、顿号、空格等分隔符，提取字母并排序去重
+                            let cleanedLetters = copy.a.toUpperCase().replace(/[,，、\s;/|]+/g, '');
+                            if (!/^[A-Z]+$/.test(cleanedLetters)) {
+                                recordInvalid(sub, chap, idx, copy, `多选题答案 "${copy.a}" 必须是字母组合（如 AB、ACD）`, `Multi-select answer "${copy.a}" must be option letters (e.g. AB, ACD)`);
+                                return;
+                            }
+                            const uniqSorted = Array.from(new Set(cleanedLetters.split(''))).sort();
+                            if (uniqSorted.some(ch => ch > maxLetter)) {
+                                recordInvalid(sub, chap, idx, copy, `多选题答案 "${copy.a}" 含有超出选项范围 A–${maxLetter} 的字母`, `Multi-select answer "${copy.a}" has letters outside range A–${maxLetter}`);
+                                return;
+                            }
+                            if (uniqSorted.join('') !== copy.a) autoFixed++;
+                            copy.a = uniqSorted.join('');
                         }
-                        seenIds.add(copy.id);
-                        return copy;
-                    });
+                    } else if (copy.type === 'tf') {
+                        const raw = String(copy.a == null ? '' : copy.a).trim().toLowerCase();
+                        const okInputs = ['t', 'true', 'y', 'yes', '对', '正确', '是', '1', '\u221a', '\u2713', '\u2714'];
+                        const noInputs = ['f', 'false', 'n', 'no', '错', '错误', '否', '0', '\u00d7', '\u2715', '\u2716'];
+                        if (okInputs.indexOf(raw) >= 0) {
+                            if (copy.a !== 'T') autoFixed++;
+                            copy.a = 'T';
+                        } else if (noInputs.indexOf(raw) >= 0) {
+                            if (copy.a !== 'F') autoFixed++;
+                            copy.a = 'F';
+                        } else {
+                            recordInvalid(sub, chap, idx, copy, `判断题答案 "${copy.a}" 无法识别（请用 T/F 或 对/错）`, `True/False answer "${copy.a}" is invalid (expected T/F or True/False)`);
+                            return;
+                        }
+                    } else if (copy.type === 'fill') {
+                        const variants = copy.a.split('|').map(s => s.trim()).filter(Boolean);
+                        if (!variants.length) {
+                            recordInvalid(sub, chap, idx, copy, '填空题答案为空', 'Fill-in answer is empty');
+                            return;
+                        }
+                        copy.a = variants.join('|');
+                    }
+
+                    if (copy.a.length > 500) {
+                        recordInvalid(sub, chap, idx, copy, '答案过长（超过 500 字符）', 'Answer too long (>500 chars)');
+                        return;
+                    }
+
+                    if (typeof copy.id !== 'string' || !copy.id.trim()) {
+                        copy.id = hashId(JSON.stringify([sub, chap, copy.type, copy.q, copy.a, Array.isArray(copy.o) ? copy.o : []]));
+                        fixedIds++;
+                    } else if (seenIds.has(copy.id)) {
+                        const base = copy.id;
+                        let n = 2;
+                        while (seenIds.has(base + '-d' + n)) n++;
+                        copy.id = base + '-d' + n;
+                        fixedIds++;
+                    }
+                    seenIds.add(copy.id);
+                    cleanedQs.push(copy);
+                });
                 if (cleanedQs.length > 0) {
                     if (!cleanedChaps[chap]) cleanedChaps[chap] = [];
                     cleanedChaps[chap] = cleanedChaps[chap].concat(cleanedQs);
-                } else {
-                    ignored += arr.filter(q => q && typeof q === 'object' && allowed.has(q.type)).length - cleanedQs.length;
                 }
             }
             if (Object.keys(cleanedChaps).length > 0) result[sub] = cleanedChaps;
         }
-        if (stats) { stats.fixedIds = fixedIds; stats.ignored = ignored; }
+        if (stats) {
+            stats.fixedIds = fixedIds;
+            stats.ignored = ignored;
+            stats.autoFixed = autoFixed;
+            stats.invalidItems = invalidItems;
+        }
         return result;
     },
 
@@ -342,12 +572,12 @@ export const utils = {
 
             if (isCorrect) {
                 return `<div class="mt-1 py-1 px-2 rounded bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 font-bold flex items-start gap-1.5 text-xs transition-colors">
-                            <span class="flex-shrink-0">✓</span>
+                            <svg class="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                             <span class="leading-snug">${char}. ${hlOptText}</span>
                         </div>`;
             } else {
                 return `<div class="mt-1 py-1 px-2 rounded text-[var(--sub)] flex items-start gap-1.5 text-xs opacity-75 transition-colors">
-                            <span class="flex-shrink-0 text-rose-400 opacity-80">✕</span>
+                            <svg class="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-rose-400 opacity-80" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                             <span class="leading-snug">${char}. ${hlOptText}</span>
                         </div>`;
             }
@@ -381,7 +611,7 @@ export const utils = {
     },
     // 字符袋距离：两串字符多重集的差异度。取「A 相对 B 的盈余」与「B 相对 A 的盈余」的
     // 较大者——每次编辑操作最多同时消掉一个盈余和一个亏空，所以
-    // editDistance ≥ max(盈余A, 盈余B)，可作为 O(m·n) 动态规划的预筛下界。
+    // editDistance >= max(盈余A, 盈余B)，可作为 O(m*n) 动态规划的预筛下界。
     charCounts(s) {
         const m = new Map();
         for (let i = 0; i < s.length; i++) {
