@@ -81,12 +81,14 @@ function getSystemMetrics() {
     const dataSize = safeExec("du -sh /opt/question-site/data 2>/dev/null | cut -f1", "0M");
     const backupSize = safeExec("du -sh /opt/question-site/backups 2>/dev/null | cut -f1", "0M");
     
-    // D1 数据库文件尺寸（通过原生 stat 同步获取，不走子进程）
+    // D1/SQLite 数据库文件尺寸（优先读取规范化的 /opt/question-site/data/app.db）
     let d1DbSize = "2.7M";
     try {
-        const dbPath = '/opt/question-site/data/v3/d1/miniflare-D1DatabaseObject/93d7fc60452c6d106c5f56c0087ad2c71a3b2b22dd60c438593ff9a643a39250.sqlite';
-        if (fs.existsSync(dbPath)) {
-            const sz = fs.statSync(dbPath).size;
+        const standardPath = '/opt/question-site/data/app.db';
+        const legacyPath = '/opt/question-site/data/v3/d1/miniflare-D1DatabaseObject/93d7fc60452c6d106c5f56c0087ad2c71a3b2b22dd60c438593ff9a643a39250.sqlite';
+        const targetDbPath = fs.existsSync(standardPath) ? standardPath : legacyPath;
+        if (fs.existsSync(targetDbPath)) {
+            const sz = fs.statSync(targetDbPath).size;
             d1DbSize = (sz / (1024 * 1024)).toFixed(1) + 'M';
         }
     } catch (e) {}
