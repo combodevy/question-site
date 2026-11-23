@@ -271,6 +271,9 @@ window.addEventListener('DOMContentLoaded', async () => {
                 App.data && App.data.trashKey, App.data && App.data.starredKey].filter(Boolean);
             if (!info.key || !dataKeys.includes(info.key)) return;
             const d = App.data;
+            if (typeof info.version === 'number' && Number.isFinite(info.version) && d && info.version > d.remoteVersion) {
+                d.remoteVersion = info.version;
+            }
             const isStarredOnly = info.key === d.starredKey;
             const selfDirty = d._bankDirty || (Array.isArray(d._historyAppendBuffer) && d._historyAppendBuffer.length > 0) || d._isSaving;
             if (selfDirty) {
@@ -306,7 +309,8 @@ window.addEventListener('DOMContentLoaded', async () => {
         App._syncBroadcast = (key) => {
             try {
                 const uid = App.auth && typeof App.auth.getUserId === 'function' ? App.auth.getUserId() : '';
-                dataChannel.postMessage({ from: App._tabId, key, uid });
+                const version = (App.data && typeof App.data.remoteVersion === 'number') ? App.data.remoteVersion : 0;
+                dataChannel.postMessage({ from: App._tabId, key, uid, version });
             } catch (err) { }
         };
     } catch (e) { /* 浏览器不支持 BroadcastChannel 时静默降级（退回 storage 事件路径） */ }

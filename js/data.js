@@ -50,6 +50,7 @@ export const data = {
                 _saveAgainPending: false,
                 _pullAfterSave: false,
                 _retryAfterConflictOnce: 0,
+                _conflictRetryCount: 0,
                 _loadPromise: null,
                 // record() 用：保证 history 时间戳严格单调递增（增量同步以 (id|t) 去重）
                 _lastRecordTs: 0,
@@ -473,6 +474,16 @@ export const data = {
                             const parsed = JSON.parse(sStr);
                             if (Array.isArray(parsed)) this.starredIds = parsed;
                         }
+                        // 跨标签页对齐已同步的版本号基线，避免另一标签页仍持有过期版本号导致并发 409
+                        try {
+                            const baseRaw = await getDBItem('lms_v26_synced_base');
+                            if (baseRaw) {
+                                const parsedBase = JSON.parse(baseRaw);
+                                if (parsedBase && typeof parsedBase.version === 'number' && parsedBase.version > this.remoteVersion) {
+                                    this.remoteVersion = parsedBase.version;
+                                }
+                            }
+                        } catch (_) { }
                         this._cachedQuestions = null;
                         this._questionMap = null;
                         this._errFreqCache = null;
@@ -1426,6 +1437,7 @@ export const data = {
                         // ========== 增量同步决策 ==========
                         // 如果只有 history / starred / hiddenMistakeIds 变动（bank/trash 没变），使用增量模式
                         const historyBuffer = Array.isArray(this._historyAppendBuffer) ? this._historyAppendBuffer : [];
+                        const sentHistoryCount = historyBuffer.length;
                         const useIncrementalSync = !this._bankDirty
                             && delta.questions === 0
                             && delta.trash === 0
@@ -1614,9 +1626,10 @@ export const data = {
                                         if (remote && typeof remote.version === 'number' && Number.isFinite(remote.version)) {
                                             this.remoteVersion = remote.version;
                                         }
-                                        if (typeof this._retryAfterConflictOnce !== 'number') this._retryAfterConflictOnce = 0;
-                                        if (this._retryAfterConflictOnce < 1) {
-                                            this._retryAfterConflictOnce++;
+                                        if (typeof this._conflictRetryCount !== 'number') this._conflictRetryCount = 0;
+                                        if (this._conflictRetryCount < 5) {
+                                            this._conflictRetryCount++;
+                                            this._retryAfterConflictOnce = this._conflictRetryCount;
                                             const s = this._pendingSaveState;
                                             if (s) {
                                                 this._suppressCloudSync = true;
@@ -1824,13 +1837,28 @@ export const data = {
                                             }
                                             // 重试：此时 _bankDirty=true，只上传双方合并后的差异
                                             this._saveAgainPending = true;
+                                            // 递增退避防并发抖动重试
+                                            const retryDelay = 200 * this._conflictRetryCount + Math.floor(Math.random() * 200);
+                                            if (this._cloudSaveTimer) clearTimeout(this._cloudSaveTimer);
+                                            this._cloudSaveTimer = setTimeout(() => {
+                                                this._cloudSaveTimer = null;
+                                                this.saveToCloud();
+                                            }, retryDelay);
                                         } else {
-                                            // 二次冲突：保留当前合并结果，交给用户手动处理（导出/刷新）
+                                            // 极端并发（连续 5 次冲突）：保持合并结果与本地脏标记，排队稍后自动重试，绝不卡死报错
+                                            this._conflictRetryCount = 0;
                                             this._retryAfterConflictOnce = 0;
                                             this._bankDirty = true;
                                             if (window.App && App.sync && typeof App.sync.showSyncStatus === 'function') {
-                                                App.sync.showSyncStatus('error', delta, '多设备修改冲突，已保留双方数据；请稍后重试或导出备份');
+                                                App.sync.showSyncStatus('pending', delta, (window.App && App.t)
+                                                    ? App.t('检测到多设备正在并发同步，已合并双方数据，正在排队重试…')
+                                                    : '检测到多设备正在并发同步，已合并双方数据，正在排队重试…');
                                             }
+                                            if (this._cloudSaveTimer) clearTimeout(this._cloudSaveTimer);
+                                            this._cloudSaveTimer = setTimeout(() => {
+                                                this._cloudSaveTimer = null;
+                                                this.saveToCloud();
+                                            }, 3000);
                                         }
                                     } catch (e) {
                                         console.error("409 conflict merge failed", e);
@@ -1868,10 +1896,15 @@ export const data = {
                                 }
                                 this.bankName = inferredName;
                                 this._safeSetItem(this.bankNameKey, this.bankName);
+                                this._conflictRetryCount = 0;
                                 this._retryAfterConflictOnce = 0;
                                 this._pendingSaveState = null;
-                                // ========== 增量同步：清空 buffer ==========
-                                this._historyAppendBuffer = [];
+                                // ========== 增量同步：清空已成功送出的 buffer，保留在途期间新产生的记录 ==========
+                                if (sentHistoryCount > 0 && Array.isArray(this._historyAppendBuffer)) {
+                                    this._historyAppendBuffer = this._historyAppendBuffer.slice(sentHistoryCount);
+                                } else {
+                                    this._historyAppendBuffer = [];
+                                }
                                 // 更新最后同步的 history 时间戳
                                 if (this.history.length > 0) {
                                     // 必须取最大值而不是「最后一个元素」：history 合并后顺序不保证有序。

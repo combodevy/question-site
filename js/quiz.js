@@ -469,7 +469,16 @@ export const quiz = {
                     if (fill) fill.style.width = `${pct}%`;
 
                     const ansCount = this._getAnsweredCount();
-                    App.dom.setText('quiz-answered-badge', `${ansCount}/${this.queue.length}`);
+                    const badge = document.getElementById('quiz-answered-badge');
+                    if (badge) {
+                        badge.textContent = `${ansCount}/${this.queue.length}`;
+                        badge.classList.toggle('hidden', ansCount === 0);
+                        if (ansCount === this.queue.length) {
+                            badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-300 bg-green-50 text-green-700 dark:bg-green-950/40 dark:border-green-800 dark:text-green-300';
+                        } else {
+                            badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full border border-primary-200 bg-primary-50 text-primary-700 dark:bg-primary-950/40 dark:border-primary-800 dark:text-primary-300';
+                        }
+                    }
 
                     const prevBtn = document.getElementById('quiz-prev-btn');
                     if (prevBtn) {
@@ -505,23 +514,36 @@ export const quiz = {
                     const grid = document.getElementById('quiz-nav-grid');
                     if (!grid) return;
                     grid.innerHTML = '';
+                    const isEn = Boolean(App.i18n && App.i18n.lang === 'en');
                     const frag = document.createDocumentFragment();
                     for (let i = 0; i < this.queue.length; i++) {
                         const ans = this.sessionAnswers ? this.sessionAnswers[i] : null;
                         const isCur = i === this.idx;
                         const btn = document.createElement('button');
                         btn.type = 'button';
-                        let cls = 'quiz-nav-pill ';
+                        let cls = 'quiz-nav-dot quiz-nav-pill ';
+                        let statusText = '';
                         if (ans && ans.answered) {
-                            if (ans.selfCheck) cls += 'is-self';
-                            else if (ans.ok) cls += 'is-ok';
-                            else cls += 'is-err';
+                            if (ans.selfCheck) {
+                                cls += 'is-self';
+                                statusText = isEn ? 'Self-checked' : '已自评';
+                            } else if (ans.ok) {
+                                cls += 'is-correct is-ok';
+                                statusText = isEn ? 'Correct' : '答对';
+                            } else {
+                                cls += 'is-wrong is-err';
+                                statusText = isEn ? 'Mistake' : '答错';
+                            }
                         } else {
                             cls += 'is-idle';
+                            statusText = isEn ? 'Unanswered' : '未答';
                         }
-                        if (isCur) cls += ' is-cur';
+                        if (isCur) cls += ' is-current is-cur';
                         btn.className = cls;
                         btn.textContent = String(i + 1);
+                        const label = isEn ? `Q${i + 1} (${statusText})` : `第 ${i + 1} 题（${statusText}）`;
+                        btn.title = label;
+                        btn.setAttribute('aria-label', label);
                         btn.onclick = () => this.goTo(i);
                         frag.appendChild(btn);
                     }

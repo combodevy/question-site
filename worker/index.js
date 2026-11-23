@@ -826,7 +826,18 @@ export default {
                     setId = existing.id;
                     currentVersion = typeof existing.version === "number" ? existing.version : 0;
 
-                    if (clientVersion !== currentVersion) {
+                    // 冲突检测策略优化：
+                    // 1. 增量保存 (statePartial && !state)：仅包含作答历史追加与收藏/错题状态，
+                    //    服务端具备基于 rid/t 的幂等去重与集合合并能力，绝不抛 409，避免多端刷题冲突；
+                    // 2. 纯元数据/状态保存 (skipQuestionsUpdate === true)：题库题目未作结构变动，
+                    //    服务端可在原题库上无损合并 state (history/starred/hiddenMistakeIds)，无需抛 409；
+                    // 3. 仅当客户端修改题库题目 (skipQuestionsUpdate === false 且修改题目) 时，
+                    //    版本不吻合才需乐观锁拦截并返回 409，交由客户端三方合并处理。
+                    const isIncremental = statePartial && !state;
+                    const isMetadataOnly = skipQuestionsUpdate === true;
+                    const isActualConflict = clientVersion !== currentVersion && !isIncremental && !isMetadataOnly;
+
+                    if (isActualConflict) {
                         // Version conflict log
                         await env.DB.prepare("INSERT INTO sync_logs (user_id, delta, status, error) VALUES (?, ?, ?, ?)")
                             .bind(userId, JSON.stringify({ clientVersion, currentVersion, ip, ua }), "conflict", "Version Mismatch")
@@ -897,7 +908,17 @@ export default {
                             if (!allowed.includes(field)) continue;
                             const val = body.partialValues && body.partialValues[field];
                             if (val !== undefined) {
-                                parsedState[field] = val;
+                                if (field === 'lastPracticeTime') {
+                                    parsedState[field] = Math.max(Number(parsedState[field]) || 0, Number(val) || 0) || null;
+                                } else if (field === 'hiddenMistakeIds' && Array.isArray(val)) {
+                                    const ex = Array.isArray(parsedState[field]) ? parsedState[field] : [];
+                                    parsedState[field] = [...new Set([...ex, ...val])];
+                                } else if (field === 'starred' && Array.isArray(val)) {
+                                    const ex = Array.isArray(parsedState[field]) ? parsedState[field] : [];
+                                    parsedState[field] = [...new Set([...ex, ...val])];
+                                } else {
+                                    parsedState[field] = val;
+                                }
                             }
                         }
                         finalState = parsedState;
@@ -936,6 +957,24 @@ export default {
                                 const oldSt = JSON.parse(existing.state);
                                 if (oldSt && oldSt.bank && typeof oldSt.bank === 'object') {
                                     finalState.bank = oldSt.bank;
+                                }
+                                // 若云端已有较新的 history 记录，无损合并到 finalState.history
+                                if (oldSt && Array.isArray(oldSt.history) && Array.isArray(finalState.history)) {
+                                    const keyOf = (h) => (h && typeof h.rid === 'string' && h.rid) ? 'r:' + h.rid : 'k:' + ((h && h.id) || '') + '|' + (h && h.t);
+                                    const seen = new Set(finalState.history.map(keyOf));
+                                    for (const h of oldSt.history) {
+                                        if (!seen.has(keyOf(h))) {
+                                            finalState.history.push(h);
+                                            seen.add(keyOf(h));
+                                        }
+                                    }
+                                }
+                                // 收藏与隐藏错题也做并集合并，确保多设备都不丢失
+                                if (oldSt && Array.isArray(oldSt.starred) && Array.isArray(finalState.starred)) {
+                                    finalState.starred = [...new Set([...finalState.starred, ...oldSt.starred])];
+                                }
+                                if (oldSt && Array.isArray(oldSt.hiddenMistakeIds) && Array.isArray(finalState.hiddenMistakeIds)) {
+                                    finalState.hiddenMistakeIds = [...new Set([...finalState.hiddenMistakeIds, ...oldSt.hiddenMistakeIds])];
                                 }
                             } catch (_) {}
                         }
