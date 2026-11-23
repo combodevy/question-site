@@ -1415,12 +1415,12 @@ export default {
 
                     // Backups
                     const { results: backups } = await env.DB.prepare(`
-                        SELECT id, type, name, created_at, LENGTH(payload) as size FROM user_backups WHERE user_id = ? ORDER BY id DESC LIMIT 10
+                        SELECT id, type, created_at, LENGTH(payload) as size FROM user_backups WHERE user_id = ? ORDER BY id DESC LIMIT 10
                     `).bind(targetUid).all();
 
                     // Snapshots
                     const { results: snapshots } = await env.DB.prepare(`
-                        SELECT id, created_at, LENGTH(state) as size FROM bank_snapshots WHERE user_id = ? ORDER BY id DESC LIMIT 10
+                        SELECT user_id, set_id, version, created_at, LENGTH(state) as size FROM bank_snapshots WHERE user_id = ?
                     `).bind(targetUid).all();
 
                     return jsonResponse({
