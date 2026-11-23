@@ -6,11 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>管理控制台 - Question Banks Workspace</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230d9488' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'/%3E%3C/svg%3E">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    </script>
     <script src="config.js"></script>
     <link rel="stylesheet" href="css/tailwind.css?v=2611234">
     <style>
@@ -1286,8 +1281,8 @@
                 if (pageTitle && titles[id]) pageTitle.innerText = titles[id];
 
                 if (id === 'overview') {
-                    this.fetchOverviewStats();
-                    this.fetchServerOps();
+                    // 并发拉取大盘指标与服务器概览，避免串行等待
+                    Promise.all([this.fetchOverviewStats(), this.fetchServerOps()]);
                 } else if (id === 'users') {
                     this.fetchUsers();
                 } else if (id === 'server') {
@@ -1318,20 +1313,22 @@
             },
 
             startServerTelemetryPoll() {
-                this.fetchServerOps();
                 if (this.serverMetricsTimer) clearInterval(this.serverMetricsTimer);
-                // 每 15 秒静默轮询服务器健康指标
+                // 每 20 秒静默轮询服务器健康指标（仅在停留在概览或运维页时轮询）
                 this.serverMetricsTimer = setInterval(() => {
                     const sec = document.getElementById('section-server');
                     const secOv = document.getElementById('section-overview');
-                    if (!sec.classList.contains('hidden') || !secOv.classList.contains('hidden')) {
+                    if ((sec && !sec.classList.contains('hidden')) || (secOv && !secOv.classList.contains('hidden'))) {
                         this.fetchServerOps(true);
                     }
-                }, 15000);
+                }, 20000);
             },
 
             // ==================== 2. 服务器运维 (Server DevOps) ====================
+            _fetchingOps: false,
             async fetchServerOps(silent = false) {
+                if (this._fetchingOps) return;
+                this._fetchingOps = true;
                 try {
                     const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/server-ops/metrics`);
                     if (!res.ok) throw new Error('Ops daemon unreachable');
@@ -1430,6 +1427,8 @@
 
                 } catch (e) {
                     if (!silent) console.warn('Fetch server ops failed:', e);
+                } finally {
+                    this._fetchingOps = false;
                 }
             },
 
@@ -1914,8 +1913,8 @@
                     version.innerText = `v${this.currentBankInfo.version || 0}`;
                     created.innerText = (parseUtcDate(this.currentBankInfo.created_at) ? parseUtcDate(this.currentBankInfo.created_at).toLocaleString() : '-');
 
+                    this.visibleQuestionLimit = 40;
                     this.populateSubjectFilters();
-                    this.updateJsonView();
                     this.renderVisualQuestions();
                 } catch (e) {
                     console.error(e);
@@ -1950,6 +1949,8 @@
                     vJson.classList.remove('hidden');
                     vVis.classList.add('hidden');
                     vToolbar.classList.add('hidden');
+                    // 按需延迟序列化 JSON，避免首开卡片视图时阻塞主线程
+                    this.updateJsonView();
                 }
             },
 
@@ -1960,16 +1961,34 @@
                 subFilter.innerHTML = '<option value="">全部科目</option>' + subjects.map(s => `<option value="${Admin.escapeHTML(s)}">${Admin.escapeHTML(s)}</option>`).join('');
             },
 
+            // 搜索输入防抖（200ms），避免键盘连续敲击造成严重主线程重排卡顿
             filterVisualQuestions() {
-                this.renderVisualQuestions();
+                if (this._filterDebounceTimer) clearTimeout(this._filterDebounceTimer);
+                this._filterDebounceTimer = setTimeout(() => {
+                    this.visibleQuestionLimit = 40;
+                    this.renderVisualQuestions();
+                }, 200);
             },
 
             updateJsonView() {
+                const vJson = document.getElementById('view-json');
+                if (!vJson || vJson.classList.contains('hidden')) return;
                 const displayData = {
                     info: this.currentBankInfo,
                     questions: this.currentQuestions
                 };
-                document.getElementById('modal-json-content').value = JSON.stringify(displayData, null, 2);
+                const el = document.getElementById('modal-json-content');
+                if (el) el.value = JSON.stringify(displayData, null, 2);
+            },
+
+            loadMoreQuestions() {
+                this.visibleQuestionLimit = (this.visibleQuestionLimit || 40) + 50;
+                this.renderVisualQuestions();
+            },
+
+            loadAllQuestions() {
+                this.visibleQuestionLimit = 999999;
+                this.renderVisualQuestions();
             },
 
             renderVisualQuestions() {
@@ -2002,13 +2021,17 @@
                     return;
                 }
 
-                container.innerHTML = filtered.map(({ q, idx }) => {
+                // 虚拟切片渲染（默认首屏 40 题，毫秒级即时呈现，杜绝 16000+ DOM 节点导致的卡死）
+                const limit = this.visibleQuestionLimit || 40;
+                const visible = filtered.slice(0, limit);
+
+                const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+                let html = visible.map(({ q, idx }) => {
                     const isChecked = this.selectedBankQuestionIndices.has(idx);
                     const stemText = q.stem || q.q || '无题干';
                     const optList = (Array.isArray(q.options) && q.options.length > 0) ? q.options : (Array.isArray(q.o) ? q.o : []);
                     const ansText = q.ans || q.a || '-';
                     const typeLabel = q.type === 'mcq' ? '单选' : (q.type === 'multi' ? '多选' : (q.type === 'tf' ? '判断' : (q.type === 'fill' ? '填空' : (q.type || '单选'))));
-                    const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
                     return `
                         <div class="card p-4 rounded-2xl border border-[var(--border)] transition-all ${isChecked ? 'ring-2 ring-teal-500 bg-teal-500/5' : ''}">
@@ -2051,6 +2074,22 @@
                         </div>
                     `;
                 }).join('');
+
+                if (filtered.length > visible.length) {
+                    html += `
+                        <div class="p-4 text-center flex flex-wrap items-center justify-center gap-3 bg-[var(--card)] rounded-2xl border border-[var(--border)]">
+                            <span class="text-xs text-[var(--sub)] font-bold">已显示 ${visible.length} / 共 ${filtered.length} 题</span>
+                            <button onclick="Admin.loadMoreQuestions()" class="btn px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold shadow-sm">
+                                加载更多 50 题
+                            </button>
+                            <button onclick="Admin.loadAllQuestions()" class="btn px-4 py-2 bg-[var(--bg-hover)] hover:bg-[var(--border)] border border-[var(--border)] text-[var(--text)] rounded-xl text-xs font-bold">
+                                展开全部 (${filtered.length} 题)
+                            </button>
+                        </div>
+                    `;
+                }
+
+                container.innerHTML = html;
             },
 
             toggleBankQuestionSelect(idx) {
@@ -2431,6 +2470,18 @@
                 document.getElementById('push-text').value = JSON.stringify(sample, null, 2);
             },
 
+            // 异步脚本动态按需加载器（避免外网 CDN 阻塞首屏渲染）
+            loadScript(src) {
+                if (document.querySelector(`script[src="${src}"]`)) return Promise.resolve(true);
+                return new Promise((resolve, reject) => {
+                    const s = document.createElement('script');
+                    s.src = src;
+                    s.onload = () => resolve(true);
+                    s.onerror = () => reject(new Error(`无法加载脚本: ${src}`));
+                    document.head.appendChild(s);
+                });
+            },
+
             async handlePushFile(e) {
                 const file = e.target.files && e.target.files[0];
                 if (!file) return;
@@ -2444,12 +2495,25 @@
                         reader.onload = ev => { txtArea.value = ev.target.result; };
                         reader.readAsText(file, 'utf-8');
                     } else if (ext === 'docx') {
+                        txtArea.value = '正在按需载入 Word 解析引擎...';
+                        if (!window.mammoth) {
+                            await this.loadScript('https://cdn.bootcdn.net/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js')
+                                .catch(() => this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js'));
+                        }
                         const ab = await file.arrayBuffer();
-                        const result = await mammoth.extractRawText({ arrayBuffer: ab });
+                        const result = await window.mammoth.extractRawText({ arrayBuffer: ab });
                         txtArea.value = result.value;
                     } else if (ext === 'pdf') {
+                        txtArea.value = '正在按需载入 PDF 解析引擎...';
+                        if (!window.pdfjsLib) {
+                            await this.loadScript('https://cdn.bootcdn.net/ajax/libs/pdf.js/3.11.174/pdf.min.js')
+                                .catch(() => this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'));
+                            if (window.pdfjsLib) {
+                                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.bootcdn.net/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                            }
+                        }
                         const ab = await file.arrayBuffer();
-                        const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+                        const pdf = await window.pdfjsLib.getDocument({ data: ab }).promise;
                         let fullText = '';
                         for (let i = 1; i <= pdf.numPages; i++) {
                             const page = await pdf.getPage(i);

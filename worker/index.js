@@ -1221,23 +1221,26 @@ export default {
 
                 const action = path.slice("/api/admin/".length);
 
-                // 0. GET OVERVIEW STATS (Dashboard analytics)
+                // 0. GET OVERVIEW STATS (Dashboard analytics - 单句原子合并优化，消除多次等待)
                 if (action === "overview-stats" && request.method === "GET") {
                     try {
-                        const userRow = await env.DB.prepare("SELECT COUNT(*) as c FROM users").first();
-                        const setRow = await env.DB.prepare("SELECT COUNT(*) as c FROM question_sets").first();
-                        const qRow = await env.DB.prepare("SELECT COUNT(*) as c FROM questions").first();
-                        const logRow = await env.DB.prepare("SELECT COUNT(*) as c FROM sync_logs").first();
-                        const activeRow = await env.DB.prepare("SELECT COUNT(DISTINCT user_id) as c FROM sync_logs WHERE created_at >= datetime('now', '-24 hours')").first();
+                        const row = await env.DB.prepare(`
+                            SELECT
+                                (SELECT COUNT(*) FROM users) as users,
+                                (SELECT COUNT(*) FROM question_sets) as sets,
+                                (SELECT COUNT(*) FROM questions) as questions,
+                                (SELECT COUNT(*) FROM sync_logs) as logs,
+                                (SELECT COUNT(DISTINCT user_id) FROM sync_logs WHERE created_at >= datetime('now', '-24 hours')) as activeToday
+                        `).first();
 
                         return jsonResponse({
                             ok: true,
                             stats: {
-                                users: (userRow && userRow.c) || 0,
-                                sets: (setRow && setRow.c) || 0,
-                                questions: (qRow && qRow.c) || 0,
-                                logs: (logRow && logRow.c) || 0,
-                                activeToday: (activeRow && activeRow.c) || 0
+                                users: (row && row.users) || 0,
+                                sets: (row && row.sets) || 0,
+                                questions: (row && row.questions) || 0,
+                                logs: (row && row.logs) || 0,
+                                activeToday: (row && row.activeToday) || 0
                             }
                         }, 200, headers);
                     } catch (e) {
@@ -1292,10 +1295,10 @@ export default {
                         LastSync AS (
                             SELECT
                                 user_id,
-                                created_at as last_sync_at,
-                                delta,
-                                row_number() OVER (PARTITION BY user_id ORDER BY created_at DESC) as rn
+                                MAX(created_at) as last_sync_at,
+                                delta
                             FROM sync_logs
+                            GROUP BY user_id
                         )
                         SELECT
                             u.id as user_id,
@@ -1312,7 +1315,7 @@ export default {
                         LEFT JOIN UserSets us ON u.id = us.user_id
                         LEFT JOIN UserQuestions uq ON u.id = uq.user_id
                         LEFT JOIN UserSyncAgg sa ON u.id = sa.user_id
-                        LEFT JOIN LastSync ls ON u.id = ls.user_id AND ls.rn = 1
+                        LEFT JOIN LastSync ls ON u.id = ls.user_id
                         ${whereSql}
                         ORDER BY last_active_at DESC
                         LIMIT ? OFFSET ?
