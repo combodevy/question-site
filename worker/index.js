@@ -1281,6 +1281,7 @@ export default {
                             } catch (e) {}
                         }
                         return {
+                            id: row.user_id,
                             user_id: row.user_id,
                             email: `${row.username}@user.local`,
                             username: row.username,
@@ -1326,7 +1327,7 @@ export default {
 
                     // Question sets
                     const { results: sets } = await env.DB.prepare(`
-                        SELECT qs.id, qs.name, qs.version, qs.created_at, qs.updated_at, qs.state,
+                        SELECT qs.id, qs.name, qs.version, qs.created_at, qs.state,
                                (SELECT COUNT(*) FROM questions q WHERE q.question_set_id = qs.id) as question_count
                         FROM question_sets qs WHERE qs.user_id = ? ORDER BY qs.id DESC
                     `).bind(targetUid).all();
@@ -1436,8 +1437,7 @@ export default {
                             name: s.name,
                             version: s.version,
                             question_count: s.question_count,
-                            created_at: s.created_at,
-                            updated_at: s.updated_at
+                            created_at: s.created_at
                         })),
                         studyStats,
                         network: {

@@ -1593,8 +1593,15 @@
                         throw new Error(err.error || '获取用户全景画像失败');
                     }
                     const data = await res.json();
-                    const u = data.user;
+                    const u = data.user || {};
                     const st = data.studyStats || {};
+                    data.sets = data.sets || [];
+                    data.network = data.network || { uniqueIps: [], uniqueDevices: [] };
+                    data.network.uniqueIps = data.network.uniqueIps || [];
+                    data.network.uniqueDevices = data.network.uniqueDevices || [];
+                    data.recentLogs = data.recentLogs || [];
+                    data.backups = data.backups || [];
+                    data.snapshots = data.snapshots || [];
 
                     document.getElementById('dossier-username').innerText = u.username || '未命名用户';
                     document.getElementById('dossier-user-id').innerText = `UUID: ${u.id} · 注册于: ${u.created_at || '-'}`;
