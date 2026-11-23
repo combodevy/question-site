@@ -40,7 +40,41 @@ export const auth = {
                     }
                 },
                 async getToken() {
+                    if (this.token) {
+                        const payload = this.parseJwt(this.token);
+                        const expired = payload && typeof payload.exp === 'number'
+                            && payload.exp < Math.floor(Date.now() / 1000);
+                        if (expired) {
+                            this.handleSessionExpired((window.App && App.t) ? App.t('登录已过期') : '登录已过期');
+                            return null;
+                        }
+                    }
                     return this.token;
+                },
+                handleSessionExpired(reason) {
+                    if (this._sessionExpiredHandling) return;
+                    this._sessionExpiredHandling = true;
+                    try {
+                        this.token = null;
+                        this.session = null;
+                        localStorage.removeItem('qs-auth-token');
+                        this.applyAuthState();
+                        if (window.App && App.sync && typeof App.sync.render === 'function') App.sync.render();
+                        const msg = (reason || '登录已过期') + (window.App && App.t
+                            ? App.t('，请重新登录。本地数据已安全保存在本机，重新登录后将自动同步。')
+                            : '，请重新登录。本地数据已安全保存在本机，重新登录后将自动同步。');
+                        if (typeof showGlobalToast === 'function') {
+                            showGlobalToast(msg, 'warning', 6000);
+                        } else {
+                            alert(msg);
+                        }
+                        // 弹窗提示登录
+                        if (window.App && App.ui && typeof App.ui.toggleModal === 'function') {
+                            App.ui.toggleModal('auth');
+                        }
+                    } finally {
+                        setTimeout(() => { this._sessionExpiredHandling = false; }, 1000);
+                    }
                 },
                 getUserId() {
                     return this.session && this.session.user ? this.session.user.id : '';

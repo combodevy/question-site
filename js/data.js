@@ -1564,12 +1564,15 @@ export const data = {
                             const data = await res.json();
                             if (!res.ok || !data) {
                                 console.error("保存题库到云端失败", data);
-                                // token 失效（401）：停止重试保存，自动登出
+                                // token 失效（401）：停止重试保存，清除无效凭据并提示重新登录（保留本机脏数据待重登后自动续传）
                                 if (res.status === 401) {
+                                    this._isSaving = false;
+                                    this._saveAgainPending = false;
                                     const reason = (data && data.error) || '登录已过期';
-                                    if (window.App && App.auth && typeof App.auth.logout === 'function') {
-                                        App.auth.logout();
-                                        alert(reason + App.t('，请重新登录。'));
+                                    if (window.App && App.auth && typeof App.auth.handleSessionExpired === 'function') {
+                                        App.auth.handleSessionExpired(reason);
+                                    } else if (window.App && App.auth && typeof App.auth.logout === 'function') {
+                                        App.auth.logout(true);
                                     }
                                     return;
                                 }
@@ -1969,14 +1972,14 @@ export const data = {
                             }
                             if (!res.ok) {
                                 console.error("从云端加载题库失败", res.status);
-                                // token 失效（401）：自动登出并提示重新登录，避免每次轮询都报同步失败
+                                // token 失效（401）：清除失效会话并提示重新登录，避免每次轮询都死锁循环
                                 if (res.status === 401) {
                                     this._syncReady = false;
-                                    // 注意：这里不能读 data —— 它在下方才用 let 声明，属于暂时性死区，
-                                    // 读取会抛 ReferenceError（曾导致 token 过期时同步彻底失效且不登出）
-                                    if (window.App && App.auth && typeof App.auth.logout === 'function') {
-                                        App.auth.logout();
-                                        alert('登录已过期，请重新登录。');
+                                    this._cloudLoading = false;
+                                    if (window.App && App.auth && typeof App.auth.handleSessionExpired === 'function') {
+                                        App.auth.handleSessionExpired('登录已过期');
+                                    } else if (window.App && App.auth && typeof App.auth.logout === 'function') {
+                                        App.auth.logout(true);
                                     }
                                     return;
                                 }

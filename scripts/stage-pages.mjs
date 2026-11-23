@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dest = path.join(root, '.pages-dist');
 
-const FRONTEND_FILES = ['index.html', 'admin.html', 'config.js'];
+const FRONTEND_FILES = ['index.html', 'admin.html', 'config.js', 'manifest.json', 'sw.js'];
 const FRONTEND_DIRS = ['js', 'fonts', 'english', 'css'];
 
 // 部署目标防呆：确认前端与后端配置指向同一环境
@@ -62,7 +62,7 @@ writeFileSync(path.join(dest, 'version.json'), JSON.stringify({ v: verCode }));
 // CSP 的 connect-src 必须包含本环境的 API 域名——从 config.js 读取，避免两套环境交叉。
 // script-src 需要 'unsafe-inline'：全站表单走内联 onclick，这是现状的诚实上限。
 const cfg = readFileSync(path.join(root, 'config.js'), 'utf8');
-const apiMatch = cfg.match(/window\.API_BASE\s*=\s*"([^"]*)"/);
+const apiMatch = cfg.match(/(?:window\.API_BASE|CLOUDFLARE_WORKER_API)\s*=\s*(?:.*?)["'](https?:\/\/[^"']+)["']/);
 const apiOrigin = apiMatch ? new URL(apiMatch[1]).origin : "'none'";
 const csp = [
     "default-src 'self'",
@@ -96,6 +96,12 @@ const headers = [
     '',
     '/version.json',
     '  Cache-Control: no-store, no-cache, must-revalidate',
+    '',
+    '/sw.js',
+    '  Cache-Control: no-store, no-cache, must-revalidate',
+    '',
+    '/manifest.json',
+    '  Cache-Control: public, max-age=86400, stale-while-revalidate=86400',
     ''
 ].join('\n');
 writeFileSync(path.join(dest, '_headers'), headers);

@@ -14,7 +14,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const cfg = fs.readFileSync(path.join(root, 'config.js'), 'utf8');
 const wr = JSON.parse(fs.readFileSync(path.join(root, 'worker', 'wrangler.json'), 'utf8'));
 
-const apiMatch = cfg.match(/window\.API_BASE\s*=\s*"([^"]*)"/);
+const apiMatch = cfg.match(/(?:window\.API_BASE|CLOUDFLARE_WORKER_API)\s*=\s*(?:.*?)["'](https?:\/\/[^"']+)["']/);
 const api = apiMatch ? apiMatch[1] : '';
 const dbId = wr.d1_databases?.[0]?.database_id || '';
 const workerName = wr.name || '';

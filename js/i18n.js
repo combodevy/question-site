@@ -616,6 +616,7 @@ export const i18n = {
         '登录已过期': { en: 'Session expired' },
         '登录已过期，请重新登录。': { en: 'Session expired. Sign in again.' },
         '，请重新登录。': { en: '. Please sign in again.' },
+        '，请重新登录。本地数据已安全保存在本机，重新登录后将自动同步。': { en: '. Please sign in again. Local data is safely preserved on this device and will sync after sign-in.' },
         '网络错误或无法连接服务器': { en: 'Network error or server unreachable' },
         '网络异常，数据已保存在本地，恢复后自动重试上传': { en: 'Network error — data saved locally and will upload when back online' },
         '合并失败：无法读取云端最新数据。本地修改已全部保留，请稍后重试或先在账户菜单「导出全部题库」备份': { en: 'Merge failed: could not read the latest cloud data. Your local changes are kept — retry later or export a backup first.' },

@@ -533,4 +533,17 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+// PWA Service Worker 注册（支持完全离线冷启动与静态资源加速）
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').then((reg) => {
+            if (reg && reg.update) {
+                setInterval(() => { reg.update().catch(() => {}); }, 60 * 60 * 1000);
+            }
+        }).catch((err) => {
+            console.warn('[SW] Registration failed:', err);
+        });
+    });
+}
+
 export { App };

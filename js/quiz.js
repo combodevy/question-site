@@ -629,12 +629,14 @@ export const quiz = {
                             this.next();
                         }, 1400);
                     } else if (ok) {
-                        // 与选择题行为一致：答对自动进入下一题（稍等片刻让用户看到正确反馈）
+                        // 与选择题行为一致：答对自动进入下一题（平滑自适应延迟）
+                        const hasMedia = (Array.isArray(q.media) && q.media.length > 0) || Boolean(q.psg);
+                        const delay = hasMedia ? 1100 : 700;
                         if (this._pendingNextTimer) clearTimeout(this._pendingNextTimer);
                         this._pendingNextTimer = setTimeout(() => {
                             this._pendingNextTimer = null;
                             this.next();
-                        }, 700);
+                        }, delay);
                     }
                 },
 
@@ -746,6 +748,23 @@ export const quiz = {
                     }
                     this._applyAnsweredView(q, saved, true);
                     this._updateNavUI();
+
+                    // 多选题答对后自适应切题（与单选节奏对齐）
+                    if (q.selfCheck) {
+                        if (this._pendingNextTimer) clearTimeout(this._pendingNextTimer);
+                        this._pendingNextTimer = setTimeout(() => {
+                            this._pendingNextTimer = null;
+                            this.next();
+                        }, 1400);
+                    } else if (ok) {
+                        const hasMedia = (Array.isArray(q.media) && q.media.length > 0) || Boolean(q.psg);
+                        const delay = hasMedia ? 1200 : 800;
+                        if (this._pendingNextTimer) clearTimeout(this._pendingNextTimer);
+                        this._pendingNextTimer = setTimeout(() => {
+                            this._pendingNextTimer = null;
+                            this.next();
+                        }, delay);
+                    }
                 },
 
                 sub(val, el) {
@@ -778,11 +797,14 @@ export const quiz = {
                             this.next();
                         }, 1400);
                     } else if (ok) {
+                        // 优化切题节奏：普通单选题 650ms，含图表/长阅读题目适当留出 1100ms 观察窗口
+                        const hasMedia = (Array.isArray(q.media) && q.media.length > 0) || Boolean(q.psg);
+                        const delay = hasMedia ? 1100 : 650;
                         if (this._pendingNextTimer) clearTimeout(this._pendingNextTimer);
                         this._pendingNextTimer = setTimeout(() => {
                             this._pendingNextTimer = null;
                             this.next();
-                        }, 400);
+                        }, delay);
                     }
                 },
                 next() {
