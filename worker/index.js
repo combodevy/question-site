@@ -1155,6 +1155,30 @@ export default {
 
                 const action = path.slice("/api/admin/".length);
 
+                // 0. GET OVERVIEW STATS (Dashboard analytics)
+                if (action === "overview-stats" && request.method === "GET") {
+                    try {
+                        const userRow = await env.DB.prepare("SELECT COUNT(*) as c FROM users").first();
+                        const setRow = await env.DB.prepare("SELECT COUNT(*) as c FROM question_sets").first();
+                        const qRow = await env.DB.prepare("SELECT COUNT(*) as c FROM questions").first();
+                        const logRow = await env.DB.prepare("SELECT COUNT(*) as c FROM sync_logs").first();
+                        const activeRow = await env.DB.prepare("SELECT COUNT(DISTINCT user_id) as c FROM sync_logs WHERE created_at >= datetime('now', '-24 hours')").first();
+
+                        return jsonResponse({
+                            ok: true,
+                            stats: {
+                                users: (userRow && userRow.c) || 0,
+                                sets: (setRow && setRow.c) || 0,
+                                questions: (qRow && qRow.c) || 0,
+                                logs: (logRow && logRow.c) || 0,
+                                activeToday: (activeRow && activeRow.c) || 0
+                            }
+                        }, 200, headers);
+                    } catch (e) {
+                        return jsonResponse({ error: "Failed to get overview stats: " + e.message }, 500, headers);
+                    }
+                }
+
                 // 1. GET USERS LIST
                 if (action === "users-list" && request.method === "GET") {
                     // 分页：?page=1&pageSize=20（pageSize 上限 100）。之前写死 LIMIT 50，

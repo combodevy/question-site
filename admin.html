@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>管理后台 - Question Site Admin</title>
+    <title>管理后台 - Question Banks</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230d9488' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'/%3E%3C/svg%3E">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -12,8 +12,8 @@
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
     <script src="config.js"></script>
+    <link rel="stylesheet" href="css/tailwind.css">
     <style>
-        /* 自托管 Inter 可变字体，与用户端字体栈一致 */
         @font-face {
             font-family: 'Inter';
             src: url('fonts/inter-var.woff2') format('woff2-variations');
@@ -22,293 +22,445 @@
             font-display: swap;
         }
 
+        :root {
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #0f172a;
+            --sub: #64748b;
+            --border: #e2e8f0;
+            --accent: #0d9488;
+            --accent-hover: #0f766e;
+            --bg-hover: #f1f5f9;
+        }
+
+        html.dark {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f8fafc;
+            --sub: #94a3b8;
+            --border: #334155;
+            --accent: #2dd4bf;
+            --accent-hover: #14b8a6;
+            --bg-hover: #334155;
+        }
+
         body {
+            background-color: var(--bg);
+            color: var(--text);
             font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            transition: background 0.25s, color 0.25s;
+        }
+
+        .card {
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            transition: all 0.2s ease;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease-out;
+            font-weight: 700;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .btn:active {
+            transform: scale(0.96);
+        }
+
+        .custom-scroll::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 999px;
+        }
+
+        html.dark .custom-scroll::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+
+        .anim-pop-in {
+            animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes popIn {
+            from {
+                opacity: 0;
+                transform: scale(0.96) translateY(4px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
         }
     </style>
-    <link rel="stylesheet" href="css/tailwind.css">
 </head>
 
-<body class="bg-gray-50 min-h-screen font-sans text-gray-900 overflow-hidden">
+<body class="min-h-screen text-slate-900 dark:text-slate-100 overflow-hidden">
 
     <!-- 移动端侧边栏遮罩 -->
     <div id="mobile-sidebar-backdrop" onclick="Admin.toggleSidebar()"
-        class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-30 hidden md:hidden transition-opacity opacity-0"></div>
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30 hidden md:hidden transition-opacity opacity-0"></div>
 
     <!-- 登录遮罩 -->
-    <div id="login-overlay" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center">
-        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
-            <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">管理员登录</h2>
+    <div id="login-overlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="card p-8 rounded-3xl shadow-2xl w-full max-w-md border border-[var(--border)] anim-pop-in">
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-teal-500/10 text-teal-600 dark:text-teal-400 mb-3">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-teal-600 to-cyan-500 dark:from-teal-400 dark:to-cyan-300">管理员登录</h2>
+                <p class="text-xs text-[var(--sub)] mt-1">Question Banks Workspace Admin</p>
+            </div>
             <div class="space-y-4">
-                <input type="text" id="email" placeholder="Username"
-                    class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none">
-                <input type="password" id="password" placeholder="Password"
-                    class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none">
-                <div class="flex gap-2">
+                <div>
+                    <label class="block text-xs font-bold text-[var(--sub)] mb-1">用户名 / 账号</label>
+                    <input type="text" id="email" placeholder="输入管理员用户名"
+                        class="w-full px-4 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 outline-none text-sm transition-all">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-[var(--sub)] mb-1">密码</label>
+                    <input type="password" id="password" placeholder="输入密码"
+                        class="w-full px-4 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 outline-none text-sm transition-all">
+                </div>
+                <div class="flex gap-2.5 pt-2">
                     <button onclick="Admin.login()"
-                        class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors">
+                        class="btn flex-1 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white font-bold py-2.5 rounded-xl transition-all shadow-md shadow-teal-500/20 text-sm">
                         登录 (Login)
                     </button>
                     <button onclick="Admin.signUp()"
-                        class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-lg transition-colors border border-gray-300">
+                        class="btn flex-1 bg-[var(--bg)] hover:bg-[var(--bg-hover)] text-[var(--text)] font-bold py-2.5 rounded-xl transition-colors border border-[var(--border)] text-sm">
                         注册 (Sign Up)
                     </button>
                 </div>
-                <div id="login-msg" class="text-sm text-red-500 text-center h-5"></div>
+                <div id="login-msg" class="text-xs text-red-500 text-center min-h-[1.25rem] font-medium"></div>
             </div>
         </div>
     </div>
 
     <!-- 题库列表弹窗 -->
     <div id="sets-modal"
-        class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="card rounded-3xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden border border-[var(--border)] anim-pop-in">
+            <div class="px-6 py-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg)]">
                 <div>
-                    <h3 class="text-lg font-bold text-gray-800">User's Question Sets</h3>
-                    <p class="text-xs text-gray-500" id="sets-modal-subtitle">User ID: ...</p>
+                    <h3 class="text-lg font-bold text-[var(--text)] flex items-center gap-2">
+                        <span>用户的题库集合 (Question Sets)</span>
+                    </h3>
+                    <p class="text-xs text-[var(--sub)] font-mono mt-0.5" id="sets-modal-subtitle">User ID: ...</p>
                 </div>
                 <button onclick="document.getElementById('sets-modal').classList.add('hidden')"
-                    class="text-gray-400 hover:text-gray-600 transition-colors">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
-                        </path>
+                    class="w-8 h-8 rounded-full flex items-center justify-center text-[var(--sub)] hover:text-[var(--text)] hover:bg-[var(--bg-hover)] transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
 
-            <div class="flex-1 overflow-x-auto p-4 md:p-6 bg-gray-100">
+            <div class="flex-1 overflow-x-auto p-4 md:p-6 bg-[var(--bg)]">
                 <div class="min-w-max md:min-w-0">
-                    <table class="w-full text-left text-sm bg-white rounded-xl shadow-sm overflow-hidden">
-                        <thead class="bg-gray-50 text-gray-600 font-semibold uppercase text-xs">
+                    <table class="w-full text-left text-sm card rounded-2xl shadow-sm overflow-hidden border border-[var(--border)]">
+                        <thead class="bg-[var(--bg)] text-[var(--sub)] font-bold uppercase text-[11px] border-b border-[var(--border)]">
                             <tr>
-                                <th class="px-6 py-3">ID</th>
-                                <th class="px-6 py-3">Bank Name</th>
-                                <th class="px-6 py-3">Version</th>
-                                <th class="px-6 py-3">Questions</th>
-                                <th class="px-6 py-3">Created At</th>
-                                <th class="px-6 py-3 text-right">Actions</th>
+                                <th class="px-5 py-3">ID</th>
+                                <th class="px-5 py-3">题库名称</th>
+                                <th class="px-5 py-3">版本</th>
+                                <th class="px-5 py-3">题目数量</th>
+                                <th class="px-5 py-3">创建时间</th>
+                                <th class="px-5 py-3 text-right">操作</th>
                             </tr>
                         </thead>
-                        <tbody id="sets-table-body" class="divide-y divide-gray-200">
+                        <tbody id="sets-table-body" class="divide-y divide-[var(--border)] text-xs">
                             <!-- JS 渲染 -->
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            <div class="px-6 py-4 border-t border-gray-200 bg-white flex justify-end gap-3">
+            <div class="px-6 py-4 border-t border-[var(--border)] bg-[var(--card)] flex justify-end gap-3">
                 <button onclick="document.getElementById('sets-modal').classList.add('hidden')"
-                    class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors">
-                    Close
+                    class="btn px-4 py-2 rounded-xl border border-[var(--border)] text-[var(--text)] font-bold text-xs hover:bg-[var(--bg-hover)] transition-colors">
+                    关闭
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- 题库详情弹窗 -->
+    <!-- 题库详情与编辑弹窗 (Bank Details Modal) -->
     <div id="bank-modal"
-        class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[60] flex items-center justify-center hidden">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                <div>
-                    <h3 class="text-lg font-bold text-gray-800" id="modal-title">Bank Details</h3>
-                    <p class="text-xs text-gray-500" id="modal-subtitle">Set ID: ...</p>
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center hidden p-2 md:p-4">
+        <div class="card rounded-3xl shadow-2xl w-full max-w-6xl h-[92vh] flex flex-col overflow-hidden border border-[var(--border)] anim-pop-in">
+            <div class="px-6 py-3.5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg)]">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-base md:text-lg font-bold text-[var(--text)]" id="modal-title">Bank Details</h3>
+                        <p class="text-[11px] text-[var(--sub)] font-mono" id="modal-subtitle">Set ID: ...</p>
+                    </div>
                 </div>
-                <button onclick="document.getElementById('bank-modal').classList.add('hidden')"
-                    class="text-gray-400 hover:text-gray-600 transition-colors">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
-                        </path>
-                    </svg>
-                </button>
+                <div class="flex items-center gap-2">
+                    <button onclick="document.getElementById('bank-modal').classList.add('hidden')"
+                        class="w-8 h-8 rounded-full flex items-center justify-center text-[var(--sub)] hover:text-[var(--text)] hover:bg-[var(--bg-hover)] transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
             </div>
 
-            <div class="flex-1 overflow-auto p-6 bg-gray-100 flex flex-col">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    <!-- 概览卡片 -->
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                        <div class="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Total Questions</div>
-                        <div class="text-2xl font-bold text-blue-600" id="modal-total-q">0</div>
+            <div class="flex-1 overflow-auto p-4 md:p-6 bg-[var(--bg)] flex flex-col">
+                <!-- 概览指标卡 -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4">
+                    <div class="card p-3.5 rounded-2xl border border-[var(--border)] shadow-sm">
+                        <div class="text-[11px] text-[var(--sub)] font-bold uppercase tracking-wider">题目总量</div>
+                        <div class="text-xl md:text-2xl font-black text-teal-600 dark:text-teal-400 mt-1" id="modal-total-q">0</div>
                     </div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                        <div class="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Version</div>
-                        <div class="text-2xl font-bold text-purple-600" id="modal-version">v0</div>
+                    <div class="card p-3.5 rounded-2xl border border-[var(--border)] shadow-sm">
+                        <div class="text-[11px] text-[var(--sub)] font-bold uppercase tracking-wider">当前版本</div>
+                        <div class="text-xl md:text-2xl font-black text-purple-600 dark:text-purple-400 mt-1" id="modal-version">v0</div>
                     </div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                        <div class="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Created At</div>
-                        <div class="text-sm font-medium text-gray-800 mt-1" id="modal-created">-</div>
+                    <div class="card p-3.5 rounded-2xl border border-[var(--border)] shadow-sm col-span-2">
+                        <div class="text-[11px] text-[var(--sub)] font-bold uppercase tracking-wider">创建时间</div>
+                        <div class="text-xs md:text-sm font-medium text-[var(--text)] mt-1.5" id="modal-created">-</div>
                     </div>
                 </div>
 
-                <!-- 视图切换 -->
-                <div class="flex justify-end mb-4">
-                    <div class="bg-white rounded-lg p-1 border border-gray-200 inline-flex">
-                        <button onclick="Admin.switchView('visual')" id="btn-view-visual"
-                            class="px-4 py-1.5 rounded text-sm font-medium transition-colors bg-blue-100 text-blue-700">Visual
-                            View</button>
-                        <button onclick="Admin.switchView('json')" id="btn-view-json"
-                            class="px-4 py-1.5 rounded text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">JSON
-                            Source</button>
+                <!-- 视图切换与工具栏 -->
+                <div class="flex flex-wrap items-center justify-between gap-2.5 mb-3.5">
+                    <!-- 左侧：筛选器 -->
+                    <div class="flex flex-wrap items-center gap-2 text-xs">
+                        <input id="bank-q-search" type="text" placeholder="搜索题目内容或选项…"
+                            oninput="Admin.filterVisualQuestions()"
+                            class="px-3 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--card)] text-[var(--text)] text-xs outline-none focus:border-teal-500 w-36 sm:w-48">
+                        <select id="bank-sub-filter" onchange="Admin.filterVisualQuestions()"
+                            class="px-2.5 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--card)] text-[var(--text)] text-xs outline-none">
+                            <option value="">全部科目</option>
+                        </select>
+                        <select id="bank-type-filter" onchange="Admin.filterVisualQuestions()"
+                            class="px-2.5 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--card)] text-[var(--text)] text-xs outline-none">
+                            <option value="">全部题型</option>
+                            <option value="mcq">单选题 (MCQ)</option>
+                            <option value="multi">多选题 (Multi)</option>
+                            <option value="tf">判断题 (T/F)</option>
+                            <option value="fill">填空题 (Fill)</option>
+                        </select>
+                        <button onclick="Admin.openQuestionEditor(-1)"
+                            class="btn px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold gap-1 shadow-sm shadow-teal-500/20">
+                            + 新增题目
+                        </button>
+                        <button onclick="Admin.auditCurrentBank()"
+                            class="btn px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 rounded-xl text-xs font-bold border border-purple-200 dark:border-purple-800">
+                            🔍 智能体检/查重
+                        </button>
                     </div>
+
+                    <!-- 右侧：视图切换按钮 -->
+                    <div class="card rounded-xl p-1 border border-[var(--border)] inline-flex self-end">
+                        <button onclick="Admin.switchView('visual')" id="btn-view-visual"
+                            class="px-3.5 py-1 rounded-lg text-xs font-bold transition-all bg-teal-600 text-white shadow-sm">
+                            可视化列表 (Visual)
+                        </button>
+                        <button onclick="Admin.switchView('json')" id="btn-view-json"
+                            class="px-3.5 py-1 rounded-lg text-xs font-bold text-[var(--sub)] hover:text-[var(--text)] transition-all">
+                            JSON 源码 (JSON Source)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 批量操作工具条 (选中题目后激活) -->
+                <div id="bank-batch-bar" class="hidden items-center justify-between p-2.5 mb-3 bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/60 rounded-xl text-xs">
+                    <div class="flex items-center gap-2 text-teal-800 dark:text-teal-200 font-bold">
+                        <input type="checkbox" id="select-all-bank-q" onchange="Admin.toggleSelectAllBankQuestions(this)" class="accent-teal-600 w-4 h-4">
+                        <span>已选中 <span id="bank-selected-count">0</span> 道题目</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="Admin.batchDeleteBankQuestions()"
+                            class="btn px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold shadow-sm">
+                            批量删除
+                        </button>
+                        <button onclick="Admin.exportSelectedBankQuestions()"
+                            class="btn px-2.5 py-1 bg-white dark:bg-slate-800 text-[var(--text)] border border-[var(--border)] rounded-lg text-xs font-bold hover:bg-[var(--bg-hover)]">
+                            导出选中 (JSON)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 智能体检反馈通知栏 -->
+                <div id="bank-audit-summary" class="hidden p-3 mb-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-2xl text-xs text-amber-800 dark:text-amber-200 flex items-center justify-between">
+                    <div id="bank-audit-text" class="font-medium"></div>
+                    <button id="bank-audit-fix-btn" onclick="Admin.applyBankDeduplication()" class="btn px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs shadow-sm">
+                        一键修复去重
+                    </button>
                 </div>
 
                 <!-- 可视化视图 -->
                 <div id="view-visual"
-                    class="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-auto p-6 space-y-6">
-                    <!-- JS Render Questions -->
-                    <div class="text-center text-gray-500 py-10">Loading questions...</div>
+                    class="flex-1 card rounded-2xl shadow-sm border border-[var(--border)] overflow-auto p-4 md:p-6 space-y-3 custom-scroll">
+                    <div class="text-center text-[var(--sub)] py-10">加载题库内容中...</div>
                 </div>
 
                 <!-- JSON 视图 -->
                 <div id="view-json"
-                    class="hidden flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[500px]">
-                    <div class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-                        <span class="text-xs font-bold text-gray-600 uppercase">Raw JSON Data (Editable)</span>
+                    class="hidden flex-1 card rounded-2xl shadow-sm border border-[var(--border)] overflow-hidden flex flex-col h-[520px]">
+                    <div class="px-4 py-2.5 bg-[var(--bg)] border-b border-[var(--border)] flex justify-between items-center">
+                        <span class="text-xs font-bold text-[var(--sub)] uppercase">原始 JSON 数据（支持直接编辑后保存）</span>
                         <div class="space-x-2">
                             <button id="btn-copy-json" onclick="Admin.copyJson()"
-                                class="text-xs bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-50">Copy</button>
+                                class="btn text-xs bg-[var(--card)] border border-[var(--border)] text-[var(--text)] px-3 py-1 rounded-lg hover:bg-[var(--bg-hover)]">
+                                复制 JSON
+                            </button>
                         </div>
                     </div>
                     <textarea id="modal-json-content"
-                        class="flex-1 w-full p-4 font-mono text-xs text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 bg-white"
+                        class="flex-1 w-full p-4 font-mono text-xs text-[var(--text)] resize-none focus:outline-none focus:ring-2 focus:ring-inset focus:ring-teal-500 bg-[var(--card)] custom-scroll"
                         spellcheck="false"></textarea>
                 </div>
             </div>
 
-            <div class="px-6 py-4 border-t border-gray-200 bg-white flex justify-end gap-3 z-10">
+            <div class="px-6 py-3.5 border-t border-[var(--border)] bg-[var(--card)] flex justify-end gap-3 z-10">
                 <button onclick="document.getElementById('bank-modal').classList.add('hidden')"
-                    class="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors">
-                    Close
+                    class="btn px-4 py-2 rounded-xl border border-[var(--border)] text-[var(--text)] font-bold text-xs hover:bg-[var(--bg-hover)] transition-colors">
+                    关闭
                 </button>
                 <button onclick="Admin.saveBank()" id="btn-save-bank"
-                    class="px-6 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold hover:from-blue-700 hover:to-blue-800 transition-all shadow-md shadow-blue-500/20 flex items-center gap-2">
-                    <span>Save Changes</span>
+                    class="btn px-6 py-2 rounded-xl bg-gradient-to-r from-teal-600 to-teal-700 text-white font-bold text-xs hover:from-teal-700 hover:to-teal-800 transition-all shadow-md shadow-teal-500/20 flex items-center gap-2">
+                    <span>保存更新到云端</span>
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- 题目编辑弹窗 (从 index.html 移植) -->
+    <!-- 题目编辑弹窗 (Question Editor Modal) -->
     <div id="modal-question-editor"
-        class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[60] flex items-center justify-center hidden">
-        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-0 flex flex-col max-h-[85vh]">
-            <div class="p-4 md:p-5 border-b border-gray-200 flex justify-between items-center bg-gray-50 rounded-t-2xl">
-                <h3 id="qe-title" class="font-bold text-base text-gray-800">Edit Question</h3>
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center hidden p-4">
+        <div class="card w-full max-w-lg rounded-3xl shadow-2xl p-0 flex flex-col max-h-[88vh] border border-[var(--border)] anim-pop-in">
+            <div class="p-4 md:p-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg)] rounded-t-3xl">
+                <h3 id="qe-title" class="font-bold text-sm md:text-base text-[var(--text)]">Edit Question</h3>
                 <button onclick="document.getElementById('modal-question-editor').classList.add('hidden')"
-                    class="text-gray-400 hover:text-gray-600 p-1">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
-                        </path>
+                    class="w-7 h-7 rounded-full flex items-center justify-center text-[var(--sub)] hover:text-[var(--text)] hover:bg-[var(--bg-hover)]">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
-            <div class="p-4 md:p-5 space-y-3 overflow-y-auto flex-grow text-xs">
+            <div class="p-4 md:p-5 space-y-3.5 overflow-y-auto flex-grow text-xs custom-scroll">
                 <input type="hidden" id="qe-index" />
 
                 <div class="space-y-1">
-                    <label class="text-[11px] text-gray-500 font-bold">Subject</label>
+                    <label class="text-[11px] text-[var(--sub)] font-bold">科目 (Subject)</label>
                     <div class="flex gap-2">
                         <select id="qe-subject-select"
-                            class="flex-1 bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none"></select>
-                        <input id="qe-subject-input" placeholder="New Subject"
-                            class="w-32 bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none" />
+                            class="flex-1 bg-[var(--bg)] border border-[var(--border)] rounded-xl px-2.5 py-1.5 outline-none text-xs"></select>
+                        <input id="qe-subject-input" placeholder="输入新科目"
+                            class="w-32 bg-[var(--bg)] border border-[var(--border)] rounded-xl px-2.5 py-1.5 outline-none text-xs" />
                     </div>
                 </div>
 
                 <div class="space-y-1">
-                    <label class="text-[11px] text-gray-500 font-bold">Chapter</label>
+                    <label class="text-[11px] text-[var(--sub)] font-bold">章节 (Chapter)</label>
                     <div class="flex gap-2">
                         <select id="qe-chapter-select"
-                            class="flex-1 bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none"></select>
-                        <input id="qe-chapter-input" placeholder="New Chapter"
-                            class="w-32 bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none" />
+                            class="flex-1 bg-[var(--bg)] border border-[var(--border)] rounded-xl px-2.5 py-1.5 outline-none text-xs"></select>
+                        <input id="qe-chapter-input" placeholder="输入新章节"
+                            class="w-32 bg-[var(--bg)] border border-[var(--border)] rounded-xl px-2.5 py-1.5 outline-none text-xs" />
                     </div>
                 </div>
 
                 <div class="space-y-1">
-                    <label class="text-[11px] text-gray-500 font-bold">Type</label>
+                    <label class="text-[11px] text-[var(--sub)] font-bold">题型 (Type)</label>
                     <select id="qe-type" onchange="Admin.onQuestionTypeChange()"
-                        class="w-full bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none">
-                        <option value="mcq">Multiple Choice (MCQ)</option>
-                        <option value="multi">Multi-Select</option>
-                        <option value="tf">True/False</option>
-                        <option value="fill">Fill-in-the-blank</option>
+                        class="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-2.5 py-1.5 outline-none text-xs font-bold text-[var(--text)]">
+                        <option value="mcq">单选题 (Single Choice)</option>
+                        <option value="multi">多选题 (Multi-Select)</option>
+                        <option value="tf">判断题 (True/False)</option>
+                        <option value="fill">填空题 (Fill-in-the-blank)</option>
                     </select>
                 </div>
 
                 <div class="space-y-1">
-                    <label class="text-[11px] text-gray-500 font-bold">Question Text</label>
+                    <label class="text-[11px] text-[var(--sub)] font-bold">题干内容 (Question Text)</label>
                     <textarea id="qe-q" rows="3"
-                        class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none resize-none"
-                        placeholder="Enter question content..."></textarea>
+                        class="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-3 py-2 outline-none resize-none text-xs leading-relaxed"
+                        placeholder="输入题目描述..."></textarea>
                 </div>
 
                 <div id="qe-fill-block" class="space-y-1 hidden">
-                    <label class="text-[11px] text-gray-500 font-bold">Correct Answer (multiple accepted answers, separate with | )</label>
+                    <label class="text-[11px] text-[var(--sub)] font-bold">正确答案 (多个可能答案可用 | 分隔)</label>
                     <input id="qe-fill-answer" type="text"
-                        class="w-full bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none"
-                        placeholder="e.g. TCP|Transmission Control Protocol" />
+                        class="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-3 py-2 outline-none text-xs"
+                        placeholder="例如: TCP|传输控制协议" />
                 </div>
 
-                <div id="qe-options-block" class="space-y-1">
+                <div id="qe-options-block" class="space-y-1.5">
                     <div class="flex items-center justify-between">
-                        <label class="text-[11px] text-gray-500 font-bold">Options</label>
-                        <button onclick="Admin.addQuestionOption()"
-                            class="text-[11px] text-blue-600 hover:underline font-bold">+ Add Option</button>
+                        <label class="text-[11px] text-[var(--sub)] font-bold">选项列表 (勾选对应正确答案)</label>
+                        <button type="button" onclick="Admin.addQuestionOption()"
+                            class="text-[11px] text-teal-600 dark:text-teal-400 hover:underline font-bold">+ 增加选项</button>
                     </div>
                     <div id="qe-options-list" class="space-y-2"></div>
                 </div>
 
-                <div id="qe-tf-block" class="space-y-1 hidden">
-                    <label class="text-[11px] text-gray-500 font-bold">Correct Answer</label>
-                    <div class="flex items-center gap-4">
-                        <label class="flex items-center gap-1">
-                            <input type="radio" name="qe-tf" value="T" class="accent-blue-600" />
-                            <span>Correct (True)</span>
+                <div id="qe-tf-block" class="space-y-1.5 hidden">
+                    <label class="text-[11px] text-[var(--sub)] font-bold">正确答案 (判断结果)</label>
+                    <div class="flex items-center gap-4 pt-1">
+                        <label class="flex items-center gap-1.5 cursor-pointer">
+                            <input type="radio" name="qe-tf" value="T" class="accent-teal-600" />
+                            <span class="font-bold text-green-600">正确 (True)</span>
                         </label>
-                        <label class="flex items-center gap-1">
-                            <input type="radio" name="qe-tf" value="F" class="accent-blue-600" />
-                            <span>Incorrect (False)</span>
+                        <label class="flex items-center gap-1.5 cursor-pointer">
+                            <input type="radio" name="qe-tf" value="F" class="accent-teal-600" />
+                            <span class="font-bold text-red-500">错误 (False)</span>
                         </label>
                     </div>
                 </div>
 
-                <div id="qe-error" class="text-[11px] text-red-500 font-bold"></div>
+                <div id="qe-error" class="text-[11px] text-red-500 font-bold min-h-[1rem]"></div>
             </div>
-            <div class="p-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3 rounded-b-2xl">
-                <button onclick="document.getElementById('modal-question-editor').classList.add('hidden')"
-                    class="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-100">Cancel</button>
-                <button onclick="Admin.saveQuestionFromEditor()"
-                    class="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm">Save
-                    Question</button>
+            <div class="p-4 border-t border-[var(--border)] bg-[var(--bg)] flex justify-end gap-2.5 rounded-b-3xl">
+                <button type="button" onclick="document.getElementById('modal-question-editor').classList.add('hidden')"
+                    class="btn px-3 py-1.5 bg-[var(--card)] border border-[var(--border)] text-[var(--text)] rounded-xl text-xs font-bold hover:bg-[var(--bg-hover)]">取消</button>
+                <button type="button" onclick="Admin.saveQuestionFromEditor()"
+                    class="btn px-4 py-1.5 bg-teal-600 text-white rounded-xl text-xs font-bold hover:bg-teal-700 shadow-sm shadow-teal-500/20">保存本题</button>
             </div>
         </div>
     </div>
 
     <!-- 添加用户弹窗 -->
     <div id="modal-add-user"
-        class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[70] flex items-center justify-center hidden">
-        <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
-            <h3 class="text-lg font-bold text-gray-800 mb-4">Add New User</h3>
-            <div class="space-y-4">
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center hidden p-4">
+        <div class="card rounded-3xl shadow-2xl p-6 w-full max-w-sm border border-[var(--border)] anim-pop-in">
+            <h3 class="text-base font-bold text-[var(--text)] mb-3 flex items-center gap-2">
+                <span>添加新用户</span>
+            </h3>
+            <div class="space-y-3.5">
                 <div>
-                    <label class="block text-xs font-bold text-gray-500 mb-1">Email</label>
-                    <input id="new-user-email" type="email"
-                        class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 outline-none text-sm">
+                    <label class="block text-xs font-bold text-[var(--sub)] mb-1">用户名 (Username)</label>
+                    <input id="new-user-email" type="text" placeholder="2-32 位字母/数字/中文"
+                        class="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-3 py-2 outline-none text-xs text-[var(--text)]">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-gray-500 mb-1">Password</label>
-                    <input id="new-user-pwd" type="password"
-                        class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 outline-none text-sm">
+                    <label class="block text-xs font-bold text-[var(--sub)] mb-1">初始密码</label>
+                    <input id="new-user-pwd" type="password" placeholder="至少 6 位"
+                        class="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-3 py-2 outline-none text-xs text-[var(--text)]">
                 </div>
                 <div id="add-user-msg" class="text-xs text-red-500 min-h-[1rem]"></div>
-                <div class="flex justify-end gap-2 pt-2">
+                <div class="flex justify-end gap-2 pt-1">
                     <button onclick="document.getElementById('modal-add-user').classList.add('hidden')"
-                        class="px-3 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-bold">Cancel</button>
+                        class="btn px-3 py-1.5 text-[var(--sub)] hover:bg-[var(--bg-hover)] rounded-xl text-xs font-bold">取消</button>
                     <button onclick="Admin.addNewUser()"
-                        class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700">Create
-                        User</button>
+                        class="btn px-4 py-1.5 bg-teal-600 text-white rounded-xl text-xs font-bold hover:bg-teal-700 shadow-sm shadow-teal-500/20">创建账号</button>
                 </div>
             </div>
         </div>
@@ -316,63 +468,58 @@
 
     <!-- 批量推送确认弹窗 -->
     <div id="modal-batch-push"
-        class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[70] flex items-center justify-center hidden">
-        <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-2xl">
-            <h3 class="text-lg font-bold text-gray-800 mb-2">Batch Push to Selected Users</h3>
-            <p class="text-sm text-gray-500 mb-4">Selected Users: <span id="batch-push-count"
-                    class="font-bold text-gray-900">0</span></p>
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center hidden p-4">
+        <div class="card rounded-3xl shadow-2xl p-6 w-full max-w-2xl border border-[var(--border)] anim-pop-in">
+            <h3 class="text-base font-bold text-[var(--text)] mb-1">批量推送题库到选中用户</h3>
+            <p class="text-xs text-[var(--sub)] mb-4">目标用户数: <span id="batch-push-count"
+                    class="font-bold text-teal-600 dark:text-teal-400">0</span> 位</p>
 
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
-                    <input id="batch-bank-name" type="text" placeholder="e.g. Exam 2024"
-                        class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none">
+                    <label class="block text-xs font-bold text-[var(--sub)] mb-1">题库名称</label>
+                    <input id="batch-bank-name" type="text" placeholder="例如: 2026 期末全真模拟卷"
+                        class="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-3 py-2 outline-none text-xs text-[var(--text)]">
                 </div>
 
                 <!-- 导入区域 -->
-                <div class="border-t border-gray-200 pt-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Import Questions</label>
-                    <div class="grid grid-cols-2 gap-4">
-                        <!-- 文件上传 -->
+                <div class="border-t border-[var(--border)] pt-3">
+                    <label class="block text-xs font-bold text-[var(--sub)] mb-2">选择题库文件或粘贴题目数据</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div
-                            class="border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-center hover:bg-gray-50 transition-colors cursor-pointer relative">
+                            class="border-2 border-dashed border-[var(--border)] rounded-2xl p-4 flex flex-col items-center justify-center text-center hover:bg-[var(--bg-hover)] transition-colors cursor-pointer relative">
                             <input type="file" id="batch-import-file" accept=".txt,.json,.docx,.pdf"
                                 class="absolute inset-0 opacity-0 cursor-pointer"
                                 onchange="Admin.handleFileImport(this)">
-                            <svg class="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor"
+                            <svg class="w-7 h-7 text-teal-600 dark:text-teal-400 mb-1" fill="none" stroke="currentColor"
                                 viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12">
-                                </path>
+                                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                             </svg>
-                            <span class="text-xs text-gray-600 font-bold">Upload File</span>
-                            <span class="text-[11px] text-gray-400 mt-1">Word, PDF, TXT, JSON</span>
+                            <span class="text-xs font-bold text-[var(--text)]">上传题库文件</span>
+                            <span class="text-[10px] text-[var(--sub)] mt-0.5">Word (.docx), PDF, TXT, JSON</span>
                         </div>
-                        <!-- 粘贴文本 -->
                         <textarea id="batch-json-input"
-                            class="w-full h-32 bg-gray-50 border border-gray-300 rounded-xl p-3 text-xs font-mono outline-none resize-none"
-                            placeholder="Or paste JSON / Text content here..."></textarea>
+                            class="w-full h-28 bg-[var(--bg)] border border-[var(--border)] rounded-2xl p-3 text-xs font-mono outline-none resize-none custom-scroll text-[var(--text)]"
+                            placeholder="或直接在此粘贴 JSON / 文本..."></textarea>
                     </div>
                 </div>
 
                 <!-- 预览区域 -->
-                <div id="import-preview-area" class="hidden bg-gray-50 rounded-xl p-4 border border-gray-200">
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="text-xs font-bold text-gray-600">Preview: <span id="preview-count">0</span>
-                            questions</span>
+                <div id="import-preview-area" class="hidden bg-[var(--bg)] rounded-2xl p-3.5 border border-[var(--border)]">
+                    <div class="flex justify-between items-center mb-1.5">
+                        <span class="text-xs font-bold text-[var(--text)]">识别预览: <span id="preview-count" class="text-teal-600">0</span> 道题</span>
                         <button onclick="document.getElementById('import-preview-details').classList.toggle('hidden')"
-                            class="text-blue-600 text-xs hover:underline">Show/Hide Details</button>
+                            class="text-teal-600 dark:text-teal-400 text-xs hover:underline font-bold">展开/收起详情</button>
                     </div>
                     <div id="import-preview-details"
-                        class="hidden max-h-40 overflow-y-auto space-y-2 text-xs text-gray-600"></div>
+                        class="hidden max-h-36 overflow-y-auto space-y-1.5 text-xs text-[var(--sub)] custom-scroll pr-1"></div>
                 </div>
 
-                <div class="flex justify-end gap-2 pt-2">
+                <div class="flex justify-end gap-2 pt-1">
                     <button onclick="document.getElementById('modal-batch-push').classList.add('hidden')"
-                        class="px-3 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-bold">Cancel</button>
+                        class="btn px-3 py-1.5 text-[var(--sub)] hover:bg-[var(--bg-hover)] rounded-xl text-xs font-bold">取消</button>
                     <button onclick="Admin.confirmBatchPush()" id="btn-confirm-batch-push"
-                        class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700">Push
-                        Now</button>
+                        class="btn px-4 py-1.5 bg-teal-600 text-white rounded-xl text-xs font-bold hover:bg-teal-700 shadow-sm shadow-teal-500/20">立即推送</button>
                 </div>
             </div>
         </div>
@@ -380,268 +527,491 @@
 
     <!-- 重置用户密码弹窗 -->
     <div id="modal-reset-pw"
-        class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[70] flex items-center justify-center hidden">
-        <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
-            <h3 class="text-lg font-bold text-gray-800 mb-1">Reset User Password</h3>
-            <p class="text-xs text-gray-500 mb-4">为用户 <span id="reset-pw-username" class="font-bold text-gray-700">-</span> 设置一个临时密码，告知用户后其可在前端自行修改。</p>
-            <div class="space-y-4">
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center hidden p-4">
+        <div class="card rounded-3xl shadow-2xl p-6 w-full max-w-sm border border-[var(--border)] anim-pop-in">
+            <h3 class="text-base font-bold text-[var(--text)] mb-1">重置用户密码</h3>
+            <p class="text-xs text-[var(--sub)] mb-3">为用户 <span id="reset-pw-username" class="font-bold text-teal-600 dark:text-teal-400">-</span> 设置临时密码。</p>
+            <div class="space-y-3.5">
                 <div>
-                    <label class="block text-xs font-bold text-gray-500 mb-1">Temporary Password</label>
-                    <input id="reset-pw-new" type="text" autocomplete="off"
-                        class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 outline-none text-sm font-mono">
+                    <label class="block text-xs font-bold text-[var(--sub)] mb-1">新临时密码</label>
+                    <input id="reset-pw-new" type="text" autocomplete="off" placeholder="不少于 6 位"
+                        class="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-3 py-2 outline-none text-xs font-mono text-[var(--text)]">
                 </div>
                 <div id="reset-pw-msg" class="text-xs text-red-500 min-h-[1rem]"></div>
-                <div class="flex justify-end gap-2 pt-2">
+                <div class="flex justify-end gap-2 pt-1">
                     <button onclick="document.getElementById('modal-reset-pw').classList.add('hidden')"
-                        class="px-3 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-bold">Cancel</button>
+                        class="btn px-3 py-1.5 text-[var(--sub)] hover:bg-[var(--bg-hover)] rounded-xl text-xs font-bold">取消</button>
                     <button onclick="Admin.resetPassword()" id="btn-reset-pw"
-                        class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700">Reset</button>
+                        class="btn px-4 py-1.5 bg-teal-600 text-white rounded-xl text-xs font-bold hover:bg-teal-700 shadow-sm shadow-teal-500/20">确认重置</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 主界面 -->
+    <!-- 主界面 APP -->
     <div id="admin-app" class="hidden flex h-screen w-full overflow-hidden relative">
-        <!-- 侧边栏 -->
+        <!-- 现代化侧边栏 -->
         <aside id="sidebar"
-            class="w-64 bg-slate-900 text-white flex flex-col absolute inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out z-40 shadow-2xl md:shadow-none">
-            <div class="p-6 border-b border-slate-800 flex justify-between items-center">
-                <div>
-                    <h1
-                        class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-300">
-                        QS Admin</h1>
-                    <p class="text-[11px] text-slate-400 mt-1 uppercase tracking-wider font-bold">Workspace</p>
+            class="w-64 bg-slate-900 text-slate-200 flex flex-col absolute inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out z-40 shadow-2xl md:shadow-none border-r border-slate-800">
+            <!-- 侧边栏头部 -->
+            <div class="p-5 border-b border-slate-800/80 flex justify-between items-center">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-500 to-cyan-400 flex items-center justify-center text-slate-950 font-black shadow-md shadow-teal-500/30">
+                        <svg class="w-5 h-5 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-sm font-black tracking-wide text-white flex items-center gap-1.5">
+                            Question Banks
+                        </h1>
+                        <p class="text-[10px] text-teal-400 font-bold uppercase tracking-wider">Admin Workspace</p>
+                    </div>
                 </div>
-                <!-- 移动端关闭按钮 -->
                 <button onclick="Admin.toggleSidebar()" class="md:hidden text-slate-400 hover:text-white p-1">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
-                        </path>
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
-            <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
+
+            <!-- 侧边栏导航条目 -->
+            <nav class="flex-1 p-3 space-y-1.5 overflow-y-auto custom-scroll text-xs">
+                <button onclick="Admin.switchSection('overview'); Admin.closeSidebarIfMobile()" id="nav-overview"
+                    class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-slate-100 font-bold transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    </svg>
+                    <span>仪表大盘 (Dashboard)</span>
+                </button>
                 <button onclick="Admin.switchSection('users'); Admin.closeSidebarIfMobile()" id="nav-users"
-                    class="w-full text-left px-4 py-3 rounded-xl bg-blue-600 text-white font-medium transition-colors shadow-lg shadow-blue-900/20">用户列表
-                    (Users)</button>
+                    class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-teal-600 text-white font-bold transition-all shadow-md shadow-teal-900/30">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <span>用户管理 (Users)</span>
+                </button>
                 <button onclick="Admin.switchSection('push'); Admin.closeSidebarIfMobile()" id="nav-push"
-                    class="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800 text-slate-300 font-medium transition-colors">全局广播
-                    (Push)</button>
+                    class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-slate-100 font-bold transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                    </svg>
+                    <span>全局广播 (Broadcast)</span>
+                </button>
+                <button onclick="Admin.switchSection('audit'); Admin.closeSidebarIfMobile()" id="nav-audit"
+                    class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-slate-100 font-bold transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                    <span>题库体检 (Quality Audit)</span>
+                </button>
                 <button onclick="Admin.switchSection('logs'); Admin.closeSidebarIfMobile()" id="nav-logs"
-                    class="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800 text-slate-300 font-medium transition-colors">系统日志
-                    (Logs)</button>
+                    class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-slate-100 font-bold transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>系统日志 (Audit Logs)</span>
+                </button>
             </nav>
-            <div class="p-4 border-t border-slate-800">
+
+            <!-- 侧边栏底部 -->
+            <div class="p-3.5 border-t border-slate-800/80 space-y-2 text-xs">
+                <a href="index.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-teal-400 hover:bg-slate-800 transition-colors font-bold">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    <span>返回前台刷题系统</span>
+                </a>
                 <button onclick="Admin.logout()"
-                    class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-400 hover:text-red-400 hover:bg-slate-800 transition-colors font-bold">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
-                        </path>
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                     </svg>
                     <span>退出登录</span>
                 </button>
             </div>
         </aside>
 
-        <!-- 内容区 -->
-        <main class="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-gray-50/50 relative">
+        <!-- 核心内容区 -->
+        <main class="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-[var(--bg)] relative">
+            <!-- 现代化顶部导航条 -->
             <header
-                class="bg-white/80 backdrop-blur-md border-b border-gray-200 h-16 flex items-center justify-between px-4 md:px-8 sticky top-0 z-20">
+                class="bg-[var(--card)]/80 backdrop-blur-md border-b border-[var(--border)] h-16 flex items-center justify-between px-4 md:px-8 sticky top-0 z-20">
                 <div class="flex items-center gap-3">
                     <button onclick="Admin.toggleSidebar()"
-                        class="md:hidden text-gray-500 hover:text-gray-700 p-2 -ml-2 rounded-lg hover:bg-gray-100">
+                        class="md:hidden text-[var(--sub)] hover:text-[var(--text)] p-2 -ml-2 rounded-xl hover:bg-[var(--bg-hover)]">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 6h16M4 12h16M4 18h16"></path>
+                                d="M4 6h16M4 12h16M4 18h16" />
                         </svg>
                     </button>
-                    <h2 id="page-title" class="text-lg font-bold text-gray-800">用户概览</h2>
+                    <div>
+                        <h2 id="page-title" class="text-base md:text-lg font-black text-[var(--text)]">用户概览</h2>
+                    </div>
                 </div>
-                <div class="flex items-center gap-4">
-                    <span id="admin-user-id"
-                        class="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded"></span>
-                    <div
-                        class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
-                        A</div>
+                <div class="flex items-center gap-2.5 sm:gap-4">
+                    <!-- 运行状态指示器 -->
+                    <span class="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>API 运行正常</span>
+                    </span>
+
+                    <!-- 暗色模式切换 -->
+                    <button onclick="Admin.toggleTheme()" title="切换亮色/暗色主题" aria-label="切换主题"
+                        class="w-9 h-9 rounded-xl flex items-center justify-center text-[var(--sub)] hover:text-[var(--text)] hover:bg-[var(--bg-hover)] border border-[var(--border)] transition-colors">
+                        <svg id="theme-icon-sun" class="w-4 h-4 hidden dark:block text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                        <svg id="theme-icon-moon" class="w-4 h-4 block dark:hidden text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                        </svg>
+                    </button>
+
+                    <!-- 管理员身份标签 -->
+                    <div class="flex items-center gap-2 pl-2 border-l border-[var(--border)]">
+                        <span id="admin-user-id"
+                            class="text-xs text-[var(--sub)] font-mono bg-[var(--bg)] px-2.5 py-1 rounded-xl border border-[var(--border)]"></span>
+                        <div
+                            class="w-8 h-8 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center font-black text-xs border border-teal-500/20">
+                            A</div>
+                    </div>
                 </div>
             </header>
 
-            <div class="flex-1 overflow-auto p-4 md:p-8 relative">
-                <!-- 用户列表 (Users) -->
+            <div class="flex-1 overflow-auto p-4 md:p-8 relative custom-scroll">
+                <!-- ==================== 1. 仪表大盘 (Dashboard) ==================== -->
+                <div id="section-overview" class="hidden space-y-6">
+                    <!-- 4 张核心指标统计卡片 -->
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="card p-5 rounded-3xl border border-[var(--border)] shadow-sm relative overflow-hidden">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs font-bold text-[var(--sub)]">注册用户总数</span>
+                                <div class="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                    </svg>
+                                </div>
+                            </div>
+                            <div class="text-2xl md:text-3xl font-black text-[var(--text)]" id="dash-users-count">-</div>
+                            <div class="text-[11px] text-[var(--sub)] mt-1">包含所有注册账户</div>
+                        </div>
+
+                        <div class="card p-5 rounded-3xl border border-[var(--border)] shadow-sm relative overflow-hidden">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs font-bold text-[var(--sub)]">题库套数 (Sets)</span>
+                                <div class="w-8 h-8 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                    </svg>
+                                </div>
+                            </div>
+                            <div class="text-2xl md:text-3xl font-black text-teal-600 dark:text-teal-400" id="dash-sets-count">-</div>
+                            <div class="text-[11px] text-[var(--sub)] mt-1">云端保存的题库总量</div>
+                        </div>
+
+                        <div class="card p-5 rounded-3xl border border-[var(--border)] shadow-sm relative overflow-hidden">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs font-bold text-[var(--sub)]">题目数据库总数</span>
+                                <div class="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                                    </svg>
+                                </div>
+                            </div>
+                            <div class="text-2xl md:text-3xl font-black text-purple-600 dark:text-purple-400" id="dash-questions-count">-</div>
+                            <div class="text-[11px] text-[var(--sub)] mt-1">云端 D1 题目行数</div>
+                        </div>
+
+                        <div class="card p-5 rounded-3xl border border-[var(--border)] shadow-sm relative overflow-hidden">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs font-bold text-[var(--sub)]">24h 活跃与同步</span>
+                                <div class="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                    </svg>
+                                </div>
+                            </div>
+                            <div class="text-2xl md:text-3xl font-black text-amber-500" id="dash-activity-count">-</div>
+                            <div class="text-[11px] text-[var(--sub)] mt-1">今日活跃刷题人数</div>
+                        </div>
+                    </div>
+
+                    <!-- 快捷操作区 -->
+                    <div class="card p-6 rounded-3xl border border-[var(--border)] shadow-sm">
+                        <h3 class="text-sm font-bold text-[var(--text)] mb-4 flex items-center gap-2">
+                            <span>常用管理捷径</span>
+                        </h3>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <button onclick="Admin.openAddUserModal()"
+                                class="btn p-3.5 bg-[var(--bg)] hover:bg-[var(--bg-hover)] border border-[var(--border)] rounded-2xl flex flex-col items-center justify-center gap-1.5 text-xs font-bold text-[var(--text)]">
+                                <svg class="w-5 h-5 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                                </svg>
+                                <span>新建用户账号</span>
+                            </button>
+                            <button onclick="Admin.switchSection('push')"
+                                class="btn p-3.5 bg-[var(--bg)] hover:bg-[var(--bg-hover)] border border-[var(--border)] rounded-2xl flex flex-col items-center justify-center gap-1.5 text-xs font-bold text-[var(--text)]">
+                                <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                                </svg>
+                                <span>广播推送题库</span>
+                            </button>
+                            <button onclick="Admin.switchSection('audit')"
+                                class="btn p-3.5 bg-[var(--bg)] hover:bg-[var(--bg-hover)] border border-[var(--border)] rounded-2xl flex flex-col items-center justify-center gap-1.5 text-xs font-bold text-[var(--text)]">
+                                <svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                                <span>智能体检查重</span>
+                            </button>
+                            <button onclick="Admin.fetchOverviewStats()"
+                                class="btn p-3.5 bg-[var(--bg)] hover:bg-[var(--bg-hover)] border border-[var(--border)] rounded-2xl flex flex-col items-center justify-center gap-1.5 text-xs font-bold text-[var(--text)]">
+                                <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                <span>实时刷新数据</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==================== 2. 用户列表 (Users) ==================== -->
                 <div id="section-users" class="space-y-6">
                     <div
-                        class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full">
+                        class="card rounded-3xl shadow-sm border border-[var(--border)] overflow-hidden flex flex-col h-full">
                         <div
-                            class="p-4 md:p-5 border-b border-gray-200 flex flex-col sm:flex-row justify-between sm:items-center bg-gray-50/80 gap-4 sm:gap-0">
-                            <div class="flex items-center gap-4">
-                                <div class="text-sm font-bold text-gray-700">Total Users: <span id="user-count"
-                                        class="text-blue-600">Loading...</span></div>
+                            class="p-4 md:p-5 border-b border-[var(--border)] flex flex-col sm:flex-row justify-between sm:items-center bg-[var(--bg)] gap-4 sm:gap-0">
+                            <div class="flex items-center gap-3">
+                                <div class="text-xs md:text-sm font-bold text-[var(--text)]">总用户数: <span id="user-count"
+                                        class="text-teal-600 dark:text-teal-400">Loading...</span></div>
                                 <input id="user-search" type="text" placeholder="按用户名搜索…"
                                     oninput="Admin.onUserSearchInput(this)"
-                                    class="hidden sm:block w-40 px-3 py-1.5 rounded-lg border border-gray-300 text-xs outline-none focus:border-blue-500">
+                                    class="hidden sm:block w-44 px-3 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--card)] text-xs outline-none focus:border-teal-500 text-[var(--text)]">
                                 <div id="batch-actions"
-                                    class="hidden flex items-center gap-2 pl-4 border-l border-gray-300">
-                                    <span id="selected-count" class="text-xs font-bold text-blue-600 hidden sm:inline">0
+                                    class="hidden flex items-center gap-2 pl-3 border-l border-[var(--border)]">
+                                    <span id="selected-count" class="text-xs font-bold text-teal-600 dark:text-teal-400 hidden sm:inline">0
                                         selected</span>
                                     <button onclick="Admin.batchPush()"
-                                        class="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs font-bold hover:bg-blue-200 transition-colors">Push</button>
+                                        class="btn px-2.5 py-1 bg-teal-500/10 text-teal-600 dark:text-teal-300 rounded-lg text-xs font-bold hover:bg-teal-500/20">批量推送</button>
                                     <button onclick="Admin.batchDelete()"
-                                        class="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors">Delete</button>
+                                        class="btn px-2.5 py-1 bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg text-xs font-bold hover:bg-red-500/20">批量删除</button>
                                 </div>
                             </div>
                             <div class="flex items-center gap-2">
                                 <button onclick="Admin.openAddUserModal()"
-                                    class="bg-gradient-to-r from-blue-600 to-blue-700 text-white text-xs font-bold px-4 py-2 md:py-2.5 rounded-xl flex items-center gap-1 transition-all shadow-md shadow-blue-500/20 hover:shadow-lg hover:from-blue-700 hover:to-blue-800">
+                                    class="btn bg-gradient-to-r from-teal-600 to-teal-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-md shadow-teal-500/20 hover:from-teal-700 hover:to-teal-800">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                                            d="M12 4v16m8-8H4"></path>
+                                            d="M12 4v16m8-8H4" />
                                     </svg>
-                                    <span class="hidden sm:inline">Add User</span>
+                                    <span>添加用户</span>
                                 </button>
                                 <button onclick="Admin.fetchUsers()"
-                                    class="text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-2 md:py-2.5 rounded-xl text-sm font-bold flex items-center justify-center transition-colors">
+                                    class="btn text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 p-2 rounded-xl border border-teal-200 dark:border-teal-800">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
-                                        </path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                     </svg>
                                 </button>
                             </div>
                         </div>
                         <div class="overflow-x-auto w-full">
                             <table class="w-full text-left text-sm whitespace-nowrap">
-                                <thead class="bg-gray-100 text-gray-600 font-semibold uppercase text-xs">
+                                <thead class="bg-[var(--bg)] text-[var(--sub)] font-bold uppercase text-[11px] border-b border-[var(--border)]">
                                     <tr>
                                         <th class="px-4 py-3 w-10">
                                             <input type="checkbox" id="select-all-users"
-                                                onchange="Admin.toggleSelectAll(this)" class="w-4 h-4 accent-blue-600">
+                                                onchange="Admin.toggleSelectAll(this)" class="w-4 h-4 accent-teal-600">
                                         </th>
-                                        <th class="px-6 py-3">User Info</th>
-                                        <th class="px-6 py-3">Bank Count</th>
-                                        <th class="px-6 py-3">Last Active</th>
-                                        <th class="px-6 py-3">IP / Device</th>
-                                        <th class="px-6 py-3 text-right">Actions</th>
+                                        <th class="px-6 py-3">用户信息</th>
+                                        <th class="px-6 py-3">题库数量</th>
+                                        <th class="px-6 py-3">最后活跃时间</th>
+                                        <th class="px-6 py-3">IP / 客户端</th>
+                                        <th class="px-6 py-3 text-right">管理操作</th>
                                     </tr>
                                 </thead>
-                                <tbody id="user-table-body" class="divide-y divide-gray-200">
+                                <tbody id="user-table-body" class="divide-y divide-[var(--border)] text-xs">
                                     <!-- JS 渲染 -->
+                                </tbody>
                             </table>
                         </div>
                         <!-- 用户分页 -->
-                        <div id="user-pager" class="hidden items-center justify-between px-6 py-3 border-t border-gray-200 bg-gray-50 rounded-b-2xl">
-                            <button id="user-prev" onclick="Admin.changeUserPage(-1)" class="px-3 py-1.5 rounded-lg text-sm font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">上一页</button>
-                            <span id="user-page-info" class="text-sm text-gray-600 font-medium"></span>
-                            <button id="user-next" onclick="Admin.changeUserPage(1)" class="px-3 py-1.5 rounded-lg text-sm font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">下一页</button>
+                        <div id="user-pager" class="hidden items-center justify-between px-6 py-3 border-t border-[var(--border)] bg-[var(--bg)] rounded-b-3xl">
+                            <button id="user-prev" onclick="Admin.changeUserPage(-1)" class="btn px-3 py-1.5 rounded-xl text-xs font-bold text-[var(--text)] bg-[var(--card)] border border-[var(--border)] hover:bg-[var(--bg-hover)] disabled:opacity-40 disabled:cursor-not-allowed">上一页</button>
+                            <span id="user-page-info" class="text-xs text-[var(--sub)] font-medium"></span>
+                            <button id="user-next" onclick="Admin.changeUserPage(1)" class="btn px-3 py-1.5 rounded-xl text-xs font-bold text-[var(--text)] bg-[var(--card)] border border-[var(--border)] hover:bg-[var(--bg-hover)] disabled:opacity-40 disabled:cursor-not-allowed">下一页</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- 全局广播 (Push) -->
+                <!-- ==================== 3. 全局广播 (Push) ==================== -->
                 <div id="section-push" class="hidden max-w-4xl mx-auto space-y-6 w-full">
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-8">
-                        <h3
-                            class="text-xl font-extrabold text-gray-800 mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
-                            Global Push Question Bank</h3>
+                    <div class="card rounded-3xl shadow-sm border border-[var(--border)] p-5 md:p-8">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-10 h-10 rounded-2xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg md:text-xl font-black text-[var(--text)]">全局/定向推送题库</h3>
+                                <p class="text-xs text-[var(--sub)]">将题库分发给全员或指定用户，用户下次登录/刷题时自动无感同步</p>
+                            </div>
+                        </div>
+
                         <div class="space-y-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Target Audience</label>
+                                <label class="block text-xs font-bold text-[var(--sub)] mb-1">推送目标受众</label>
                                 <select id="push-target" onchange="Admin.togglePushTarget()"
-                                    class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 outline-none">
-                                    <option value="all">All Users (Broadcast)</option>
-                                    <option value="user">Specific User ID</option>
+                                    class="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs font-bold text-[var(--text)] outline-none focus:border-teal-500">
+                                    <option value="all">全站所有用户 (Broadcast All Users)</option>
+                                    <option value="user">指定特定用户 (Specific User ID)</option>
                                 </select>
                             </div>
                             <div id="push-user-input-group" class="hidden">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Select User</label>
+                                <label class="block text-xs font-bold text-[var(--sub)] mb-1">选择目标用户</label>
                                 <select id="push-user-id"
-                                    class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none font-mono text-sm">
-                                    <option value="">Select a user...</option>
+                                    class="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-3 py-2 outline-none font-mono text-xs text-[var(--text)]">
+                                    <option value="">请选择用户...</option>
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
-                                <input id="push-bank-name" type="text" placeholder="e.g. Weekly Quiz 01"
-                                    class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none">
+                                <label class="block text-xs font-bold text-[var(--sub)] mb-1">题库命名</label>
+                                <input id="push-bank-name" type="text" placeholder="例如: 2026 年最新全真模拟冲刺卷"
+                                    class="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-3 py-2 outline-none text-xs text-[var(--text)] focus:border-teal-500">
                             </div>
-                            <div class="space-y-3 border border-gray-200 rounded-xl p-4 bg-gray-50">
-                                <h4 class="text-sm font-bold text-gray-800 flex items-center gap-2">
-                                    <span>Questions Data (JSON)</span>
-                                </h4>
 
-                                <div
-                                    class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                            <div class="space-y-3 border border-[var(--border)] rounded-2xl p-4 bg-[var(--bg)]">
+                                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                    <span class="text-xs font-bold text-[var(--text)]">题目数据内容 (JSON)</span>
                                     <div class="flex items-center gap-2">
                                         <button onclick="document.getElementById('ai-import-json').click()"
-                                            class="px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-transform hover:bg-emerald-100">
-                                            Import JSON File
+                                            class="btn px-3 py-1.5 rounded-xl border border-teal-200 dark:border-teal-800 bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 text-xs font-bold flex items-center gap-1.5">
+                                            导入 JSON 文件
                                         </button>
-                                    </div>
-                                    <div class="flex flex-col items-end gap-1">
-                                        <a href="data:application/json;charset=utf-8,%5B%0A%20%20%7B%0A%20%20%20%20%22q%22%3A%20%22Question%20text%3F%22%2C%0A%20%20%20%20%22o%22%3A%20%5B%0A%20%20%20%20%20%20%22Option%20A%22%2C%0A%20%20%20%20%20%20%22Option%20B%22%2C%0A%20%20%20%20%20%20%22Option%20C%22%2C%0A%20%20%20%20%20%20%22Option%20D%22%0A%20%20%20%20%5D%2C%0A%20%20%20%20%22a%22%3A%20%22A%22%2C%0A%20%20%20%20%22type%22%3A%20%22mcq%22%2C%0A%20%20%20%20%22sub%22%3A%20%22Subject%20Name%22%2C%0A%20%20%20%20%22chap%22%3A%20%22Chapter%201%22%0A%20%20%7D%2C%0A%20%20%7B%0A%20%20%20%20%22q%22%3A%20%22Fill-in-the-blank%20question%3F%22%2C%0A%20%20%20%20%22a%22%3A%20%22Answer%22%2C%0A%20%20%20%20%22type%22%3A%20%22fill%22%2C%0A%20%20%20%20%22sub%22%3A%20%22Subject%20Name%22%2C%0A%20%20%20%20%22chap%22%3A%20%22Chapter%201%22%0A%20%20%7D%0A%5D"
+                                        <a href="data:application/json;charset=utf-8,%5B%0A%20%20%7B%0A%20%20%20%20%22q%22%3A%20%22Question%20text%3F%22%2C%0A%20%20%20%20%22o%22%3A%20%5B%22Option%20A%22%2C%20%22Option%20B%22%5D%2C%0A%20%20%20%20%22a%22%3A%20%22A%22%2C%0A%20%20%20%20%22type%22%3A%20%22mcq%22%2C%0A%20%20%20%20%22sub%22%3A%20%22Subject%22%2C%0A%20%20%20%20%22chap%22%3A%20%221%22%0A%20%20%7D%0A%5D"
                                             download="template.json"
-                                            class="text-[11px] text-blue-500 hover:underline">Download JSON Template</a>
+                                            class="text-[11px] text-teal-600 dark:text-teal-400 hover:underline font-bold">下载模板</a>
                                     </div>
                                 </div>
                                 <input type="file" id="ai-import-json" class="hidden" accept=".json"
                                     onchange="Admin.handleJsonImportFile(event)">
 
-
-
-                                <div class="space-y-1 pt-2 border-t border-gray-200">
-                                    <label for="push-json"
-                                        class="text-[11px] text-gray-500 font-bold flex items-center justify-between">
-                                        <span>Final Questions JSON (Editable)</span>
-                                        <span class="text-[11px] opacity-70">Will be pushed to user(s)</span>
-                                    </label>
-                                    <textarea id="push-json" rows="8"
-                                        class="w-full text-[11px] font-mono bg-white border border-gray-300 rounded-xl px-3 py-2 outline-none focus:border-blue-500 custom-scroll leading-relaxed"
-                                        placeholder='[{"q":"Question?","o":["A","B"],"a":"A","type":"mcq","sub":"Math","chap":"1"}]'></textarea>
-                                </div>
-                                <div id="ai-import-status" class="text-[11px] text-gray-500 font-medium"></div>
+                                <textarea id="push-json" rows="8"
+                                    class="w-full text-xs font-mono bg-[var(--card)] border border-[var(--border)] rounded-xl p-3 outline-none focus:border-teal-500 custom-scroll leading-relaxed text-[var(--text)]"
+                                    placeholder='[{"q":"题目描述?","o":["选项A","选项B"],"a":"A","type":"mcq","sub":"数学","chap":"第一章"}]'></textarea>
+                                <div id="ai-import-status" class="text-[11px] text-[var(--sub)] font-medium"></div>
                             </div>
-                            <div class="pt-6 flex justify-end pb-2">
+
+                            <div class="pt-4 flex justify-end">
                                 <button onclick="Admin.pushBroadcast()" id="btn-push"
-                                    class="bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold py-3 px-8 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg shadow-blue-500/20 active:scale-95">
-                                    Push to Users
+                                    class="btn bg-gradient-to-r from-teal-600 to-teal-700 text-white font-bold py-2.5 px-8 rounded-xl hover:from-teal-700 hover:to-teal-800 transition-all shadow-md shadow-teal-500/20 text-xs">
+                                    确认推送到目标用户
                                 </button>
                             </div>
                         </div>
                     </div>
                     <div id="push-result"
-                        class="hidden bg-green-50 border border-green-200 rounded-xl p-4 text-green-800 text-sm"></div>
+                        class="hidden bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 rounded-2xl p-4 text-xs font-medium"></div>
                 </div>
 
-                <!-- 系统日志 (Logs) -->
+                <!-- ==================== 4. 题库体检 (Quality Audit) ==================== -->
+                <div id="section-audit" class="hidden space-y-6 max-w-4xl mx-auto w-full">
+                    <div class="card rounded-3xl shadow-sm border border-[var(--border)] p-6 md:p-8">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-10 h-10 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg md:text-xl font-black text-[var(--text)]">题库智能体检与质检查重</h3>
+                                <p class="text-xs text-[var(--sub)]">自动扫描重复题目、缺少答案、格式异常、无效选项并提供一键清理修复</p>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-[var(--sub)] mb-1">选择体检目标题库</label>
+                                    <select id="audit-target-select"
+                                        class="w-full bg-[var(--bg)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs font-bold text-[var(--text)] outline-none focus:border-teal-500">
+                                        <option value="">正在加载题库列表...</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-end">
+                                    <button onclick="Admin.runSelectedBankAudit()"
+                                        class="btn w-full bg-purple-600 hover:bg-purple-700 text-white rounded-xl py-2 text-xs font-bold shadow-md shadow-purple-500/20">
+                                        立即运行体检
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 扫描结果展示卡 -->
+                            <div id="audit-results-card" class="hidden space-y-4 pt-3 border-t border-[var(--border)]">
+                                <div class="grid grid-cols-3 gap-3 text-center">
+                                    <div class="card p-3 rounded-2xl border border-[var(--border)]">
+                                        <div class="text-[11px] text-[var(--sub)] font-bold">总扫描题目</div>
+                                        <div id="audit-stat-total" class="text-xl font-black text-[var(--text)] mt-1">0</div>
+                                    </div>
+                                    <div class="card p-3 rounded-2xl border border-[var(--border)]">
+                                        <div class="text-[11px] text-amber-500 font-bold">查重重复项</div>
+                                        <div id="audit-stat-dups" class="text-xl font-black text-amber-500 mt-1">0</div>
+                                    </div>
+                                    <div class="card p-3 rounded-2xl border border-[var(--border)]">
+                                        <div class="text-[11px] text-red-500 font-bold">格式/答案异常</div>
+                                        <div id="audit-stat-issues" class="text-xl font-black text-red-500 mt-1">0</div>
+                                    </div>
+                                </div>
+
+                                <div id="audit-issues-list" class="space-y-2 max-h-60 overflow-y-auto custom-scroll pr-1 text-xs"></div>
+
+                                <div id="audit-fix-actions" class="flex justify-end gap-2 pt-2">
+                                    <button id="btn-audit-clean-dups" onclick="Admin.applyAuditDeduplication()"
+                                        class="btn px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold shadow-sm">
+                                        一键清理重复题
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==================== 5. 系统日志 (Logs) ==================== -->
                 <div id="section-logs" class="hidden space-y-6 h-full pb-10">
                     <div
-                        class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full">
-                        <div class="p-4 md:p-5 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                            <h3 class="text-sm font-bold text-gray-700">System Logs</h3>
+                        class="card rounded-3xl shadow-sm border border-[var(--border)] overflow-hidden flex flex-col h-full">
+                        <div class="p-4 md:p-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg)]">
+                            <div class="flex items-center gap-3">
+                                <h3 class="text-xs md:text-sm font-bold text-[var(--text)]">云端同步与审计日志 (Recent 100)</h3>
+                                <div class="hidden sm:flex items-center gap-1.5 text-xs">
+                                    <button onclick="Admin.filterLogs('all')" class="px-2 py-0.5 rounded-lg font-bold bg-teal-500/10 text-teal-600 text-[10px]">全部</button>
+                                    <button onclick="Admin.filterLogs('conflict')" class="px-2 py-0.5 rounded-lg font-bold bg-amber-500/10 text-amber-600 text-[10px]">冲突</button>
+                                    <button onclick="Admin.filterLogs('client-error')" class="px-2 py-0.5 rounded-lg font-bold bg-red-500/10 text-red-500 text-[10px]">异常</button>
+                                </div>
+                            </div>
                             <button onclick="Admin.fetchLogs()"
-                                class="text-blue-600 bg-blue-50 px-3 py-2 rounded-xl hover:bg-blue-100 text-sm font-bold flex items-center gap-1 transition-colors">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                class="btn text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-3 py-1.5 rounded-xl hover:bg-teal-100 text-xs font-bold border border-teal-200 dark:border-teal-800 flex items-center gap-1">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
-                                    </path>
+                                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                 </svg>
-                                Refresh
+                                刷新
                             </button>
                         </div>
                         <div class="overflow-x-auto w-full">
                             <table class="w-full text-left text-xs font-mono whitespace-nowrap">
-                                <thead class="bg-gray-900 text-gray-300 uppercase">
+                                <thead class="bg-[var(--bg)] text-[var(--sub)] uppercase border-b border-[var(--border)]">
                                     <tr>
-                                        <th class="px-4 py-2">Time</th>
-                                        <th class="px-4 py-2">User ID</th>
-                                        <th class="px-4 py-2">Status</th>
-                                        <th class="px-4 py-2">IP Addr</th>
-                                        <th class="px-4 py-2">User Agent</th>
-                                        <th class="px-4 py-2">Error Detail</th>
+                                        <th class="px-4 py-2.5">时间 (Time)</th>
+                                        <th class="px-4 py-2.5">用户 (User)</th>
+                                        <th class="px-4 py-2.5">状态 (Status)</th>
+                                        <th class="px-4 py-2.5">客户端 IP</th>
+                                        <th class="px-4 py-2.5">User Agent</th>
+                                        <th class="px-4 py-2.5">详情 / 错误信息</th>
                                     </tr>
                                 </thead>
-                                <tbody id="logs-table-body" class="divide-y divide-gray-800 bg-gray-800 text-gray-300">
+                                <tbody id="logs-table-body" class="divide-y divide-[var(--border)] bg-[var(--card)] text-[var(--text)] text-xs">
                                     <!-- JS Render -->
                                 </tbody>
                             </table>
@@ -653,9 +1023,6 @@
     </div>
 
     <script>
-        // config.js 若加载失败，这里会是空串。之前只 alert 一下就继续跑，
-        // 结果所有请求都打到当前站点（Pages 对未知路径返回 index.html），
-        // 用户只会看到「登录失败」这种毫无线索的提示。
         const API_CONFIG_OK = !!window.API_BASE;
         if (!API_CONFIG_OK) {
             console.error('[admin] API_BASE is not defined in config.js');
@@ -669,7 +1036,7 @@
             const normalized = raw.toLowerCase();
             return `${normalized}@user.local`;
         }
-        // D1 存的 CURRENT_TIMESTAMP 是 UTC，补 T/Z 按 UTC 解析再转本地时区显示
+
         function parseUtcDate(str) {
             if (!str || typeof str !== 'string') return null;
             try {
@@ -678,12 +1045,13 @@
             } catch (e) { return null; }
         }
         window.parseUtcDate = parseUtcDate;
+
         function parseJwt(token) {
             if (!token) return null;
             try {
                 const base64Url = token.split('.')[1];
                 const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
                     return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
                 }).join(''));
                 return JSON.parse(jsonPayload);
@@ -695,16 +1063,34 @@
         window.Admin = {
             token: null,
             currentEditingUserId: null,
-
+            currentEditingSetId: null,
+            currentBankInfo: null,
+            currentQuestions: [],
+            parsedQuestions: [],
             selectedUsers: new Set(),
+            selectedBankQuestionIndices: new Set(),
             isSidebarOpen: false,
             userPage: 1,
             userPages: 1,
             userSearch: '',
             _userSearchTimer: null,
+            rawLogs: [],
+
+            initTheme() {
+                const saved = localStorage.getItem('qs_admin_theme');
+                if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            },
+
+            toggleTheme() {
+                const isDark = document.documentElement.classList.toggle('dark');
+                localStorage.setItem('qs_admin_theme', isDark ? 'dark' : 'light');
+            },
 
             onUserSearchInput(el) {
-                // 防抖 300ms：停手后才请求，避免每个字符一发请求
                 if (this._userSearchTimer) clearTimeout(this._userSearchTimer);
                 this._userSearchTimer = setTimeout(() => {
                     this.userSearch = (el.value || '').trim();
@@ -727,7 +1113,6 @@
                     sidebar.classList.remove('-translate-x-full');
                     sidebar.classList.add('translate-x-0');
                     backdrop.classList.remove('hidden');
-                    // Small delay to allow display:block to apply before animating opacity
                     setTimeout(() => backdrop.classList.remove('opacity-0'), 10);
                 } else {
                     sidebar.classList.add('-translate-x-full');
@@ -744,6 +1129,7 @@
             },
 
             async init() {
+                this.initTheme();
                 try {
                     const emailInput = document.getElementById('email');
                     const pwdInput = document.getElementById('password');
@@ -761,7 +1147,6 @@
                     this.token = localStorage.getItem('qs-admin-auth-token') || null;
                     if (this.token) {
                         let payload = parseJwt(this.token);
-                        // 本地预检：过期 token 先踢回登录页（服务端 403/401 仍是权威）
                         if (payload && payload.exp && payload.exp * 1000 < Date.now()) {
                             this.token = null;
                             localStorage.removeItem('qs-admin-auth-token');
@@ -771,7 +1156,7 @@
                             document.getElementById('login-overlay').classList.add('hidden');
                             document.getElementById('admin-app').classList.remove('hidden');
                             document.getElementById('admin-user-id').innerText = payload.username || payload.sub;
-                            this.fetchUsers();
+                            this.switchSection('overview');
                         } else {
                             this.token = null;
                             localStorage.removeItem('qs-admin-auth-token');
@@ -782,7 +1167,24 @@
                     }
                 } catch (e) {
                     console.error('Init error:', e);
-                    alert('Initialization error: ' + e.message);
+                }
+            },
+
+            async fetchOverviewStats() {
+                try {
+                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/overview-stats`);
+                    if (!res.ok) throw new Error('Failed to load overview stats');
+                    const data = await res.json();
+                    if (data && data.stats) {
+                        const s = data.stats;
+                        document.getElementById('dash-users-count').innerText = s.users != null ? s.users : '-';
+                        document.getElementById('dash-sets-count').innerText = s.sets != null ? s.sets : '-';
+                        document.getElementById('dash-questions-count').innerText = s.questions != null ? s.questions : '-';
+                        document.getElementById('dash-activity-count').innerText = s.activeToday != null ? s.activeToday : '-';
+                    }
+                } catch (e) {
+                    console.warn('Overview stats endpoint offline, calculating from list:', e);
+                    this.fetchUsers(1);
                 }
             },
 
@@ -807,13 +1209,10 @@
                     this.selectedUsers.add(userId);
                 }
 
-                // 全选状态按「当前页每个用户是否都已选」逐个判断（与 fetchUsers 同一口径）。
-                // 旧写法拿全局已选数和本页行数比较：其它页选满时会误点亮本页全选框。
                 const allCheckbox = document.getElementById('select-all-users');
                 if (allCheckbox) {
                     const pageIds = (this.usersCache || []).map(u => u.user_id);
                     allCheckbox.checked = pageIds.length > 0 && pageIds.every(pid => this.selectedUsers.has(pid));
-                    // 部分选中时给 indeterminate 半选态，范围一目了然
                     allCheckbox.indeterminate = pageIds.some(pid => this.selectedUsers.has(pid)) && !allCheckbox.checked;
                 }
 
@@ -840,7 +1239,6 @@
                 document.getElementById('add-user-msg').innerText = '';
             },
 
-            // 重置用户密码：管理员设定临时密码，用户登录后可在前端自行修改
             openResetPwModal(userId) {
                 const user = (this.usersCache || []).find(u => u.user_id === userId);
                 document.getElementById('reset-pw-username').innerText = user ? (user.username || user.user_id) : userId;
@@ -856,10 +1254,10 @@
                 const userId = modal.dataset.userId;
                 const newPassword = document.getElementById('reset-pw-new').value;
                 if (!newPassword || newPassword.length < 6) {
-                    msg.innerText = 'Password must be at least 6 characters';
+                    msg.innerText = '密码至少需要 6 个字符';
                     return;
                 }
-                msg.innerText = 'Resetting...';
+                msg.innerText = '正在重置密码...';
                 try {
                     const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/reset-user-password`, {
                         method: 'POST',
@@ -868,10 +1266,10 @@
                     });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || 'Failed to reset');
-                    alert('Password reset successfully. Tell the user to log in with the temporary password and change it.');
+                    alert('密码重置成功！请通知用户使用该临时密码登录。');
                     modal.classList.add('hidden');
                 } catch (e) {
-                    msg.innerText = 'Error: ' + e.message;
+                    msg.innerText = '错误: ' + e.message;
                 }
             },
 
@@ -881,17 +1279,16 @@
                 const msg = document.getElementById('add-user-msg');
 
                 if (!username || !password) {
-                    msg.innerText = 'Please enter username and password';
+                    msg.innerText = '请输入用户名和密码';
                     return;
                 }
                 if (password.length < 6) {
-                    msg.innerText = 'Password must be at least 6 characters';
+                    msg.innerText = '密码长度至少需 6 位';
                     return;
                 }
 
-                msg.innerText = 'Creating user...';
+                msg.innerText = '正在创建用户...';
 
-                // Replace frontend signUp with backend Admin API call to prevent logging out
                 try {
                     const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/create-user`, {
                         method: 'POST',
@@ -908,14 +1305,14 @@
                     const data = await res.json();
 
                     if (!res.ok) {
-                        throw new Error(data.error || 'Failed to create user');
+                        throw new Error(data.error || '创建用户失败');
                     }
 
-                    alert(`User created successfully! ID: ${data.user.id}`);
+                    alert(`用户创建成功！ID: ${data.user.id}`);
                     document.getElementById('modal-add-user').classList.add('hidden');
                     this.fetchUsers();
                 } catch (e) {
-                    msg.innerText = 'Error: ' + e.message;
+                    msg.innerText = '错误: ' + e.message;
                 }
             },
 
@@ -926,9 +1323,9 @@
                 try {
                     const text = await file.text();
                     document.getElementById('push-json').value = text;
-                    if (statusEl) statusEl.textContent = 'JSON file loaded.';
+                    if (statusEl) statusEl.textContent = 'JSON 文件加载成功。';
                 } catch (err) {
-                    if (statusEl) statusEl.textContent = 'Error: ' + err.message;
+                    if (statusEl) statusEl.textContent = '错误: ' + err.message;
                 } finally {
                     e.target.value = null;
                 }
@@ -936,7 +1333,7 @@
 
             async batchDelete() {
                 if (this.selectedUsers.size === 0) return;
-                if (!confirm(`Are you sure you want to delete ${this.selectedUsers.size} users ? This will remove all their question banks and logs.`)) return;
+                if (!confirm(`确定要彻底删除选中的 ${this.selectedUsers.size} 位用户吗？这将连同其题库与历史记录一并移除，不可恢复。`)) return;
 
                 try {
                     const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/delete-users`, {
@@ -948,15 +1345,15 @@
                     });
 
                     const data = await res.json();
-                    if (!res.ok) throw new Error(data.error || 'Failed to delete');
+                    if (!res.ok) throw new Error(data.error || '删除失败');
 
-                    alert(`Successfully deleted ${data.deletedCount} users.`);
+                    alert(`成功删除了 ${data.deletedCount} 位用户。`);
                     this.selectedUsers.clear();
                     this.updateBatchActions();
                     this.fetchUsers();
 
                 } catch (e) {
-                    alert('Error: ' + e.message);
+                    alert('错误: ' + e.message);
                 }
             },
 
@@ -965,7 +1362,6 @@
                 document.getElementById('batch-push-count').innerText = this.selectedUsers.size;
                 document.getElementById('modal-batch-push').classList.remove('hidden');
 
-                // Reset form
                 document.getElementById('batch-bank-name').value = '';
                 document.getElementById('batch-json-input').value = '';
                 document.getElementById('batch-import-file').value = '';
@@ -978,7 +1374,7 @@
                 if (!file) return;
 
                 const status = document.getElementById('batch-json-input');
-                status.value = `Reading ${file.name}...`;
+                status.value = `正在解析 ${file.name}...`;
                 this.parsedQuestions = [];
 
                 try {
@@ -1001,8 +1397,6 @@
                         text = await file.text();
                     }
 
-                    // Simple Parsing Logic (Reused from index.html concept)
-                    // Trying to parse JSON first
                     try {
                         const json = JSON.parse(text);
                         if (Array.isArray(json)) {
@@ -1012,8 +1406,6 @@
                         }
                     } catch (e) { }
 
-                    // Fallback to text parsing
-                    // Split by typical question patterns (1., 2., etc)
                     const questions = [];
                     const lines = text.split(/\n+/);
                     let currentQ = null;
@@ -1032,15 +1424,14 @@
                                 o: [],
                                 a: '',
                                 type: 'mcq',
-                                sub: 'Imported',
-                                chap: '1'
+                                sub: '默认科目',
+                                chap: '第一章'
                             };
                         } else if (isOption(line) && currentQ) {
                             currentQ.o.push(line.replace(/^[A-Z][\.,、]\s*/, ''));
                         } else if (line.toLowerCase().startsWith('answer:') || line.startsWith('答案：')) {
                             if (currentQ) currentQ.a = line.split(/[:：]/)[1].trim();
                         } else if (currentQ) {
-                            // Append to question text if no options yet, otherwise ignore or append to last option
                             if (currentQ.o.length === 0) currentQ.q += '\n' + line;
                         }
                     });
@@ -1052,7 +1443,7 @@
 
                 } catch (e) {
                     console.error(e);
-                    alert('Import failed: ' + e.message);
+                    alert('导入失败: ' + e.message);
                 }
             },
 
@@ -1069,12 +1460,12 @@
                     const safeA = Admin.escapeHTML(q.a || '');
                     const optLength = q.o ? q.o.length : 0;
                     return `
-                    <div class="border-b border-gray-200 pb-1 mb-1 last:border-0">
-                        <div class="font-bold truncate">${i + 1}. ${safeQ}</div>
-                        <div class="text-gray-400 pl-2">选项数: ${optLength}, 答案: ${safeA}</div>
+                    <div class="border-b border-[var(--border)] pb-1 mb-1 last:border-0">
+                        <div class="font-bold truncate text-[var(--text)]">${i + 1}. ${safeQ}</div>
+                        <div class="text-[var(--sub)] pl-2">选项数: ${optLength}, 答案: ${safeA}</div>
                     </div>
                     `;
-                }).join('') + (this.parsedQuestions.length > 5 ? `<div class="text-center italic text-gray-400">...以及另外 ${this.parsedQuestions.length - 5} 道题</div>` : '');
+                }).join('') + (this.parsedQuestions.length > 5 ? `<div class="text-center italic text-[var(--sub)]">...以及另外 ${this.parsedQuestions.length - 5} 道题</div>` : '');
             },
 
             async confirmBatchPush() {
@@ -1082,34 +1473,32 @@
                 const jsonInput = document.getElementById('batch-json-input').value.trim();
 
                 if (!bankName) {
-                    alert('Please enter a bank name');
+                    alert('请输入题库名称');
                     return;
                 }
 
-                // If parsedQuestions is empty but user pasted JSON manually
                 if (this.parsedQuestions.length === 0 && jsonInput) {
                     try {
                         this.parsedQuestions = JSON.parse(jsonInput);
                     } catch (e) {
-                        alert('Invalid JSON in text area');
+                        alert('文本框中的 JSON 格式无效');
                         return;
                     }
                 }
 
                 if (this.parsedQuestions.length === 0) {
-                    alert('No questions to push');
+                    alert('没有可推送的题目数据');
                     return;
                 }
 
                 const btn = document.getElementById('btn-confirm-batch-push');
                 btn.disabled = true;
-                btn.innerText = 'Pushing...';
+                btn.innerText = '正在推送...';
 
                 try {
                     const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/push-broadcast`, {
                         method: 'POST',
                         headers: {
-                            'Authorization': `Bearer ${this.token} `,
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
@@ -1122,19 +1511,19 @@
                     });
 
                     const data = await res.json();
-                    if (!res.ok) throw new Error(data.error || 'Failed to push');
+                    if (!res.ok) throw new Error(data.error || '推送失败');
 
-                    alert(`Successfully pushed to ${data.summary.success} users!`);
+                    alert(`成功推送到 ${data.summary.success} 位用户！`);
                     document.getElementById('modal-batch-push').classList.add('hidden');
                     this.selectedUsers.clear();
                     this.updateBatchActions();
-                    this.fetchUsers(); // Refresh to update bank counts
+                    this.fetchUsers();
 
                 } catch (e) {
-                    alert('Error: ' + e.message);
+                    alert('错误: ' + e.message);
                 } finally {
                     btn.disabled = false;
-                    btn.innerText = 'Push Now';
+                    btn.innerText = '立即推送';
                 }
             },
 
@@ -1146,7 +1535,7 @@
                     msg.innerText = '配置缺失：config.js 未成功加载，无法登录。请刷新页面重试。';
                     return;
                 }
-                msg.innerText = 'Logging in...';
+                msg.innerText = '正在登录...';
 
                 try {
                     const res = await fetch(`${ADMIN_API_BASE}/api/auth/login`, {
@@ -1159,8 +1548,6 @@
                         msg.innerText = data.error || '登录失败';
                         return;
                     }
-                    // 服务端没给凭证时不能继续：否则 parseJwt 返回 null，
-                    // payload.sub 会抛 TypeError，用户看到的是一句内部错误
                     if (!data || typeof data.token !== 'string' || !data.token) {
                         msg.innerText = '服务端未返回登录凭证，请稍后重试。';
                         return;
@@ -1172,13 +1559,13 @@
                     }
                     this.token = data.token;
                     localStorage.setItem('qs-admin-auth-token', this.token);
-                    msg.innerText = 'Success!';
+                    msg.innerText = '登录成功！';
                     document.getElementById('login-overlay').classList.add('hidden');
                     document.getElementById('admin-app').classList.remove('hidden');
                     document.getElementById('admin-user-id').innerText = payload.username || payload.sub;
-                    this.fetchUsers();
+                    this.switchSection('overview');
                 } catch (e) {
-                    msg.innerText = 'Unexpected error: ' + e.message;
+                    msg.innerText = '异常错误: ' + e.message;
                 }
             },
 
@@ -1188,7 +1575,7 @@
                 const msg = document.getElementById('login-msg');
 
                 if (!loginId || !password) {
-                    msg.innerText = 'Please enter both username and password';
+                    msg.innerText = '请输入用户名和密码';
                     return;
                 }
 
@@ -1196,11 +1583,11 @@
                     msg.innerText = '配置缺失：config.js 未成功加载，无法注册。请刷新页面重试。';
                     return;
                 }
-                msg.innerText = 'Signing up...';
+                msg.innerText = '正在注册...';
 
                 try {
                     if (loginId.includes('@')) {
-                        msg.innerText = 'Username cannot contain @';
+                        msg.innerText = '用户名不能包含 @ 字符';
                         return;
                     }
                     const res = await fetch(`${ADMIN_API_BASE}/api/auth/signup`, {
@@ -1222,15 +1609,15 @@
                         msg.innerText = '注册凭证无法解析，请稍后重试。';
                         return;
                     }
-                    msg.innerText = 'Sign up successful! Logging in...';
+                    msg.innerText = '注册成功！正在进入后台...';
                     this.token = data.token;
                     localStorage.setItem('qs-admin-auth-token', this.token);
                     document.getElementById('login-overlay').classList.add('hidden');
                     document.getElementById('admin-app').classList.remove('hidden');
                     document.getElementById('admin-user-id').innerText = payload.username || payload.sub;
-                    this.fetchUsers();
+                    this.switchSection('overview');
                 } catch (e) {
-                    msg.innerText = 'Unexpected error: ' + e.message;
+                    msg.innerText = '异常错误: ' + e.message;
                 }
             },
 
@@ -1240,7 +1627,6 @@
                 window.location.reload();
             },
 
-            // 统一请求入口：token 失效（401）时清掉本地会话并刷新回登录页
             async authedFetch(url, options = {}) {
                 const headers = Object.assign({}, options.headers || {});
                 if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
@@ -1253,11 +1639,12 @@
                 }
                 return res;
             },
+
             async fetchUsers(page) {
                 if (typeof page === 'number' && page >= 1) this.userPage = page;
                 const tbody = document.getElementById('user-table-body');
                 const countEl = document.getElementById('user-count');
-                tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Loading users...</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-[var(--sub)]">正在载入用户列表...</td></tr>';
 
                 try {
                     const qParam = this.userSearch ? `&q=${encodeURIComponent(this.userSearch)}` : '';
@@ -1267,7 +1654,7 @@
 
                     if (!res.ok) {
                         const err = await res.json().catch(() => ({}));
-                        throw new Error(err.error || `Failed to fetch(${res.status})`);
+                        throw new Error(err.error || `Failed to fetch (${res.status})`);
                     }
 
                     const data = await res.json();
@@ -1275,9 +1662,11 @@
                     const meta = data.meta || {};
                     this.userPage = meta.page || this.userPage;
                     this.userPages = meta.pages || 1;
-                    countEl.innerText = meta.total != null ? meta.total : (data.users ? data.users.length : 0);
+                    const totalUsers = meta.total != null ? meta.total : (data.users ? data.users.length : 0);
+                    countEl.innerText = totalUsers;
+                    const dashU = document.getElementById('dash-users-count');
+                    if (dashU && dashU.innerText === '-') dashU.innerText = totalUsers;
 
-                    // 分页控件状态
                     const pager = document.getElementById('user-pager');
                     const pageInfo = document.getElementById('user-page-info');
                     const prevBtn = document.getElementById('user-prev');
@@ -1286,47 +1675,49 @@
                         const multi = (this.userPages || 1) > 1;
                         pager.classList.toggle('hidden', !multi);
                         pager.classList.toggle('flex', multi);
-                        pageInfo.innerText = `第 ${this.userPage} / ${this.userPages} 页 · 共 ${meta.total || 0} 位用户`;
+                        pageInfo.innerText = `第 ${this.userPage} / ${this.userPages} 页 · 共 ${totalUsers} 位用户`;
                         if (prevBtn) prevBtn.disabled = this.userPage <= 1;
                         if (nextBtn) nextBtn.disabled = this.userPage >= this.userPages;
                     }
 
                     if (!data.users || data.users.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">No users found.</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-[var(--sub)]">未找到匹配的用户。</td></tr>';
                         return;
                     }
 
                     tbody.innerHTML = data.users.map(u => `
-                        <tr class="hover:bg-gray-50 transition-colors">
-                            <td class="px-4 py-4">
-                                <input type="checkbox" class="user-checkbox w-4 h-4 accent-blue-600" value="${u.user_id}" onchange="Admin.toggleUserSelection('${u.user_id}')" ${this.selectedUsers.has(u.user_id) ? 'checked' : ''}>
+                        <tr class="hover:bg-[var(--bg-hover)] transition-colors">
+                            <td class="px-4 py-3.5">
+                                <input type="checkbox" class="user-checkbox w-4 h-4 accent-teal-600 rounded" value="${u.user_id}" onchange="Admin.toggleUserSelection('${u.user_id}')" ${this.selectedUsers.has(u.user_id) ? 'checked' : ''}>
                             </td>
-                            <td class="px-6 py-4">
-                                <div class="flex flex-col">
-                                    <span class="font-bold text-gray-900">${Admin.escapeHTML(u.username || u.email || 'No Name')}</span>
-                                    <span class="font-mono text-[11px] text-gray-400 select-all">${Admin.escapeHTML(u.user_id)}</span>
+                            <td class="px-6 py-3.5">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-7 h-7 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold text-xs uppercase">
+                                        ${(u.username || u.email || '?')[0]}
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <span class="font-bold text-[var(--text)]">${Admin.escapeHTML(u.username || u.email || '未命名')}</span>
+                                        <span class="font-mono text-[10px] text-[var(--sub)] select-all">${Admin.escapeHTML(u.user_id)}</span>
+                                    </div>
                                 </div>
                             </td>
-                            <td class="px-6 py-4">
-                                <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">${u.bank_count} sets</span>
+                            <td class="px-6 py-3.5">
+                                <span class="bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 px-2 py-0.5 rounded-full text-xs font-bold">${u.bank_count} 套题库</span>
                             </td>
-                            <td class="px-6 py-4 text-gray-600 text-xs">
+                            <td class="px-6 py-3.5 text-[var(--sub)] text-xs">
                                 ${u.last_active_at ? (parseUtcDate(u.last_active_at) ? parseUtcDate(u.last_active_at).toLocaleString() : null) : '-'}
                             </td>
-                            <td class="px-6 py-4 text-xs text-gray-500">
-                                <div class="truncate max-w-[150px]" title="${Admin.escapeHTML(u.last_ip || 'N/A')}">${Admin.escapeHTML(u.last_ip || '-')}</div>
-                                <div class="truncate max-w-[150px] opacity-70" title="${Admin.escapeHTML(u.last_device || 'N/A')}">${Admin.escapeHTML(u.last_device || '-')}</div>
+                            <td class="px-6 py-3.5 text-xs text-[var(--sub)]">
+                                <div class="truncate max-w-[150px] font-mono text-[11px]" title="${Admin.escapeHTML(u.last_ip || 'N/A')}">${Admin.escapeHTML(u.last_ip || '-')}</div>
+                                <div class="truncate max-w-[150px] opacity-70 text-[10px]" title="${Admin.escapeHTML(u.last_device || 'N/A')}">${Admin.escapeHTML(u.last_device || '-')}</div>
                             </td>
-                            <td class="px-6 py-4 text-right">
-                                <button onclick="Admin.openResetPwModal('${u.user_id}')" class="text-amber-600 hover:underline text-xs font-bold mr-2">Reset PW</button>
-                                <button onclick="Admin.viewSets('${u.user_id}')" class="text-blue-600 hover:underline text-xs font-bold">Manage Banks</button>
+                            <td class="px-6 py-3.5 text-right space-x-2">
+                                <button onclick="Admin.openResetPwModal('${u.user_id}')" class="text-amber-600 dark:text-amber-400 hover:underline text-xs font-bold">重置密码</button>
+                                <button onclick="Admin.viewSets('${u.user_id}')" class="text-teal-600 dark:text-teal-400 hover:underline text-xs font-bold">题库管理</button>
                             </td>
                         </tr>
-            `).join('');
+                    `).join('');
 
-                    // 全选框状态按「当前页每个用户是否都已选」逐个判断。
-                    // 旧写法拿全局已选总数和本页行数比较：上一页选满 20 人后切到
-                    // 别的页，本页一个没选全选框也会亮着，误导批量操作范围
                     const allCheckbox = document.getElementById('select-all-users');
                     if (allCheckbox) {
                         const pageIds = (data.users || []).map(u => u.user_id);
@@ -1334,38 +1725,57 @@
                         allCheckbox.indeterminate = pageIds.some(pid => this.selectedUsers.has(pid)) && !allCheckbox.checked;
                     }
 
-                    // Populate the push-user-id select dropdown
                     const pushUserSelect = document.getElementById('push-user-id');
                     if (pushUserSelect && pushUserSelect.tagName === 'SELECT') {
-                        pushUserSelect.innerHTML = '<option value="">Select a user...</option>' +
-                            data.users.map(u => `<option value="${Admin.escapeHTML(u.user_id)}">${Admin.escapeHTML(u.username || u.email || 'No Name')} (${Admin.escapeHTML(u.user_id.substring(0, 8))}...)</option>`).join('');
+                        pushUserSelect.innerHTML = '<option value="">选择目标用户...</option>' +
+                            data.users.map(u => `<option value="${Admin.escapeHTML(u.user_id)}">${Admin.escapeHTML(u.username || u.email || '未命名')} (${Admin.escapeHTML(u.user_id.substring(0, 8))}...)</option>`).join('');
+                    }
+
+                    const auditSelect = document.getElementById('audit-target-select');
+                    if (auditSelect) {
+                        auditSelect.innerHTML = '<option value="">选择用户的题库进行体检...</option>' +
+                            data.users.map(u => `<option value="${Admin.escapeHTML(u.user_id)}">${Admin.escapeHTML(u.username || u.email || '未命名')} (${u.bank_count} 套题库)</option>`).join('');
                     }
                 } catch (e) {
                     console.error(e);
-                    tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-red-500">Error: ${this.escapeHTML((e && e.message) || String(e))}</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-red-500">错误: ${this.escapeHTML((e && e.message) || String(e))}</td></tr>`;
                 }
             },
 
             switchSection(id) {
-                // Update nav styles
-                ['users', 'push', 'logs'].forEach(s => {
+                const navIds = ['overview', 'users', 'push', 'audit', 'logs'];
+                const titles = {
+                    overview: '系统仪表大盘 (Dashboard)',
+                    users: '用户管理与数据维护 (Users)',
+                    push: '全局题库广播与推送 (Broadcast)',
+                    audit: '题库智能体检与质检 (Quality Audit)',
+                    logs: '云端同步与审计日志 (System Logs)'
+                };
+
+                navIds.forEach(s => {
                     const btn = document.getElementById(`nav-${s}`);
                     const section = document.getElementById(`section-${s}`);
+                    if (!btn || !section) return;
 
                     if (s === id) {
-                        btn.classList.remove('hover:bg-slate-800', 'text-slate-300');
-                        btn.classList.add('bg-blue-600', 'text-white', 'shadow-lg', 'shadow-blue-900/20');
+                        btn.className = 'w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-teal-600 text-white font-bold transition-all shadow-md shadow-teal-900/30';
                         section.classList.remove('hidden');
                     } else {
-                        btn.classList.add('hover:bg-slate-800', 'text-slate-300');
-                        btn.classList.remove('bg-blue-600', 'text-white', 'shadow-lg', 'shadow-blue-900/20');
+                        btn.className = 'w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-slate-100 font-bold transition-all';
                         section.classList.add('hidden');
                     }
                 });
 
-                if (id === 'logs') {
+                const pageTitle = document.getElementById('page-title');
+                if (pageTitle && titles[id]) pageTitle.innerText = titles[id];
+
+                if (id === 'overview') {
+                    this.fetchOverviewStats();
+                } else if (id === 'logs') {
                     this.fetchLogs();
                 } else if (id === 'users') {
+                    this.fetchUsers();
+                } else if (id === 'audit') {
                     this.fetchUsers();
                 }
             },
@@ -1389,27 +1799,27 @@
                 const resultEl = document.getElementById('push-result');
 
                 if (target === 'user' && !userId) {
-                    alert('Please enter a User ID');
+                    alert('请选择目标用户');
                     return;
                 }
                 if (!bankName) {
-                    alert('Please enter a Bank Name');
+                    alert('请输入题库名称');
                     return;
                 }
 
                 let questions;
                 try {
                     questions = JSON.parse(jsonStr);
-                    if (!Array.isArray(questions)) throw new Error('Root must be an array');
+                    if (!Array.isArray(questions)) throw new Error('根对象必须为题目数组 (Array)');
                 } catch (e) {
-                    alert('Invalid JSON: ' + e.message);
+                    alert('JSON 语法格式无效: ' + e.message);
                     return;
                 }
 
-                if (!confirm(`Are you sure you want to push this bank to ${target === 'all' ? 'ALL USERS' : 'User ' + userId}?`)) return;
+                if (!confirm(`确定要将这套题库推送给 ${target === 'all' ? '全站所有用户' : '用户 ' + userId} 吗？`)) return;
 
                 btn.disabled = true;
-                btn.innerText = 'Pushing...';
+                btn.innerText = '正在推送...';
                 resultEl.classList.add('hidden');
 
                 try {
@@ -1428,66 +1838,82 @@
                     });
 
                     const data = await res.json();
-                    if (!res.ok) throw new Error(data.error || 'Failed to push');
+                    if (!res.ok) throw new Error(data.error || '推送失败');
 
                     resultEl.innerHTML = `
-                        <strong>Success!</strong><br>
-                        Target: ${data.summary.target}<br>
-                        Total Users: ${data.summary.total}<br>
-                        Success: ${data.summary.success}<br>
-                        Failed: ${data.summary.failed}
+                        <strong>推送成功！</strong><br>
+                        目标类型: ${data.summary.target}<br>
+                        涉及用户总数: ${data.summary.total}<br>
+                        成功推送: ${data.summary.success}<br>
+                        失败: ${data.summary.failed}
                     `;
                     resultEl.classList.remove('hidden');
 
                 } catch (e) {
-                    alert('Error: ' + e.message);
+                    alert('错误: ' + e.message);
                 } finally {
                     btn.disabled = false;
-                    btn.innerText = 'Push to Users';
+                    btn.innerText = '确认推送到目标用户';
                 }
             },
 
             async fetchLogs() {
                 const tbody = document.getElementById('logs-table-body');
-                tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">Loading logs...</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-[var(--sub)]">正在载入系统日志...</td></tr>';
 
                 try {
-                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/system-logs?limit=50`, {
+                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/system-logs?limit=100`, {
                         headers: { 'Authorization': `Bearer ${this.token}` }
                     });
 
-                    if (!res.ok) throw new Error('Failed to fetch logs');
+                    if (!res.ok) throw new Error('获取系统日志失败');
                     const data = await res.json();
-
-                    if (!data.logs || data.logs.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">No logs found.</td></tr>';
-                        return;
-                    }
-
-                    tbody.innerHTML = data.logs.map(log => {
-                        const statusColors = { success: 'text-green-400', 'client-error': 'text-yellow-400' };
-                        const statusColor = statusColors[log.status] || 'text-red-400';
-                        const safeUserId = Admin.escapeHTML(log.username || log.user_id || '');
-                        const safeStatus = Admin.escapeHTML(log.status || '');
-                        const delta = (log.delta && typeof log.delta === 'object') ? log.delta : {};
-                        const safeIp = Admin.escapeHTML(delta.ip || '-');
-                        const safeUa = Admin.escapeHTML(delta.ua || '-');
-                        const safeError = Admin.escapeHTML(log.error || '-');
-                        return `
-                            <tr class="hover:bg-gray-700 transition-colors">
-                                <td class="px-4 py-2 text-gray-500">${(parseUtcDate(log.created_at) ? parseUtcDate(log.created_at).toLocaleString() : '')}</td>
-                                <td class="px-4 py-2 text-gray-400 text-[11px]">${safeUserId}</td>
-                                <td class="px-4 py-2 font-bold ${statusColor}">${safeStatus}</td>
-                                <td class="px-4 py-2 text-gray-400">${safeIp}</td>
-                                <td class="px-4 py-2 text-gray-500 truncate max-w-[200px]" title="${safeUa}">${safeUa}</td>
-                                <td class="px-4 py-2 text-red-300 truncate max-w-[200px]" title="${safeError}">${safeError}</td>
-                            </tr>
-                            `;
-                    }).join('');
-
+                    this.rawLogs = data.logs || [];
+                    this.renderLogs(this.rawLogs);
                 } catch (e) {
-                    tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-red-500">Error: ${this.escapeHTML((e && e.message) || String(e))}</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-red-500">错误: ${this.escapeHTML((e && e.message) || String(e))}</td></tr>`;
                 }
+            },
+
+            filterLogs(filterStatus) {
+                if (!this.rawLogs || this.rawLogs.length === 0) return;
+                if (filterStatus === 'all') {
+                    this.renderLogs(this.rawLogs);
+                } else if (filterStatus === 'conflict') {
+                    this.renderLogs(this.rawLogs.filter(l => l.status === 'conflict'));
+                } else {
+                    this.renderLogs(this.rawLogs.filter(l => l.status !== 'success'));
+                }
+            },
+
+            renderLogs(logs) {
+                const tbody = document.getElementById('logs-table-body');
+                if (!logs || logs.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-[var(--sub)]">未找到匹配的日志记录。</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = logs.map(log => {
+                    const isSuccess = log.status === 'success';
+                    const isConflict = log.status === 'conflict';
+                    const badgeClass = isSuccess ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' : (isConflict ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20' : 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20');
+                    const safeUserId = Admin.escapeHTML(log.username || log.user_id || '');
+                    const safeStatus = Admin.escapeHTML(log.status || '');
+                    const delta = (log.delta && typeof log.delta === 'object') ? log.delta : {};
+                    const safeIp = Admin.escapeHTML(delta.ip || '-');
+                    const safeUa = Admin.escapeHTML(delta.ua || '-');
+                    const safeError = Admin.escapeHTML(log.error || '-');
+                    return `
+                        <tr class="hover:bg-[var(--bg-hover)] transition-colors">
+                            <td class="px-4 py-2.5 text-[var(--sub)] font-mono">${(parseUtcDate(log.created_at) ? parseUtcDate(log.created_at).toLocaleString() : '')}</td>
+                            <td class="px-4 py-2.5 font-bold text-[var(--text)] text-xs">${safeUserId}</td>
+                            <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeClass}">${safeStatus}</span></td>
+                            <td class="px-4 py-2.5 font-mono text-[11px] text-[var(--sub)]">${safeIp}</td>
+                            <td class="px-4 py-2.5 text-[var(--sub)] truncate max-w-[200px]" title="${safeUa}">${safeUa}</td>
+                            <td class="px-4 py-2.5 text-red-500 dark:text-red-400 truncate max-w-[200px]" title="${safeError}">${safeError}</td>
+                        </tr>
+                    `;
+                }).join('');
             },
 
             async viewSets(userId) {
@@ -1497,42 +1923,38 @@
 
                 modal.classList.remove('hidden');
                 subtitle.innerText = `User ID: ${userId}`;
-                tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Loading sets...</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-[var(--sub)]">正在载入题库...</td></tr>';
 
                 try {
-                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/users-sets?userId=${encodeURIComponent(userId)}`, {
-                        headers: {
-                                                    }
-                    });
-
-                    if (!res.ok) throw new Error('Failed to fetch sets');
+                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/users-sets?userId=${encodeURIComponent(userId)}`);
+                    if (!res.ok) throw new Error('获取题库列表失败');
                     const data = await res.json();
 
                     if (!data.sets || data.sets.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">No question sets found for this user.</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-[var(--sub)]">该用户暂无云端题库。</td></tr>';
                         return;
                     }
 
                     tbody.innerHTML = data.sets.map(s => {
                         const safeId = Admin.escapeHTML(String(s.id));
-                        const safeName = Admin.escapeHTML(s.name || 'Untitled');
+                        const safeName = Admin.escapeHTML(s.name || '默认题库');
                         const safeVersion = Admin.escapeHTML(String(s.version || 0));
                         const safeCount = Admin.escapeHTML(String(s.question_count || 0));
                         return `
-                            <tr class="hover:bg-gray-50 transition-colors">
-                                <td class="px-6 py-4 font-mono text-xs text-gray-500">${safeId}</td>
-                                <td class="px-6 py-4 font-bold text-gray-800">${safeName}</td>
-                                <td class="px-6 py-4"><span class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold">v${safeVersion}</span></td>
-                                <td class="px-6 py-4 text-gray-600">${safeCount}</td>
-                                <td class="px-6 py-4 text-xs text-gray-500">${(parseUtcDate(s.created_at) ? parseUtcDate(s.created_at).toLocaleString() : '')}</td>
-                                <td class="px-6 py-4 text-right">
-                                    <button onclick="Admin.viewBank(${safeId})" class="text-blue-600 hover:underline text-xs font-bold">Edit Details</button>
+                            <tr class="hover:bg-[var(--bg-hover)] transition-colors">
+                                <td class="px-5 py-3.5 font-mono text-xs text-[var(--sub)]">${safeId}</td>
+                                <td class="px-5 py-3.5 font-bold text-[var(--text)]">${safeName}</td>
+                                <td class="px-5 py-3.5"><span class="bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 px-2 py-0.5 rounded-full text-xs font-bold">v${safeVersion}</span></td>
+                                <td class="px-5 py-3.5 text-[var(--sub)] font-bold">${safeCount} 题</td>
+                                <td class="px-5 py-3.5 text-xs text-[var(--sub)]">${(parseUtcDate(s.created_at) ? parseUtcDate(s.created_at).toLocaleString() : '')}</td>
+                                <td class="px-5 py-3.5 text-right">
+                                    <button onclick="Admin.viewBank(${safeId})" class="btn px-3 py-1 bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 rounded-lg text-xs font-bold hover:bg-teal-100">管理题库详情</button>
                                 </td>
                             </tr>
-                            `;
+                        `;
                     }).join('');
                 } catch (e) {
-                    tbody.innerHTML = `<tr><td colspan="6" class="text-red-500 text-center py-4">Error: ${this.escapeHTML((e && e.message) || String(e))}</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="6" class="text-red-500 text-center py-4">错误: ${this.escapeHTML((e && e.message) || String(e))}</td></tr>`;
                 }
             },
 
@@ -1548,46 +1970,58 @@
 
                 modal.classList.remove('hidden');
                 this.switchView('visual');
-                title.innerText = 'Loading...';
+                title.innerText = '正在载入...';
                 subtitle.innerText = `Set ID: ${setId}`;
-                jsonContent.value = 'Fetching data...';
-                visualView.innerHTML = '<div class="text-center text-gray-500 py-10">Loading questions...</div>';
+                jsonContent.value = '正在拉取题目数据...';
+                visualView.innerHTML = '<div class="text-center text-[var(--sub)] py-10">正在加载题目列表...</div>';
                 totalQ.innerText = '-';
                 version.innerText = '-';
                 created.innerText = '-';
+                this.selectedBankQuestionIndices.clear();
+                this.updateBankBatchBar();
+
+                const auditBox = document.getElementById('bank-audit-summary');
+                if (auditBox) auditBox.classList.add('hidden');
 
                 this.currentEditingSetId = setId;
 
                 try {
-                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/set-details?setId=${setId}`, {
-                        headers: { 'Authorization': `Bearer ${this.token}` }
-                    });
-
+                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/set-details?setId=${setId}`);
                     if (!res.ok) {
                         const err = await res.json().catch(() => ({}));
-                        throw new Error(err.error || 'Failed to fetch bank');
+                        throw new Error(err.error || '获取题库详情失败');
                     }
 
                     const data = await res.json();
-
                     this.currentBankInfo = data.bank_info || {};
                     this.currentQuestions = data.questions || [];
                     this.currentEditingUserId = data.user_id;
 
-                    title.innerText = this.currentBankInfo.name || 'Untitled Bank';
+                    title.innerText = this.currentBankInfo.name || '默认题库';
                     totalQ.innerText = this.currentQuestions.length;
                     version.innerText = `v${this.currentBankInfo.version || 0}`;
                     created.innerText = (parseUtcDate(this.currentBankInfo.created_at) ? parseUtcDate(this.currentBankInfo.created_at).toLocaleString() : '-');
 
+                    this.populateSubjectFilters();
                     this.updateJsonView();
                     this.renderVisualQuestions();
-
                 } catch (e) {
                     console.error(e);
-                    jsonContent.value = `Error: ${e.message}`;
-                    title.innerText = 'Error';
-                    visualView.innerHTML = `<div class="text-red-500 text-center py-10">Error loading questions: ${Admin.escapeHTML(e.message)}</div>`;
+                    jsonContent.value = `错误: ${e.message}`;
+                    title.innerText = '加载异常';
+                    visualView.innerHTML = `<div class="text-red-500 text-center py-10">加载题目失败: ${Admin.escapeHTML(e.message)}</div>`;
                 }
+            },
+
+            populateSubjectFilters() {
+                const subFilter = document.getElementById('bank-sub-filter');
+                if (!subFilter) return;
+                const subjects = [...new Set(this.currentQuestions.map(q => q && q.sub).filter(Boolean))].sort();
+                subFilter.innerHTML = '<option value="">全部科目</option>' + subjects.map(s => `<option value="${Admin.escapeHTML(s)}">${Admin.escapeHTML(s)}</option>`).join('');
+            },
+
+            filterVisualQuestions() {
+                this.renderVisualQuestions();
             },
 
             updateJsonView() {
@@ -1608,38 +2042,61 @@
             renderVisualQuestions() {
                 const container = document.getElementById('view-visual');
                 if (!this.currentQuestions || this.currentQuestions.length === 0) {
-                    container.innerHTML = '<div class="text-center text-gray-500 py-10">No questions in this set.</div>';
+                    container.innerHTML = '<div class="text-center text-[var(--sub)] py-10">该题库暂无题目。</div>';
                     return;
                 }
 
-                container.innerHTML = this.currentQuestions.map((q, idx) => {
+                const keyword = (document.getElementById('bank-q-search')?.value || '').trim().toLowerCase();
+                const subFilter = document.getElementById('bank-sub-filter')?.value || '';
+                const typeFilter = document.getElementById('bank-type-filter')?.value || '';
+
+                const filtered = this.currentQuestions.map((q, originalIdx) => ({ q, originalIdx })).filter(({ q }) => {
+                    if (!q) return false;
+                    if (subFilter && q.sub !== subFilter) return false;
+                    if (typeFilter && q.type !== typeFilter) return false;
+                    if (keyword) {
+                        const inText = (q.q || '').toLowerCase().includes(keyword);
+                        const inOptions = Array.isArray(q.o) && q.o.some(opt => String(opt).toLowerCase().includes(keyword));
+                        const inAnswer = String(q.a || '').toLowerCase().includes(keyword);
+                        if (!inText && !inOptions && !inAnswer) return false;
+                    }
+                    return true;
+                });
+
+                if (filtered.length === 0) {
+                    container.innerHTML = '<div class="text-center text-[var(--sub)] py-10">未找到符合当前筛选条件的题目。</div>';
+                    return;
+                }
+
+                container.innerHTML = filtered.map(({ q, originalIdx }) => {
                     const safeQ = this.escapeHTML(q.q || '');
-                    const typeLabels = { mcq: 'Multiple Choice', multi: 'Multi-Select', tf: 'True/False', fill: 'Fill-in-the-blank' };
-                    const typeLabel = this.escapeHTML(typeLabels[q.type] || q.type || '');
+                    const typeLabels = { mcq: '单选题', multi: '多选题', tf: '判断题', fill: '填空题' };
+                    const typeLabel = this.escapeHTML(typeLabels[q.type] || q.type || '单选题');
+                    const isChecked = this.selectedBankQuestionIndices.has(originalIdx);
 
                     let optionsHtml = '';
                     if (q.type === 'tf') {
                         const isTrue = q.a === 'T';
                         optionsHtml = `
-                                <div class="flex gap-4 mt-2 text-xs font-bold">
-                                    <span class="${isTrue ? 'text-green-600 bg-green-50 px-2 py-1 rounded' : 'text-gray-400'}">True</span>
-                                    <span class="${!isTrue ? 'text-green-600 bg-green-50 px-2 py-1 rounded' : 'text-gray-400'}">False</span>
-                                </div>
-                                `;
+                            <div class="flex gap-3 mt-2 text-xs font-bold">
+                                <span class="${isTrue ? 'text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2.5 py-0.5 rounded-full' : 'text-[var(--sub)]'}">正确 (True)</span>
+                                <span class="${!isTrue ? 'text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2.5 py-0.5 rounded-full' : 'text-[var(--sub)]'}">错误 (False)</span>
+                            </div>
+                        `;
                     } else if (q.type === 'fill') {
                         optionsHtml = `
-                                <div class="mt-2 text-xs font-bold text-green-700 bg-green-50 px-2 py-1 rounded inline-block">答案: ${this.escapeHTML(q.a || '')}</div>
-                                `;
+                            <div class="mt-2 text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 px-2.5 py-1 rounded-xl inline-block">答案: ${this.escapeHTML(q.a || '')}</div>
+                        `;
                     } else {
-                        optionsHtml = `<div class="space-y-1 mt-2">` +
+                        optionsHtml = `<div class="space-y-1.5 mt-2.5">` +
                             (q.o || []).map((opt, i) => {
                                 const char = String.fromCharCode(65 + i);
                                 const isCorrect = (q.a || '').includes(char);
                                 return `
-                                    <div class="flex items-start gap-2 text-xs ${isCorrect ? 'bg-green-50 text-green-800 font-bold border border-green-100' : 'text-gray-600'} p-1.5 rounded">
-                                        <span class="w-4">${char}.</span>
-                                        <span>${this.escapeHTML(opt)}</span>
-                                        ${isCorrect ? '<span class="ml-auto text-green-600">✔</span>' : ''}
+                                    <div class="flex items-start gap-2 text-xs ${isCorrect ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800' : 'text-[var(--sub)]'} p-2 rounded-xl">
+                                        <span class="w-4 font-mono font-bold">${char}.</span>
+                                        <span class="flex-1">${this.escapeHTML(opt)}</span>
+                                        ${isCorrect ? '<span class="ml-auto text-emerald-600 font-bold">✔ 正确答案</span>' : ''}
                                     </div>
                                 `;
                             }).join('') +
@@ -1647,46 +2104,276 @@
                     }
 
                     return `
-                                <div class="bg-white border border-gray-200 rounded-xl p-4 mb-4 hover:shadow-md transition-all">
-                                    <div class="flex justify-between items-start mb-2">
-                                        <div class="flex gap-2 items-center">
-                                            <span class="bg-gray-100 text-gray-600 text-[11px] font-bold px-2 py-0.5 rounded">#${idx + 1}</span>
-                                            <span class="bg-blue-50 text-blue-600 text-[11px] font-bold px-2 py-0.5 rounded">${typeLabel}</span>
-                                            <span class="text-[11px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">${this.escapeHTML(q.sub)} / ${this.escapeHTML(q.chap)}</span>
-                                        </div>
-                                        <button onclick="Admin.openQuestionEditor(${idx})" class="text-blue-600 hover:text-blue-800 text-xs font-bold px-3 py-1 rounded hover:bg-blue-50 transition-colors flex items-center gap-1">
-                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 11l3 3L22.5 5.5 18.5 1.5 9 11zM3 21h4l11-11-4-4L3 17v4z"></path></svg>
-                                            Edit
-                                        </button>
-                                    </div>
-                                    <div class="text-sm font-medium text-gray-900 mb-2 leading-relaxed whitespace-pre-wrap">${safeQ}</div>
-                                    ${optionsHtml}
+                        <div class="card border border-[var(--border)] rounded-2xl p-4 hover:shadow-sm transition-all relative">
+                            <div class="flex justify-between items-start mb-2 gap-2">
+                                <div class="flex items-center gap-2">
+                                    <input type="checkbox" class="accent-teal-600 w-4 h-4 rounded cursor-pointer" ${isChecked ? 'checked' : ''} onchange="Admin.toggleSelectBankQuestion(${originalIdx}, this.checked)">
+                                    <span class="bg-[var(--bg)] text-[var(--sub)] text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-[var(--border)]">#${originalIdx + 1}</span>
+                                    <span class="bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-teal-200 dark:border-teal-800">${typeLabel}</span>
+                                    <span class="text-[10px] text-[var(--sub)] bg-[var(--bg)] px-2 py-0.5 rounded-full border border-[var(--border)]">${this.escapeHTML(q.sub || '默认科目')} / ${this.escapeHTML(q.chap || '默认章节')}</span>
                                 </div>
-                                `;
+                                <div class="flex items-center gap-2">
+                                    <button onclick="Admin.openQuestionEditor(${originalIdx})" class="text-teal-600 dark:text-teal-400 hover:underline text-xs font-bold px-2 py-1 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/40 transition-colors">编辑</button>
+                                    <button onclick="Admin.deleteSingleQuestion(${originalIdx})" class="text-red-500 hover:underline text-xs font-bold px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors">删除</button>
+                                </div>
+                            </div>
+                            <div class="text-xs md:text-sm font-semibold text-[var(--text)] leading-relaxed whitespace-pre-wrap">${safeQ}</div>
+                            ${optionsHtml}
+                        </div>
+                    `;
                 }).join('');
+            },
+
+            toggleSelectBankQuestion(index, checked) {
+                if (checked) {
+                    this.selectedBankQuestionIndices.add(index);
+                } else {
+                    this.selectedBankQuestionIndices.delete(index);
+                }
+                this.updateBankBatchBar();
+            },
+
+            toggleSelectAllBankQuestions(el) {
+                if (el.checked) {
+                    this.currentQuestions.forEach((_, idx) => this.selectedBankQuestionIndices.add(idx));
+                } else {
+                    this.selectedBankQuestionIndices.clear();
+                }
+                this.updateBankBatchBar();
+                this.renderVisualQuestions();
+            },
+
+            updateBankBatchBar() {
+                const count = this.selectedBankQuestionIndices.size;
+                const bar = document.getElementById('bank-batch-bar');
+                const countEl = document.getElementById('bank-selected-count');
+                if (countEl) countEl.innerText = count;
+                if (bar) {
+                    bar.classList.toggle('hidden', count === 0);
+                    bar.classList.toggle('flex', count > 0);
+                }
+            },
+
+            deleteSingleQuestion(idx) {
+                if (!confirm(`确定删除第 ${idx + 1} 道题目吗？保存后生效。`)) return;
+                this.currentQuestions.splice(idx, 1);
+                this.selectedBankQuestionIndices.clear();
+                this.updateBankBatchBar();
+                document.getElementById('modal-total-q').innerText = this.currentQuestions.length;
+                this.updateJsonView();
+                this.renderVisualQuestions();
+            },
+
+            batchDeleteBankQuestions() {
+                const count = this.selectedBankQuestionIndices.size;
+                if (count === 0) return;
+                if (!confirm(`确定批量删除选中的 ${count} 道题目吗？保存后生效。`)) return;
+                this.currentQuestions = this.currentQuestions.filter((_, idx) => !this.selectedBankQuestionIndices.has(idx));
+                this.selectedBankQuestionIndices.clear();
+                this.updateBankBatchBar();
+                document.getElementById('modal-total-q').innerText = this.currentQuestions.length;
+                this.updateJsonView();
+                this.renderVisualQuestions();
+            },
+
+            exportSelectedBankQuestions() {
+                const selected = this.currentQuestions.filter((_, idx) => this.selectedBankQuestionIndices.has(idx));
+                const list = selected.length > 0 ? selected : this.currentQuestions;
+                const blob = new Blob([JSON.stringify(list, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${(this.currentBankInfo && this.currentBankInfo.name) || 'questions'}-export.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            },
+
+            auditCurrentBank() {
+                const qs = this.currentQuestions || [];
+                const seen = new Map();
+                let dups = 0;
+                let issues = 0;
+                const issueDetails = [];
+
+                qs.forEach((q, idx) => {
+                    if (!q) return;
+                    const fp = JSON.stringify({ q: q.q, o: q.o, a: q.a, type: q.type });
+                    if (seen.has(fp)) {
+                        dups++;
+                        issueDetails.push(`第 ${idx + 1} 题与第 ${seen.get(fp) + 1} 题内容完全重复`);
+                    } else {
+                        seen.set(fp, idx);
+                    }
+
+                    if (!q.a && q.type !== 'fill') {
+                        issues++;
+                        issueDetails.push(`第 ${idx + 1} 题未设置正确答案 (a 为空)`);
+                    }
+                    if ((q.type === 'mcq' || q.type === 'multi') && (!Array.isArray(q.o) || q.o.length < 2)) {
+                        issues++;
+                        issueDetails.push(`第 ${idx + 1} 题选项数量少于 2 个`);
+                    }
+                });
+
+                const box = document.getElementById('bank-audit-summary');
+                const text = document.getElementById('bank-audit-text');
+                const fixBtn = document.getElementById('bank-audit-fix-btn');
+
+                box.classList.remove('hidden');
+                if (dups === 0 && issues === 0) {
+                    text.innerHTML = `✅ <strong>题库体检通过！</strong> 扫描了全部 ${qs.length} 道题目，未发现重复题或格式缺陷。`;
+                    fixBtn.classList.add('hidden');
+                } else {
+                    text.innerHTML = `⚠️ <strong>发现 ${dups} 道重复题，${issues} 处格式/答案隐患。</strong> ${issueDetails.slice(0, 3).join('； ')}`;
+                    fixBtn.classList.toggle('hidden', dups === 0);
+                }
+            },
+
+            applyBankDeduplication() {
+                const qs = this.currentQuestions || [];
+                const seen = new Set();
+                const unique = [];
+                let removed = 0;
+
+                qs.forEach(q => {
+                    if (!q) return;
+                    const fp = JSON.stringify({ q: q.q, o: q.o, a: q.a, type: q.type });
+                    if (!seen.has(fp)) {
+                        seen.add(fp);
+                        unique.push(q);
+                    } else {
+                        removed++;
+                    }
+                });
+
+                this.currentQuestions = unique;
+                document.getElementById('modal-total-q').innerText = this.currentQuestions.length;
+                this.updateJsonView();
+                this.renderVisualQuestions();
+                alert(`查重清理完成！已移除 ${removed} 道重复题目，请点击下方「保存更新到云端」持久化。`);
+                this.auditCurrentBank();
+            },
+
+            async runSelectedBankAudit() {
+                const uid = document.getElementById('audit-target-select').value;
+                if (!uid) {
+                    alert('请选择目标用户');
+                    return;
+                }
+                const card = document.getElementById('audit-results-card');
+                const list = document.getElementById('audit-issues-list');
+                list.innerHTML = '<div class="text-[var(--sub)] text-center py-4">正在拉取并体检该用户题库...</div>';
+                card.classList.remove('hidden');
+
+                try {
+                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/users-sets?userId=${encodeURIComponent(uid)}`);
+                    const data = await res.json();
+                    if (!data.sets || data.sets.length === 0) {
+                        list.innerHTML = '<div class="text-[var(--sub)]">该用户暂无题库。</div>';
+                        return;
+                    }
+
+                    const firstSet = data.sets[0];
+                    const detailsRes = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/set-details?setId=${firstSet.id}`);
+                    const details = await detailsRes.json();
+                    const qs = details.questions || [];
+
+                    const seen = new Map();
+                    let dups = 0;
+                    let issues = 0;
+                    const issueDetails = [];
+
+                    qs.forEach((q, idx) => {
+                        const fp = JSON.stringify({ q: q.q, o: q.o, a: q.a, type: q.type });
+                        if (seen.has(fp)) {
+                            dups++;
+                            issueDetails.push(`第 ${idx + 1} 题与第 ${seen.get(fp) + 1} 题重复`);
+                        } else {
+                            seen.set(fp, idx);
+                        }
+                        if (!q.a) {
+                            issues++;
+                            issueDetails.push(`第 ${idx + 1} 题缺失正确答案`);
+                        }
+                    });
+
+                    document.getElementById('audit-stat-total').innerText = qs.length;
+                    document.getElementById('audit-stat-dups').innerText = dups;
+                    document.getElementById('audit-stat-issues').innerText = issues;
+
+                    this._auditTempSetId = firstSet.id;
+                    this._auditTempUserId = uid;
+                    this._auditTempQuestions = qs;
+
+                    if (issueDetails.length === 0) {
+                        list.innerHTML = '<div class="text-emerald-600 font-bold py-2">✅ 题库状态健康，未检出缺陷！</div>';
+                    } else {
+                        list.innerHTML = issueDetails.map(d => `<div class="p-2 rounded-lg bg-[var(--bg)] border border-[var(--border)] text-[var(--text)]">${d}</div>`).join('');
+                    }
+                } catch (e) {
+                    list.innerHTML = `<div class="text-red-500 py-2">体检失败: ${e.message}</div>`;
+                }
+            },
+
+            async applyAuditDeduplication() {
+                if (!this._auditTempQuestions || !this._auditTempSetId) return;
+                const seen = new Set();
+                const unique = [];
+                let removed = 0;
+                this._auditTempQuestions.forEach(q => {
+                    const fp = JSON.stringify({ q: q.q, o: q.o, a: q.a, type: q.type });
+                    if (!seen.has(fp)) {
+                        seen.add(fp);
+                        unique.push(q);
+                    } else {
+                        removed++;
+                    }
+                });
+
+                if (removed === 0) {
+                    alert('未发现需要清理的重复项。');
+                    return;
+                }
+
+                if (!confirm(`检测到 ${removed} 道重复题目，确定从云端永久清除吗？`)) return;
+
+                try {
+                    const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/users-update-bank`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            userId: this._auditTempUserId,
+                            setId: this._auditTempSetId,
+                            name: '题库 (去重后)',
+                            questions: unique
+                        })
+                    });
+                    if (!res.ok) throw new Error('云端保存失败');
+                    alert(`成功去重！移除了 ${removed} 道重复题。`);
+                    this.runSelectedBankAudit();
+                } catch (e) {
+                    alert('操作失败: ' + e.message);
+                }
             },
 
             openQuestionEditor(index) {
                 const modal = document.getElementById('modal-question-editor');
-                // 未传参时 index 是 undefined，index === -1 为假 → 会把字符串 "undefined"
-                // 写进 qe-index，随后 parseInt 得到 NaN，保存时 this.currentQuestions[NaN].id 崩溃。
-                // 这里统一归一化：非法或越界一律按「新增」(-1) 处理。
                 if (!Number.isInteger(index) || index < 0 || index >= this.currentQuestions.length) index = -1;
                 const q = index === -1 ? null : this.currentQuestions[index];
                 document.getElementById('qe-index').value = index;
-                document.getElementById('qe-title').innerText = q ? 'Edit Question' : 'Add Question';
+                document.getElementById('qe-title').innerText = q ? '编辑题目 (Edit Question)' : '新增题目 (Add Question)';
                 document.getElementById('qe-error').innerText = '';
 
-                const subjects = [...new Set(this.currentQuestions.map(x => x.sub))].filter(Boolean).sort();
+                const subjects = [...new Set(this.currentQuestions.map(x => x && x.sub))].filter(Boolean).sort();
                 const subSelect = document.getElementById('qe-subject-select');
-                subSelect.innerHTML = '<option value="">Select Subject...</option>';
+                subSelect.innerHTML = '<option value="">选择已有科目...</option>';
                 subjects.forEach(s => subSelect.add(new Option(s, s)));
 
                 const updateChapters = (sub) => {
                     const chapSelect = document.getElementById('qe-chapter-select');
-                    chapSelect.innerHTML = '<option value="">Select Chapter...</option>';
+                    chapSelect.innerHTML = '<option value="">选择已有章节...</option>';
                     if (!sub) return;
-                    const chaps = [...new Set(this.currentQuestions.filter(x => x.sub === sub).map(x => x.chap))].filter(Boolean).sort();
+                    const chaps = [...new Set(this.currentQuestions.filter(x => x && x.sub === sub).map(x => x.chap))].filter(Boolean).sort();
                     chaps.forEach(c => chapSelect.add(new Option(c, c)));
                 };
 
@@ -1702,20 +2389,20 @@
                 chapInput.value = '';
 
                 if (q) {
-                    typeSelect.value = q.type;
-                    qText.value = q.q;
+                    typeSelect.value = q.type || 'mcq';
+                    qText.value = q.q || '';
                     if (subjects.includes(q.sub)) {
                         subSelect.value = q.sub;
                         updateChapters(q.sub);
-                        if ([...new Set(this.currentQuestions.filter(x => x.sub === q.sub).map(x => x.chap))].includes(q.chap)) {
+                        if ([...new Set(this.currentQuestions.filter(x => x && x.sub === q.sub).map(x => x.chap))].includes(q.chap)) {
                             chapSelect.value = q.chap;
                         } else {
                             chapInput.value = q.chap;
                         }
                     } else {
-                        subInput.value = q.sub;
+                        subInput.value = q.sub || '';
                         updateChapters('');
-                        chapInput.value = q.chap;
+                        chapInput.value = q.chap || '';
                     }
                     this.renderEditorOptions(q);
                 } else {
@@ -1764,13 +2451,13 @@
                 const div = document.createElement('div');
                 div.className = 'flex items-center gap-2 mb-2';
                 div.innerHTML = `
-                                <span class="text-xs font-bold text-gray-500 w-4">${letter}.</span>
-                                <input type="text" class="flex-1 bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none text-xs" value="${this.escapeHTML(text)}" placeholder="Option content">
-                                    <label class="flex items-center gap-1 cursor-pointer">
-                                        <input type="checkbox" class="accent-blue-600 w-4 h-4" ${isCorrect ? 'checked' : ''}>
-                                    </label>
-                                    <button onclick="this.parentElement.remove(); Admin.renumberQuestionOptions()" class="text-gray-400 hover:text-red-500 p-1">✕</button>
-                                    `;
+                    <span class="text-xs font-mono font-bold text-[var(--sub)] w-4">${letter}.</span>
+                    <input type="text" class="flex-1 bg-[var(--bg)] border border-[var(--border)] rounded-xl px-2.5 py-1.5 outline-none text-xs text-[var(--text)] focus:border-teal-500" value="${this.escapeHTML(text)}" placeholder="输入选项内容">
+                    <label class="flex items-center gap-1 cursor-pointer" title="设为正确答案">
+                        <input type="checkbox" class="accent-teal-600 w-4 h-4 cursor-pointer" ${isCorrect ? 'checked' : ''}>
+                    </label>
+                    <button type="button" onclick="this.parentElement.remove(); Admin.renumberQuestionOptions()" class="text-[var(--sub)] hover:text-red-500 p-1 font-bold">✕</button>
+                `;
                 list.appendChild(div);
             },
 
@@ -1803,8 +2490,6 @@
             },
 
             saveQuestionFromEditor() {
-                // qe-index 为空或非法时 parseInt 会得到 NaN，而 NaN !== -1 为真，
-                // 于是 this.currentQuestions[NaN].id 抛 TypeError、保存静默失败。
                 let index = parseInt(document.getElementById('qe-index').value, 10);
                 if (!Number.isInteger(index) || index < 0 || index >= this.currentQuestions.length) index = -1;
                 const type = document.getElementById('qe-type').value;
@@ -1819,7 +2504,7 @@
                 const chap = chapInput.value.trim() || chapSelect.value;
 
                 if (!sub || !chap || !qText) {
-                    errEl.innerText = 'Subject, Chapter, and Question Text are required.';
+                    errEl.innerText = '科目、章节与题干内容均为必填项。';
                     return;
                 }
 
@@ -1836,14 +2521,14 @@
                 if (type === 'tf') {
                     const checked = document.querySelector('input[name="qe-tf"]:checked');
                     if (!checked) {
-                        errEl.innerText = 'Please select True or False.';
+                        errEl.innerText = '请勾选判断题正确或错误。';
                         return;
                     }
                     newQ.a = checked.value;
                 } else if (type === 'fill') {
                     const answer = document.getElementById('qe-fill-answer').value.trim();
                     if (!answer) {
-                        errEl.innerText = 'Fill-in answer is required.';
+                        errEl.innerText = '填空题必须填写正确答案。';
                         return;
                     }
                     newQ.a = answer;
@@ -1863,15 +2548,15 @@
                     });
 
                     if (options.length < 2) {
-                        errEl.innerText = 'At least 2 options required.';
+                        errEl.innerText = '选择题至少需要提供 2 个选项。';
                         return;
                     }
                     if (!answer) {
-                        errEl.innerText = 'At least one correct answer required.';
+                        errEl.innerText = '至少需要勾选一个正确答案。';
                         return;
                     }
                     if (type === 'mcq' && answer.length > 1) {
-                        errEl.innerText = 'MCQ can only have one correct answer.';
+                        errEl.innerText = '单选题只能有一个正确答案。';
                         return;
                     }
 
@@ -1886,6 +2571,8 @@
                 }
 
                 document.getElementById('modal-question-editor').classList.add('hidden');
+                document.getElementById('modal-total-q').innerText = this.currentQuestions.length;
+                this.populateSubjectFilters();
                 this.updateJsonView();
                 this.renderVisualQuestions();
             },
@@ -1897,36 +2584,30 @@
                 const jsonView = document.getElementById('view-json');
 
                 if (mode === 'visual') {
-                    visualBtn.classList.replace('text-gray-600', 'text-blue-700');
-                    visualBtn.classList.replace('hover:text-gray-900', 'bg-blue-100');
-                    jsonBtn.classList.replace('text-blue-700', 'text-gray-600');
-                    jsonBtn.classList.replace('bg-blue-100', 'hover:text-gray-900');
-
+                    visualBtn.className = 'px-3.5 py-1 rounded-lg text-xs font-bold transition-all bg-teal-600 text-white shadow-sm';
+                    jsonBtn.className = 'px-3.5 py-1 rounded-lg text-xs font-bold text-[var(--sub)] hover:text-[var(--text)] transition-all';
                     visualView.classList.remove('hidden');
                     jsonView.classList.add('hidden');
 
                     try {
                         const jsonVal = document.getElementById('modal-json-content').value;
-                        if (jsonVal && jsonVal !== 'Fetching data...') {
+                        if (jsonVal && jsonVal !== '正在拉取题目数据...') {
                             const parsed = JSON.parse(jsonVal);
                             if (parsed.questions) {
                                 this.currentQuestions = parsed.questions;
                                 this.currentBankInfo = parsed.info || this.currentBankInfo;
+                                document.getElementById('modal-total-q').innerText = this.currentQuestions.length;
                                 this.renderVisualQuestions();
                             }
                         }
                     } catch (e) {
-                        console.warn('Invalid JSON when switching to visual view');
+                        console.warn('切换视图时 JSON 无效，跳过同步');
                     }
                 } else {
-                    jsonBtn.classList.replace('text-gray-600', 'text-blue-700');
-                    jsonBtn.classList.replace('hover:text-gray-900', 'bg-blue-100');
-                    visualBtn.classList.replace('text-blue-700', 'text-gray-600');
-                    visualBtn.classList.replace('bg-blue-100', 'hover:text-gray-900');
-
+                    jsonBtn.className = 'px-3.5 py-1 rounded-lg text-xs font-bold transition-all bg-teal-600 text-white shadow-sm';
+                    visualBtn.className = 'px-3.5 py-1 rounded-lg text-xs font-bold text-[var(--sub)] hover:text-[var(--text)] transition-all';
                     jsonView.classList.remove('hidden');
                     visualView.classList.add('hidden');
-
                     this.updateJsonView();
                 }
             },
@@ -1947,15 +2628,14 @@
                     try {
                         bankData = JSON.parse(jsonContent.value);
                     } catch (e) {
-                        alert('Invalid JSON format!');
+                        alert('JSON 格式有语法错误，无法保存！');
                         return;
                     }
 
-                    if (!confirm('Are you sure you want to OVERWRITE this user\'s data? This cannot be undone.')) return;
+                    if (!confirm('确定将修改更新保存到云端吗？该用户的题库将被同步更新。')) return;
 
-                    btn.innerHTML = '<span>Saving...</span>';
+                    btn.innerHTML = '<span>正在保存...</span>';
                     btn.disabled = true;
-                    btn.classList.add('opacity-50', 'cursor-not-allowed');
 
                     const res = await this.authedFetch(`${ADMIN_API_BASE}/api/admin/users-update-bank`, {
                         method: 'POST',
@@ -1965,29 +2645,28 @@
                         body: JSON.stringify({
                             userId: this.currentEditingUserId,
                             setId: this.currentEditingSetId,
-                            name: (this.currentBankInfo && this.currentBankInfo.name) || 'Untitled Bank',
+                            name: (this.currentBankInfo && this.currentBankInfo.name) || '默认题库',
                             questions: bankData.questions
                         })
                     });
 
                     if (!res.ok) {
                         const err = await res.json().catch(() => ({}));
-                        throw new Error(err.error || 'Failed to save');
+                        throw new Error(err.error || '保存失败');
                     }
 
                     await res.json();
-                    alert('Success! User data updated. The user will receive the update on next sync.');
+                    alert('保存成功！题库已更新到云端，用户下次同步将自动接收。');
 
                     this.viewBank(this.currentEditingSetId);
                     this.fetchUsers();
 
                 } catch (e) {
                     console.error(e);
-                    alert(`Error saving bank: ${e.message}`);
+                    alert(`保存题库出错: ${e.message}`);
                 } finally {
                     btn.innerHTML = originalText;
                     btn.disabled = false;
-                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
                 }
             },
 
@@ -1998,7 +2677,6 @@
                 const text = jsonContent.value || '';
                 if (!text) return;
 
-                // 给按钮一个短暂的文字反馈：原来复制完毫无提示，用户不知道成没成功
                 const flash = (label) => {
                     if (!btn) return;
                     if (!btn.dataset.origLabel) btn.dataset.origLabel = btn.textContent;
@@ -2007,27 +2685,24 @@
                     btn._copyTimer = setTimeout(() => { btn.textContent = btn.dataset.origLabel; }, 1500);
                 };
 
-                // 优先用标准剪贴板 API：不需要选中文本，也不依赖已废弃的 execCommand
                 try {
                     if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
                         await navigator.clipboard.writeText(text);
-                        flash('Copied ✓');
+                        flash('已复制 ✓');
                         return;
                     }
-                } catch (e) { /* 非安全上下文或权限被拒，走下面的回退 */ }
+                } catch (e) { }
 
-                // 回退：选中 + execCommand（老浏览器）
                 try {
                     jsonContent.select();
                     const ok = typeof document.execCommand === 'function' && document.execCommand('copy');
-                    flash(ok ? 'Copied ✓' : 'Copy failed');
+                    flash(ok ? '已复制 ✓' : '复制失败');
                 } catch (e) {
-                    flash('Copy failed');
+                    flash('复制失败');
                 }
             }
         };
 
-        // Initialize when DOM is ready
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => window.Admin.init());
         } else {
