@@ -1,7 +1,10 @@
 # Project Operating Guidelines: question-site
 
 ## 1. 核心架构与部署环境
-- **双模架构驱动**: 前端原生 ES6+ Modules + 静态预编译 Tailwind CSS + PWA 离线冷启动；后端纯原生 Web API Cloudflare Workers (可运行于 Cloudflare 边缘环境或本地 Node workerd 守护进程)。
+- **生产环境**: 100% 运行于自主独立生产服务器，不依赖外部代理。
+  - 前端原生 ES6+ Modules + 静态预编译 Tailwind CSS + PWA 离线冷启动；
+  - 后端纯原生 Web API Cloudflare Workers 本地 Node Wrangler 运行时 + D1 SQLite 本地持久化；
+  - 生产系统级运维守护进程 `question-site-ops.service` (Node 127.0.0.1:8789 原生 JWT 验签)。
 - **本地工作目录**: `C:\Users\22636\.gemini\antigravity\scratch\question-site`
 - **GitHub 远端仓库**: `https://github.com/combodevy/question-site.git` (主分支: `main`)
 - **官方独立生产服务器**:
@@ -9,7 +12,11 @@
   - 生产主域名: `https://quiz.devy.cc.cd`
   - 管理后台: `https://quiz.devy.cc.cd/admin.html`
   - 部署路径: `/opt/question-site/app`
-  - 运维与服务管理: `/opt/question-site/manage.sh` (API 守护服务: `question-site-api.service`)
+  - 运维与服务管理: `/opt/question-site/manage.sh` (API 守护服务: `question-site-api.service`，运维监控服务: `question-site-ops.service`)
+  - Nginx 路由:
+    - `/api/admin/server-ops` -> `127.0.0.1:8789` (DevOps 硬件监控与指令执行)
+    - `/api/` -> `127.0.0.1:8787` (Worker 运行时)
+    - 客户端真实 IP 穿透: `proxy_set_header X-Forwarded-For $remote_addr; proxy_set_header X-Real-IP $remote_addr;`
 
 ---
 
@@ -22,6 +29,7 @@
    node scripts/check-i18n.mjs
    node scripts/validate-keys.mjs
    node scripts/check-deploy-target.mjs
+   node scripts/ci-check.mjs
    ```
 2. **Git 提交并推送远端**:
    ```bash
@@ -33,7 +41,7 @@
    - 自动调用 `/opt/question-site/manage.sh backup` 创建数据与密钥快照；
    - 在服务器端拉取 GitHub 最新代码并保持 `wrangler.json` 本地密钥不受影响；
    - 若涉及后端 Worker（`worker/` 目录）或系统服务变更，执行 `/opt/question-site/manage.sh restart`；
-   - 验证服务状态与健康检查（`GET /` -> 200, `GET /admin.html` -> 200, `GET /api/auth/me` -> 401 正常鉴权响应）。
+   - 验证服务状态与健康检查（`GET /` -> 200, `GET /admin.html` -> 200, `GET /api/auth/me` -> 401 正常鉴权响应，`GET /api/admin/server-ops/metrics` -> 401 正常鉴权响应）。
 
 ---
 

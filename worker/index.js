@@ -344,7 +344,22 @@ function checkRateLimit(key, max, windowMs) {
 }
 
 function clientIp(request) {
-    return request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "unknown";
+    const realIp = request.headers.get("x-real-ip");
+    if (realIp && realIp !== "127.0.0.1" && realIp !== "::1") {
+        return realIp;
+    }
+    const xff = request.headers.get("x-forwarded-for");
+    if (xff) {
+        const parts = xff.split(",").map(s => s.trim()).filter(Boolean);
+        for (const p of parts) {
+            if (p !== "127.0.0.1" && p !== "::1" && p !== "localhost") {
+                return p;
+            }
+        }
+    }
+    const cf = request.headers.get("cf-connecting-ip");
+    if (cf && cf !== "127.0.0.1") return cf;
+    return realIp || (xff ? xff.split(",")[0].trim() : "127.0.0.1");
 }
 
 // ==========================================
@@ -809,7 +824,7 @@ export default {
                     return jsonResponse({ error: "name 不能为空" }, 400, headers);
                 }
 
-                const ip = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+                const ip = clientIp(request);
                 const ua = request.headers.get("user-agent") || "unknown";
                 const logDelta = delta ? { ...delta, ip, ua } : { ip, ua };
 
@@ -1181,14 +1196,11 @@ export default {
 
                 // 1. GET USERS LIST
                 if (action === "users-list" && request.method === "GET") {
-                    // 分页：?page=1&pageSize=20（pageSize 上限 100）。之前写死 LIMIT 50，
-                    // 用户一多后面的人永远看不到。
                     const urlObj = new URL(request.url);
                     const page = Math.max(1, parseInt(urlObj.searchParams.get("page") || "1", 10) || 1);
                     const pageSize = Math.min(100, Math.max(1, parseInt(urlObj.searchParams.get("pageSize") || "20", 10) || 20));
 
                     const searchQ = (urlObj.searchParams.get("q") || "").trim().toLowerCase();
-                    // 转义 LIKE 通配符：否则搜 % 会匹配全部用户
                     const searchEscaped = searchQ.replace(/[\%_]/g, "\\$&");
                     const whereSql = searchQ ? "WHERE lower(u.username) LIKE ? ESCAPE '\\'" : "";
 
@@ -1198,13 +1210,32 @@ export default {
                     const { results: countRows } = await countStmt.all();
                     const total = (countRows && countRows[0] && countRows[0].c) || 0;
 
+                    const adminList = (env.ADMIN_USERNAMES || "devy-admin,admin").split(",").map(s => s.trim());
+
                     const queryStr = `
-                        WITH UserStats AS (
+                        WITH UserSets AS (
                             SELECT
                                 user_id,
                                 COUNT(*) as bank_count,
                                 MAX(created_at) as last_created_at
                             FROM question_sets
+                            GROUP BY user_id
+                        ),
+                        UserQuestions AS (
+                            SELECT
+                                qs.user_id,
+                                COUNT(q.id) as total_questions
+                            FROM question_sets qs
+                            LEFT JOIN questions q ON q.question_set_id = qs.id
+                            GROUP BY qs.user_id
+                        ),
+                        UserSyncAgg AS (
+                            SELECT
+                                user_id,
+                                COUNT(*) as sync_count,
+                                SUM(CASE WHEN status = 'conflict' THEN 1 ELSE 0 END) as conflict_count,
+                                SUM(CASE WHEN status = 'client-error' THEN 1 ELSE 0 END) as error_count
+                            FROM sync_logs
                             GROUP BY user_id
                         ),
                         LastSync AS (
@@ -1220,10 +1251,16 @@ export default {
                             u.username,
                             u.created_at,
                             COALESCE(us.bank_count, 0) as bank_count,
+                            COALESCE(uq.total_questions, 0) as question_count,
+                            COALESCE(sa.sync_count, 0) as sync_count,
+                            COALESCE(sa.conflict_count, 0) as conflict_count,
+                            COALESCE(sa.error_count, 0) as error_count,
                             COALESCE(ls.last_sync_at, us.last_created_at, u.created_at) as last_active_at,
                             ls.delta as last_sync_delta
                         FROM users u
-                        LEFT JOIN UserStats us ON u.id = us.user_id
+                        LEFT JOIN UserSets us ON u.id = us.user_id
+                        LEFT JOIN UserQuestions uq ON u.id = uq.user_id
+                        LEFT JOIN UserSyncAgg sa ON u.id = sa.user_id
                         LEFT JOIN LastSync ls ON u.id = ls.user_id AND ls.rn = 1
                         ${whereSql}
                         ORDER BY last_active_at DESC
@@ -1234,8 +1271,8 @@ export default {
                     const { results } = await env.DB.prepare(queryStr).bind(...stmtParams).all();
 
                     const users = results.map(row => {
-                        let ip = "unknown";
-                        let device = "unknown";
+                        let ip = "-";
+                        let device = "-";
                         if (row.last_sync_delta) {
                             try {
                                 const parsed = JSON.parse(row.last_sync_delta);
@@ -1247,7 +1284,12 @@ export default {
                             user_id: row.user_id,
                             email: `${row.username}@user.local`,
                             username: row.username,
+                            is_admin: adminList.includes(row.username),
                             bank_count: row.bank_count,
+                            question_count: row.question_count,
+                            sync_count: row.sync_count,
+                            conflict_count: row.conflict_count,
+                            error_count: row.error_count,
                             last_active_at: row.last_active_at,
                             last_ip: ip,
                             last_device: device
@@ -1265,6 +1307,177 @@ export default {
                             email_access: true
                         }
                     }, 200, headers);
+                }
+
+                // 1.1 GET USER DOSSIER (360° Profile & Detailed Telemetry)
+                if (action === "user-dossier" && request.method === "GET") {
+                    const targetUid = url.searchParams.get("userId");
+                    if (!targetUid) {
+                        return jsonResponse({ error: "Missing userId" }, 400, headers);
+                    }
+
+                    const user = await env.DB.prepare("SELECT id, username, created_at FROM users WHERE id = ?").bind(targetUid).first();
+                    if (!user) {
+                        return jsonResponse({ error: "User not found" }, 404, headers);
+                    }
+
+                    const adminList = (env.ADMIN_USERNAMES || "devy-admin,admin").split(",").map(s => s.trim());
+                    const is_admin = adminList.includes(user.username);
+
+                    // Question sets
+                    const { results: sets } = await env.DB.prepare(`
+                        SELECT qs.id, qs.name, qs.version, qs.created_at, qs.updated_at, qs.state,
+                               (SELECT COUNT(*) FROM questions q WHERE q.question_set_id = qs.id) as question_count
+                        FROM question_sets qs WHERE qs.user_id = ? ORDER BY qs.id DESC
+                    `).bind(targetUid).all();
+
+                    // Parse latest state to get exhaustive study progress
+                    let studyStats = {
+                        totalQuestions: 0,
+                        answeredCount: 0,
+                        correctCount: 0,
+                        wrongCount: 0,
+                        accuracyPercent: 0,
+                        favoritesCount: 0,
+                        trashCount: 0,
+                        sm2DueCount: 0,
+                        uniqueDays: 0
+                    };
+
+                    if (sets && sets.length > 0) {
+                        let totalQ = 0;
+                        sets.forEach(s => totalQ += (s.question_count || 0));
+                        studyStats.totalQuestions = totalQ;
+
+                        const latestStateStr = sets[0].state;
+                        if (latestStateStr) {
+                            try {
+                                const state = JSON.parse(latestStateStr);
+                                const history = Array.isArray(state.history) ? state.history : [];
+                                const favorites = Array.isArray(state.favorites) ? state.favorites : [];
+                                const trash = Array.isArray(state.trash) ? state.trash : [];
+
+                                const answered = history.length;
+                                let correct = 0;
+                                let wrong = 0;
+                                let now = Date.now();
+                                let sm2Due = 0;
+                                let daySet = new Set();
+
+                                history.forEach(h => {
+                                    if (h.result === true || h.correct === true) correct++;
+                                    else if (h.result === false || h.correct === false) wrong++;
+
+                                    if (h.nextReview && h.nextReview <= now) sm2Due++;
+                                    if (h.time) {
+                                        const dStr = new Date(h.time).toISOString().slice(0, 10);
+                                        daySet.add(dStr);
+                                    }
+                                });
+
+                                studyStats.answeredCount = answered;
+                                studyStats.correctCount = correct;
+                                studyStats.wrongCount = wrong;
+                                studyStats.accuracyPercent = answered > 0 ? Number(((correct / answered) * 100).toFixed(1)) : 0;
+                                studyStats.favoritesCount = favorites.length;
+                                studyStats.trashCount = trash.length;
+                                studyStats.sm2DueCount = sm2Due;
+                                studyStats.uniqueDays = daySet.size;
+                            } catch (e) {}
+                        }
+                    }
+
+                    // Sync logs (recent 30)
+                    const { results: rawLogs } = await env.DB.prepare(`
+                        SELECT id, delta, status, error, created_at FROM sync_logs WHERE user_id = ? ORDER BY id DESC LIMIT 30
+                    `).bind(targetUid).all();
+
+                    let ipSet = new Set();
+                    let uaSet = new Set();
+                    const logs = (rawLogs || []).map(r => {
+                        let d = null;
+                        if (r.delta) {
+                            try {
+                                d = JSON.parse(r.delta);
+                                if (d.ip && d.ip !== "127.0.0.1") ipSet.add(d.ip);
+                                if (d.ua) uaSet.add(d.ua);
+                            } catch (e) {}
+                        }
+                        return {
+                            id: r.id,
+                            status: r.status,
+                            error: r.error,
+                            created_at: r.created_at,
+                            delta: d
+                        };
+                    });
+
+                    // Backups
+                    const { results: backups } = await env.DB.prepare(`
+                        SELECT id, type, name, created_at, LENGTH(payload) as size FROM user_backups WHERE user_id = ? ORDER BY id DESC LIMIT 10
+                    `).bind(targetUid).all();
+
+                    // Snapshots
+                    const { results: snapshots } = await env.DB.prepare(`
+                        SELECT id, created_at, LENGTH(state) as size FROM bank_snapshots WHERE user_id = ? ORDER BY id DESC LIMIT 10
+                    `).bind(targetUid).all();
+
+                    return jsonResponse({
+                        ok: true,
+                        user: {
+                            id: user.id,
+                            username: user.username,
+                            created_at: user.created_at,
+                            is_admin,
+                            email: `${user.username}@user.local`
+                        },
+                        sets: sets.map(s => ({
+                            id: s.id,
+                            name: s.name,
+                            version: s.version,
+                            question_count: s.question_count,
+                            created_at: s.created_at,
+                            updated_at: s.updated_at
+                        })),
+                        studyStats,
+                        network: {
+                            uniqueIps: Array.from(ipSet),
+                            uniqueDevices: Array.from(uaSet)
+                        },
+                        recentLogs: logs,
+                        backups: backups || [],
+                        snapshots: snapshots || []
+                    }, 200, headers);
+                }
+
+                // 1.2 USER EXPORT (One-click complete archive)
+                if (action === "user-export" && request.method === "GET") {
+                    const targetUid = url.searchParams.get("userId");
+                    if (!targetUid) {
+                        return jsonResponse({ error: "Missing userId" }, 400, headers);
+                    }
+                    const user = await env.DB.prepare("SELECT id, username, created_at FROM users WHERE id = ?").bind(targetUid).first();
+                    if (!user) {
+                        return jsonResponse({ error: "User not found" }, 404, headers);
+                    }
+
+                    const { results: sets } = await env.DB.prepare("SELECT * FROM question_sets WHERE user_id = ?").bind(targetUid).all();
+                    const { results: questions } = await env.DB.prepare(`
+                        SELECT q.* FROM questions q JOIN question_sets qs ON q.question_set_id = qs.id WHERE qs.user_id = ?
+                    `).bind(targetUid).all();
+                    const { results: backups } = await env.DB.prepare("SELECT * FROM user_backups WHERE user_id = ?").bind(targetUid).all();
+                    const { results: logs } = await env.DB.prepare("SELECT * FROM sync_logs WHERE user_id = ? ORDER BY id DESC LIMIT 100").bind(targetUid).all();
+
+                    const exportBundle = {
+                        exportDate: new Date().toISOString(),
+                        user,
+                        question_sets: sets || [],
+                        questions: questions || [],
+                        user_backups: backups || [],
+                        sync_logs: logs || []
+                    };
+
+                    return jsonResponse({ ok: true, bundle: exportBundle }, 200, headers);
                 }
 
                 // 2. CREATE USER
