@@ -12,7 +12,7 @@
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
     <script src="config.js"></script>
-    <link rel="stylesheet" href="css/tailwind.css">
+    <link rel="stylesheet" href="css/tailwind.css?v=2611233">
     <style>
         @font-face {
             font-family: 'Inter';
@@ -101,6 +101,60 @@
             color: #c9d1d9;
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         }
+
+        /* 桌面端弹性侧边栏排版强约束：杜绝任何 fixed 遮挡主屏内容 */
+        @media (min-width: 768px) {
+            #admin-app {
+                display: flex !important;
+                flex-direction: row !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                overflow: hidden !important;
+            }
+            #admin-sidebar {
+                position: relative !important;
+                transform: none !important;
+                inset: auto !important;
+                flex-shrink: 0 !important;
+                width: 16rem !important;
+                min-width: 16rem !important;
+                height: 100% !important;
+                display: flex !important;
+                flex-direction: column !important;
+                z-index: 20 !important;
+            }
+            main {
+                flex: 1 1 0% !important;
+                min-width: 0 !important;
+                height: 100% !important;
+                overflow: hidden !important;
+                display: flex !important;
+                flex-direction: column !important;
+            }
+        }
+
+        /* 统一大厂级幽灵按钮与顶栏按钮样式，坚决消除暗色模式下白块 */
+        .btn-teal-ghost {
+            background-color: rgba(20, 184, 166, 0.12) !important;
+            color: #2dd4bf !important;
+            border: 1px solid rgba(20, 184, 166, 0.28) !important;
+        }
+        .btn-teal-ghost:hover {
+            background-color: rgba(20, 184, 166, 0.22) !important;
+            color: #5eead4 !important;
+            border-color: rgba(20, 184, 166, 0.45) !important;
+        }
+
+        .btn-nav-top {
+            background-color: #1e293b !important;
+            color: #e2e8f0 !important;
+            border: 1px solid #334155 !important;
+        }
+        .btn-nav-top:hover {
+            background-color: #334155 !important;
+            color: #ffffff !important;
+            border-color: #475569 !important;
+        }
     </style>
 </head>
 
@@ -154,7 +208,7 @@
         <div id="sidebar-backdrop" onclick="Admin.toggleSidebar()" class="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-30 hidden md:hidden"></div>
 
         <!-- 侧边导航栏 -->
-        <aside id="admin-sidebar" class="w-64 bg-slate-900 text-slate-100 flex flex-col z-40 fixed md:static inset-y-0 left-0 transform -translate-x-full md:translate-x-0 transition-transform duration-200 ease-in-out border-r border-slate-800">
+        <aside id="admin-sidebar" class="w-64 flex-shrink-0 bg-slate-900 text-slate-100 flex flex-col z-40 fixed md:relative inset-y-0 left-0 -translate-x-full md:translate-x-0 transition-transform duration-200 ease-in-out border-r border-slate-800">
             <!-- 品牌徽标 -->
             <div class="h-16 px-5 border-b border-slate-800/80 flex items-center justify-between">
                 <div class="flex items-center gap-3">
@@ -263,9 +317,9 @@
                     </button>
 
                     <!-- 前往用户端链接 -->
-                    <a href="/" target="_blank" class="btn px-3 py-1.5 bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 rounded-xl text-xs font-bold hover:bg-teal-100 dark:hover:bg-teal-900/40 flex items-center gap-1.5">
+                    <a href="/" target="_blank" class="btn px-3.5 py-1.5 btn-nav-top rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors">
+                        <svg class="w-3.5 h-3.5 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                         <span>前台刷题</span>
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                     </a>
                 </div>
             </header>
@@ -398,8 +452,8 @@
                             <div class="flex items-center gap-3 flex-1 min-w-[280px]">
                                 <div class="relative flex-1 max-w-md">
                                     <input type="text" id="user-search" placeholder="搜索用户名或用户 UUID..." oninput="Admin.onUserSearchInput(this.value)"
-                                        class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[var(--bg)] border border-[var(--border)] focus:outline-none focus:ring-2 focus:ring-teal-500 text-xs">
-                                    <svg class="w-4 h-4 text-[var(--sub)] absolute left-3.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                                        class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-800/90 text-slate-100 placeholder-slate-400 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500 text-xs transition-colors">
+                                    <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                                 </div>
                                 <span class="text-xs text-[var(--sub)] font-bold">共 <span id="user-count" class="text-teal-600 dark:text-teal-400 font-mono">0</span> 位用户</span>
                             </div>
@@ -409,7 +463,7 @@
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
                                     <span>新建用户</span>
                                 </button>
-                                <button onclick="Admin.fetchUsers()" class="btn px-3 py-2.5 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-xs text-[var(--sub)] hover:text-[var(--text)]">
+                                <button onclick="Admin.fetchUsers()" class="btn px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-300 hover:text-white">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                                 </button>
                             </div>
@@ -432,7 +486,7 @@
                                         <th class="px-4 py-3.5 w-10">
                                             <input type="checkbox" id="select-all-users" onchange="Admin.toggleSelectAll(this)" class="w-4 h-4 accent-teal-600 rounded">
                                         </th>
-                                        <th class="px-6 py-3.5">用户档案 (User)</th>
+                                        <th class="px-6 py-3.5 min-w-[220px]">用户档案 (User)</th>
                                         <th class="px-6 py-3.5">题库规模 (Bank)</th>
                                         <th class="px-6 py-3.5">答题与同步监控</th>
                                         <th class="px-6 py-3.5">网络与客户端 (IP / Device)</th>
@@ -1515,32 +1569,32 @@
                                     </div>
                                     <div class="flex flex-col">
                                         <div class="flex items-center gap-1.5">
-                                            <span class="font-bold text-[var(--text)]">${Admin.escapeHTML(u.username || '未命名')}</span>
-                                            ${isAdmin ? '<span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">ADMIN</span>' : ''}
+                                            <span class="font-bold text-slate-100 text-sm tracking-tight">${Admin.escapeHTML(u.username || '未命名')}</span>
+                                            ${isAdmin ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">ADMIN</span>' : ''}
                                         </div>
-                                        <span class="font-mono text-[10px] text-[var(--sub)] select-all">${Admin.escapeHTML(u.user_id)}</span>
+                                        <span class="font-mono text-[10px] text-slate-400 select-all">${Admin.escapeHTML(u.user_id)}</span>
                                     </div>
                                 </div>
                             </td>
                             <td class="px-6 py-4">
                                 <div class="flex flex-col">
-                                    <span class="font-bold text-[var(--text)] text-xs">${u.bank_count || 0} 套题库</span>
-                                    <span class="text-[11px] text-[var(--sub)] font-mono">${u.question_count || 0} 道收录题</span>
+                                    <span class="font-bold text-slate-200 text-xs">${u.bank_count || 0} 套题库</span>
+                                    <span class="text-[11px] text-slate-400 font-mono">${u.question_count || 0} 道收录题</span>
                                 </div>
                             </td>
                             <td class="px-6 py-4">
                                 <div class="flex flex-col gap-0.5">
-                                    <span class="text-xs text-[var(--text)] font-mono">同步 ${u.sync_count || 0} 次</span>
+                                    <span class="text-xs text-slate-200 font-mono">同步 ${u.sync_count || 0} 次</span>
                                     <div class="flex items-center gap-2 text-[10px]">
-                                        <span class="${(u.conflict_count || 0) > 0 ? 'text-amber-500 font-bold' : 'text-[var(--sub)]'}">冲突: ${u.conflict_count || 0}</span>
-                                        <span class="${(u.error_count || 0) > 0 ? 'text-rose-500 font-bold' : 'text-[var(--sub)]'}">报错: ${u.error_count || 0}</span>
+                                        <span class="${(u.conflict_count || 0) > 0 ? 'text-amber-400 font-bold' : 'text-slate-500'}">冲突: ${u.conflict_count || 0}</span>
+                                        <span class="${(u.error_count || 0) > 0 ? 'text-rose-400 font-bold' : 'text-slate-500'}">报错: ${u.error_count || 0}</span>
                                     </div>
                                 </div>
                             </td>
                             <td class="px-6 py-4">
                                 <div class="flex flex-col max-w-[160px]">
-                                    <span class="font-mono text-xs font-bold text-[var(--text)] truncate" title="${Admin.escapeHTML(u.last_ip || '-')}">${Admin.escapeHTML(u.last_ip || '-')}</span>
-                                    <span class="text-[10px] text-[var(--sub)] truncate opacity-70" title="${Admin.escapeHTML(u.last_device || '-')}">${Admin.escapeHTML(u.last_device || '-')}</span>
+                                    <span class="font-mono text-xs font-bold text-teal-400 truncate" title="${Admin.escapeHTML(u.last_ip || '-')}">${Admin.escapeHTML(u.last_ip || '-')}</span>
+                                    <span class="text-[10px] text-slate-400 truncate opacity-70" title="${Admin.escapeHTML(u.last_device || '-')}">${Admin.escapeHTML(u.last_device || '-')}</span>
                                 </div>
                             </td>
                             <td class="px-6 py-4">
@@ -1550,10 +1604,10 @@
                                 </div>
                             </td>
                             <td class="px-6 py-4 text-right space-x-2">
-                                <button onclick="Admin.openUserDossierModal('${u.user_id}')" class="btn px-2.5 py-1 bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 rounded-lg text-xs font-bold hover:bg-teal-100">全景画像</button>
-                                <button onclick="Admin.exportUserById('${u.user_id}')" class="btn px-2.5 py-1 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-xs font-bold text-[var(--sub)] hover:text-[var(--text)]" title="导出该用户全量 JSON 数据">导出</button>
-                                <button onclick="Admin.openResetPwModal('${u.user_id}')" class="btn px-2 py-1 text-amber-600 dark:text-amber-400 hover:underline text-xs font-bold">改密</button>
-                                <button onclick="Admin.viewSets('${u.user_id}')" class="btn px-2 py-1 text-teal-600 dark:text-teal-400 hover:underline text-xs font-bold">题库</button>
+                                <button onclick="Admin.openUserDossierModal('${u.user_id}')" class="btn px-3 py-1.5 btn-teal-ghost rounded-lg text-xs font-bold transition-all shadow-sm">全景画像</button>
+                                <button onclick="Admin.exportUserById('${u.user_id}')" class="btn px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs font-bold text-slate-300 hover:text-white" title="导出该用户全量 JSON 数据">导出</button>
+                                <button onclick="Admin.openResetPwModal('${u.user_id}')" class="btn px-2 py-1.5 text-amber-500 hover:text-amber-400 hover:underline text-xs font-bold">改密</button>
+                                <button onclick="Admin.viewSets('${u.user_id}')" class="btn px-2 py-1.5 text-teal-400 hover:text-teal-300 hover:underline text-xs font-bold">题库</button>
                             </td>
                         </tr>
                         `;

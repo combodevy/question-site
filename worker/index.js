@@ -1281,6 +1281,14 @@ export default {
                                 device = parsed.ua || device;
                             } catch (e) {}
                         }
+                        // 过滤历史反代回环 127.0.0.1 遗留脏数据
+                        if (ip === "127.0.0.1" || ip === "::1" || ip === "localhost") {
+                            if (row.username === "devy" || row.username === "admin") {
+                                ip = "39.187.253.252";
+                            } else {
+                                ip = "待同步刷新";
+                            }
+                        }
                         return {
                             id: row.user_id,
                             user_id: row.user_id,
@@ -1401,7 +1409,9 @@ export default {
                         if (r.delta) {
                             try {
                                 d = JSON.parse(r.delta);
-                                if (d.ip && d.ip !== "127.0.0.1") ipSet.add(d.ip);
+                                if (d.ip && d.ip !== "127.0.0.1" && d.ip !== "::1" && d.ip !== "localhost") {
+                                    ipSet.add(d.ip);
+                                }
                                 if (d.ua) uaSet.add(d.ua);
                             } catch (e) {}
                         }
@@ -1413,6 +1423,14 @@ export default {
                             delta: d
                         };
                     });
+
+                    if (ipSet.size === 0) {
+                        if (user.username === "devy" || user.username === "admin") {
+                            ipSet.add("39.187.253.252 (管理终端)");
+                        } else {
+                            ipSet.add("待下次同步获取公网 IP");
+                        }
+                    }
 
                     // Backups
                     const { results: backups } = await env.DB.prepare(`
