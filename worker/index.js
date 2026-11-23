@@ -686,8 +686,9 @@ export default {
                 const msg = typeof body.message === "string" ? body.message.slice(0, 300) : "unknown";
                 const stack = typeof body.stack === "string" ? body.stack.slice(0, 500) : "";
                 const page = typeof body.page === "string" ? body.page.slice(0, 200) : "";
+                const ip = clientIp(request);
                 await env.DB.prepare("INSERT INTO sync_logs (user_id, delta, status, error) VALUES (?, ?, 'client-error', ?)")
-                    .bind(userId, JSON.stringify({ page, stack, ua: request.headers.get("user-agent") || "" }), msg)
+                    .bind(userId, JSON.stringify({ ip, page, stack, ua: request.headers.get("user-agent") || "" }), msg)
                     .run();
                 return jsonResponse({ ok: true }, 200, headers);
             }
