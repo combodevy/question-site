@@ -12,7 +12,7 @@
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
     <script src="config.js"></script>
-    <link rel="stylesheet" href="css/tailwind.css?v=2611233">
+    <link rel="stylesheet" href="css/tailwind.css?v=2611234">
     <style>
         @font-face {
             font-family: 'Inter';
@@ -26,11 +26,25 @@
             --bg: #f8fafc;
             --card: #ffffff;
             --text: #0f172a;
-            --sub: #64748b;
+            --sub: #475569;
+            --faint: #94a3b8;
             --border: #e2e8f0;
+            --border-hover: #cbd5e1;
             --accent: #0d9488;
             --accent-hover: #0f766e;
             --bg-hover: #f1f5f9;
+            --brand-surface: #f0fdfa;
+            --brand-surface-hover: #ccfbf1;
+            --brand-border: #99f6e4;
+            --brand: #0d9488;
+            --sidebar-bg: #ffffff;
+            --sidebar-border: #e2e8f0;
+            --sidebar-text: #475569;
+            --sidebar-hover-bg: #f8fafc;
+            --sidebar-hover-text: #0f172a;
+            --sidebar-active-bg: #f0fdfa;
+            --sidebar-active-border: #99f6e4;
+            --sidebar-active-text: #0f766e;
         }
 
         html.dark {
@@ -38,10 +52,24 @@
             --card: #111827;
             --text: #f8fafc;
             --sub: #94a3b8;
+            --faint: #64748b;
             --border: #1f2937;
+            --border-hover: #374151;
             --accent: #14b8a6;
             --accent-hover: #0d9488;
-            --bg-hover: #1e293b;
+            --bg-hover: #172133;
+            --brand-surface: rgba(20, 184, 166, 0.12);
+            --brand-surface-hover: rgba(20, 184, 166, 0.22);
+            --brand-border: rgba(20, 184, 166, 0.35);
+            --brand: #2dd4bf;
+            --sidebar-bg: #0c1220;
+            --sidebar-border: #1e293b;
+            --sidebar-text: #94a3b8;
+            --sidebar-hover-bg: #162032;
+            --sidebar-hover-text: #f8fafc;
+            --sidebar-active-bg: rgba(20, 184, 166, 0.14);
+            --sidebar-active-border: rgba(20, 184, 166, 0.38);
+            --sidebar-active-text: #2dd4bf;
         }
 
         body {
@@ -133,27 +161,25 @@
             }
         }
 
-        /* 统一大厂级幽灵按钮与顶栏按钮样式，坚决消除暗色模式下白块 */
+        /* 统一大厂级幽灵按钮与顶栏按钮样式，自适应明暗双模 */
         .btn-teal-ghost {
-            background-color: rgba(20, 184, 166, 0.12) !important;
-            color: #2dd4bf !important;
-            border: 1px solid rgba(20, 184, 166, 0.28) !important;
+            background-color: var(--brand-surface) !important;
+            color: var(--brand) !important;
+            border: 1px solid var(--brand-border) !important;
         }
         .btn-teal-ghost:hover {
-            background-color: rgba(20, 184, 166, 0.22) !important;
-            color: #5eead4 !important;
-            border-color: rgba(20, 184, 166, 0.45) !important;
+            background-color: var(--brand-surface-hover) !important;
         }
 
         .btn-nav-top {
-            background-color: #1e293b !important;
-            color: #e2e8f0 !important;
-            border: 1px solid #334155 !important;
+            background-color: var(--card) !important;
+            color: var(--text) !important;
+            border: 1px solid var(--border) !important;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
         }
         .btn-nav-top:hover {
-            background-color: #334155 !important;
-            color: #ffffff !important;
-            border-color: #475569 !important;
+            background-color: var(--bg-hover) !important;
+            border-color: var(--border-hover) !important;
         }
     </style>
 </head>
@@ -208,21 +234,21 @@
         <div id="sidebar-backdrop" onclick="Admin.toggleSidebar()" class="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-30 hidden md:hidden"></div>
 
         <!-- 侧边导航栏 -->
-        <aside id="admin-sidebar" class="w-64 flex-shrink-0 bg-slate-900 text-slate-100 flex flex-col z-40 fixed md:relative inset-y-0 left-0 -translate-x-full md:translate-x-0 transition-transform duration-200 ease-in-out border-r border-slate-800">
+        <aside id="admin-sidebar" class="w-64 flex-shrink-0 bg-[var(--sidebar-bg)] text-[var(--sidebar-text)] flex flex-col z-40 fixed md:relative inset-y-0 left-0 -translate-x-full md:translate-x-0 transition-all duration-200 ease-in-out border-r border-[var(--sidebar-border)]">
             <!-- 品牌徽标 -->
-            <div class="h-16 px-5 border-b border-slate-800/80 flex items-center justify-between">
+            <div class="h-16 px-5 border-b border-[var(--sidebar-border)] flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-500 to-cyan-400 flex items-center justify-center text-white shadow-md shadow-teal-500/20">
+                    <div class="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20 flex items-center justify-center font-bold shadow-sm">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                         </svg>
                     </div>
                     <div>
-                        <div class="font-black text-sm tracking-tight text-white">Question Banks</div>
-                        <div class="text-[10px] font-mono font-bold text-teal-400 uppercase tracking-wider">Admin Workspace</div>
+                        <div class="font-black text-sm tracking-tight text-[var(--text)]">Question Banks</div>
+                        <div class="text-[10px] font-mono font-bold text-[var(--brand)] uppercase tracking-wider">Admin Workspace</div>
                     </div>
                 </div>
-                <button onclick="Admin.toggleSidebar()" class="md:hidden text-slate-400 hover:text-white p-1">
+                <button onclick="Admin.toggleSidebar()" class="md:hidden text-[var(--sub)] hover:text-[var(--text)] p-1">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
@@ -230,61 +256,61 @@
             <!-- 导航菜单 -->
             <nav class="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto custom-scroll text-sm">
                 <button onclick="Admin.switchSection('overview'); Admin.closeSidebarIfMobile()" id="nav-overview"
-                    class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-teal-600 text-white font-bold transition-all shadow-md shadow-teal-900/30">
+                    class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-[var(--sidebar-active-bg)] text-[var(--sidebar-active-text)] border border-[var(--sidebar-active-border)] font-bold transition-all shadow-sm">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
                     <span>全景监控大盘</span>
                 </button>
 
                 <button onclick="Admin.switchSection('users'); Admin.closeSidebarIfMobile()" id="nav-users"
-                    class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-slate-100 font-bold transition-all">
+                    class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-[var(--sidebar-hover-text)] font-semibold transition-all border border-transparent">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
                     <span>用户 360° 全息监控</span>
                 </button>
 
                 <button onclick="Admin.switchSection('server'); Admin.closeSidebarIfMobile()" id="nav-server"
-                    class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-slate-100 font-bold transition-all">
-                    <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/></svg>
+                    class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-[var(--sidebar-hover-text)] font-semibold transition-all border border-transparent">
+                    <svg class="w-5 h-5 text-indigo-500 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/></svg>
                     <span>服务器基础设施与运维</span>
                 </button>
 
                 <button onclick="Admin.switchSection('push'); Admin.closeSidebarIfMobile()" id="nav-push"
-                    class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-slate-100 font-bold transition-all">
+                    class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-[var(--sidebar-hover-text)] font-semibold transition-all border border-transparent">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>
                     <span>全局题库广播推送</span>
                 </button>
 
                 <button onclick="Admin.switchSection('audit'); Admin.closeSidebarIfMobile()" id="nav-audit"
-                    class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-slate-100 font-bold transition-all">
+                    class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-[var(--sidebar-hover-text)] font-semibold transition-all border border-transparent">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
                     <span>题库智能体检与查重</span>
                 </button>
 
                 <button onclick="Admin.switchSection('logs'); Admin.closeSidebarIfMobile()" id="nav-logs"
-                    class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-slate-100 font-bold transition-all">
+                    class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-[var(--sidebar-hover-text)] font-semibold transition-all border border-transparent">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
                     <span>安全审计与同步日志</span>
                 </button>
             </nav>
 
             <!-- 底部管理员身份与快捷状态 -->
-            <div class="p-3 border-t border-slate-800/80 bg-slate-950/40">
+            <div class="p-3 border-t border-[var(--sidebar-border)] bg-[var(--card)]/50">
                 <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center gap-2.5">
-                        <div class="w-8 h-8 rounded-full bg-teal-500/20 text-teal-300 font-bold flex items-center justify-center text-xs border border-teal-500/30">
+                        <div class="w-8 h-8 rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-400 font-bold flex items-center justify-center text-xs border border-teal-500/20">
                             A
                         </div>
                         <div class="flex flex-col">
-                            <span class="text-xs font-bold text-white truncate max-w-[110px]" id="admin-user-id">admin</span>
-                            <span class="text-[10px] text-teal-400 font-mono">Super Admin</span>
+                            <span class="text-xs font-bold text-[var(--text)] truncate max-w-[110px]" id="admin-user-id">admin</span>
+                            <span class="text-[10px] text-[var(--brand)] font-mono font-semibold">Super Admin</span>
                         </div>
                     </div>
-                    <button onclick="Admin.logout()" title="安全退出登录" class="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition-colors">
+                    <button onclick="Admin.logout()" title="安全退出登录" class="p-1.5 text-[var(--sub)] hover:text-rose-500 rounded-lg hover:bg-[var(--bg-hover)] transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
                     </button>
                 </div>
-                <div class="text-[10px] font-mono text-slate-500 flex justify-between pt-1 border-t border-slate-800/60">
+                <div class="text-[10px] font-mono text-[var(--sub)] flex justify-between pt-1 border-t border-[var(--sidebar-border)]/60">
                     <span>Host: 47.111.142.133</span>
-                    <span class="text-teal-400 font-bold">v2611231</span>
+                    <span class="text-[var(--brand)] font-bold">v2611234</span>
                 </div>
             </div>
         </aside>
@@ -318,7 +344,7 @@
 
                     <!-- 前往用户端链接 -->
                     <a href="/" target="_blank" class="btn px-3.5 py-1.5 btn-nav-top rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors">
-                        <svg class="w-3.5 h-3.5 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                        <svg class="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                         <span>前台刷题</span>
                     </a>
                 </div>
@@ -452,26 +478,26 @@
                             <div class="flex items-center gap-3 flex-1 min-w-[280px]">
                                 <div class="relative flex-1 max-w-md">
                                     <input type="text" id="user-search" placeholder="搜索用户名或用户 UUID..." oninput="Admin.onUserSearchInput(this.value)"
-                                        class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-800/90 text-slate-100 placeholder-slate-400 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500 text-xs transition-colors">
-                                    <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                                        class="w-full pl-9 pr-4 py-2 rounded-xl bg-[var(--bg)] text-[var(--text)] placeholder-[var(--faint)] border border-[var(--border)] focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand-surface)] text-xs transition-all shadow-sm">
+                                    <svg class="w-4 h-4 text-[var(--faint)] absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                                 </div>
-                                <span class="text-xs text-[var(--sub)] font-bold">共 <span id="user-count" class="text-teal-600 dark:text-teal-400 font-mono">0</span> 位用户</span>
+                                <span class="text-xs text-[var(--sub)] font-medium">共 <span id="user-count" class="text-[var(--brand)] font-mono font-bold">0</span> 位用户</span>
                             </div>
 
                             <div class="flex items-center gap-2">
-                                <button onclick="Admin.openAddUserModal()" class="btn px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-teal-700/20">
+                                <button onclick="Admin.openAddUserModal()" class="btn px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
                                     <span>新建用户</span>
                                 </button>
-                                <button onclick="Admin.fetchUsers()" class="btn px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-300 hover:text-white">
+                                <button onclick="Admin.fetchUsers()" class="btn p-2 bg-[var(--bg)] hover:bg-[var(--bg-hover)] text-[var(--sub)] hover:text-[var(--text)] border border-[var(--border)] rounded-xl text-xs transition-colors" title="刷新用户列表">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                                 </button>
                             </div>
                         </div>
 
                         <!-- 批量操作浮动条 -->
-                        <div id="batch-actions" class="hidden px-6 py-3 bg-teal-500/10 border-b border-teal-500/20 flex items-center justify-between">
-                            <span class="text-xs text-teal-700 dark:text-teal-300 font-bold" id="selected-count">已选择 0 位用户</span>
+                        <div id="batch-actions" class="hidden px-6 py-3 bg-[var(--brand-surface)] border-b border-[var(--brand-border)] flex items-center justify-between">
+                            <span class="text-xs text-[var(--brand)] font-bold" id="selected-count">已选择 0 位用户</span>
                             <div class="flex items-center gap-2">
                                 <button onclick="Admin.batchPushSelected()" class="btn px-3 py-1.5 bg-teal-600 text-white rounded-lg text-xs font-bold hover:bg-teal-700">推送题库</button>
                                 <button onclick="Admin.batchDeleteUsers()" class="btn px-3 py-1.5 bg-rose-600 text-white rounded-lg text-xs font-bold hover:bg-rose-700">批量删除</button>
@@ -482,16 +508,16 @@
                         <div class="overflow-x-auto">
                             <table class="w-full text-left border-collapse">
                                 <thead>
-                                    <tr class="border-b border-[var(--border)] text-[11px] font-bold text-[var(--sub)] uppercase bg-[var(--bg)]/50">
-                                        <th class="px-4 py-3.5 w-10">
+                                    <tr class="border-b border-[var(--border)] text-[11px] font-bold text-[var(--sub)] uppercase bg-[var(--bg)]/50 tracking-wider">
+                                        <th class="px-4 py-3.5 w-10 whitespace-nowrap">
                                             <input type="checkbox" id="select-all-users" onchange="Admin.toggleSelectAll(this)" class="w-4 h-4 accent-teal-600 rounded">
                                         </th>
-                                        <th class="px-6 py-3.5 min-w-[220px]">用户档案 (User)</th>
-                                        <th class="px-6 py-3.5">题库规模 (Bank)</th>
-                                        <th class="px-6 py-3.5">答题与同步监控</th>
-                                        <th class="px-6 py-3.5">网络与客户端 (IP / Device)</th>
-                                        <th class="px-6 py-3.5">最近活跃</th>
-                                        <th class="px-6 py-3.5 text-right">综合治理</th>
+                                        <th class="px-5 py-3.5 min-w-[220px] whitespace-nowrap">用户档案 (USER)</th>
+                                        <th class="px-5 py-3.5 min-w-[120px] whitespace-nowrap">题库规模 (BANK)</th>
+                                        <th class="px-5 py-3.5 min-w-[150px] whitespace-nowrap">答题与同步监控</th>
+                                        <th class="px-5 py-3.5 min-w-[180px] whitespace-nowrap">网络与客户端 (IP / DEVICE)</th>
+                                        <th class="px-5 py-3.5 min-w-[140px] whitespace-nowrap">最近活跃</th>
+                                        <th class="px-5 py-3.5 text-right min-w-[180px] whitespace-nowrap">综合治理</th>
                                     </tr>
                                 </thead>
                                 <tbody id="user-table-body" class="divide-y divide-[var(--border)] text-sm">
@@ -1248,10 +1274,10 @@
                     if (!btn || !section) return;
 
                     if (s === id) {
-                        btn.className = 'w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-teal-600 text-white font-bold transition-all shadow-md shadow-teal-900/30';
+                        btn.className = 'w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-[var(--sidebar-active-bg)] text-[var(--sidebar-active-text)] border border-[var(--sidebar-active-border)] font-bold transition-all shadow-sm';
                         section.classList.remove('hidden');
                     } else {
-                        btn.className = 'w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-slate-100 font-bold transition-all';
+                        btn.className = 'w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[var(--sidebar-text)] hover:bg-[var(--sidebar-hover-bg)] hover:text-[var(--sidebar-hover-text)] font-semibold transition-all border border-transparent';
                         section.classList.add('hidden');
                     }
                 });
@@ -1559,55 +1585,57 @@
 
                         return `
                         <tr class="hover:bg-[var(--bg-hover)] transition-colors">
-                            <td class="px-4 py-4">
+                            <td class="px-4 py-4 whitespace-nowrap">
                                 <input type="checkbox" class="user-checkbox w-4 h-4 accent-teal-600 rounded" value="${u.user_id}" onchange="Admin.toggleUserSelection('${u.user_id}')" ${this.selectedUsers.has(u.user_id) ? 'checked' : ''}>
                             </td>
-                            <td class="px-6 py-4">
+                            <td class="px-5 py-4 whitespace-nowrap">
                                 <div class="flex items-center gap-3">
                                     <div class="w-8 h-8 rounded-xl ${isAdmin ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20' : 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20'} flex items-center justify-center font-bold text-xs uppercase font-mono">
                                         ${(u.username || '?')[0]}
                                     </div>
                                     <div class="flex flex-col">
                                         <div class="flex items-center gap-1.5">
-                                            <span class="font-bold text-slate-100 text-sm tracking-tight">${Admin.escapeHTML(u.username || '未命名')}</span>
-                                            ${isAdmin ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">ADMIN</span>' : ''}
+                                            <span class="font-bold text-[var(--text)] text-sm tracking-tight">${Admin.escapeHTML(u.username || '未命名')}</span>
+                                            ${isAdmin ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">ADMIN</span>' : ''}
                                         </div>
-                                        <span class="font-mono text-[10px] text-slate-400 select-all">${Admin.escapeHTML(u.user_id)}</span>
+                                        <span class="font-mono text-[10px] text-[var(--sub)] select-all">${Admin.escapeHTML(u.user_id)}</span>
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-6 py-4">
+                            <td class="px-5 py-4 whitespace-nowrap">
                                 <div class="flex flex-col">
-                                    <span class="font-bold text-slate-200 text-xs">${u.bank_count || 0} 套题库</span>
-                                    <span class="text-[11px] text-slate-400 font-mono">${u.question_count || 0} 道收录题</span>
+                                    <span class="font-bold text-[var(--text)] text-xs">${u.bank_count || 0} 套题库</span>
+                                    <span class="text-[11px] text-[var(--sub)] font-mono">${u.question_count || 0} 道收录题</span>
                                 </div>
                             </td>
-                            <td class="px-6 py-4">
+                            <td class="px-5 py-4 whitespace-nowrap">
                                 <div class="flex flex-col gap-0.5">
-                                    <span class="text-xs text-slate-200 font-mono">同步 ${u.sync_count || 0} 次</span>
+                                    <span class="text-xs font-bold text-[var(--text)] font-mono">同步 ${u.sync_count || 0} 次</span>
                                     <div class="flex items-center gap-2 text-[10px]">
-                                        <span class="${(u.conflict_count || 0) > 0 ? 'text-amber-400 font-bold' : 'text-slate-500'}">冲突: ${u.conflict_count || 0}</span>
-                                        <span class="${(u.error_count || 0) > 0 ? 'text-rose-400 font-bold' : 'text-slate-500'}">报错: ${u.error_count || 0}</span>
+                                        <span class="${(u.conflict_count || 0) > 0 ? 'text-amber-600 dark:text-amber-400 font-bold' : 'text-[var(--faint)]'}">冲突: ${u.conflict_count || 0}</span>
+                                        <span class="${(u.error_count || 0) > 0 ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-[var(--faint)]'}">报错: ${u.error_count || 0}</span>
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-6 py-4">
-                                <div class="flex flex-col max-w-[160px]">
-                                    <span class="font-mono text-xs font-bold text-teal-400 truncate" title="${Admin.escapeHTML(u.last_ip || '-')}">${Admin.escapeHTML(u.last_ip || '-')}</span>
-                                    <span class="text-[10px] text-slate-400 truncate opacity-70" title="${Admin.escapeHTML(u.last_device || '-')}">${Admin.escapeHTML(u.last_device || '-')}</span>
+                            <td class="px-5 py-4 whitespace-nowrap">
+                                <div class="flex flex-col max-w-[180px]">
+                                    <span class="font-mono text-xs font-bold text-[var(--brand)] truncate" title="${Admin.escapeHTML(u.last_ip || '-')}">${Admin.escapeHTML(u.last_ip || '-')}</span>
+                                    <span class="text-[10px] text-[var(--sub)] truncate opacity-80" title="${Admin.escapeHTML(u.last_device || '-')}">${Admin.escapeHTML(u.last_device || '-')}</span>
                                 </div>
                             </td>
-                            <td class="px-6 py-4">
+                            <td class="px-5 py-4 whitespace-nowrap">
                                 <div class="flex flex-col text-xs text-[var(--sub)]">
                                     <span class="font-bold text-[var(--text)]">${relTime}</span>
-                                    <span class="text-[10px] font-mono opacity-70">${lastAct ? lastAct.toLocaleString() : '-'}</span>
+                                    <span class="text-[10px] font-mono text-[var(--faint)]">${lastAct ? lastAct.toLocaleString() : '-'}</span>
                                 </div>
                             </td>
-                            <td class="px-6 py-4 text-right space-x-2">
-                                <button onclick="Admin.openUserDossierModal('${u.user_id}')" class="btn px-3 py-1.5 btn-teal-ghost rounded-lg text-xs font-bold transition-all shadow-sm">全景画像</button>
-                                <button onclick="Admin.exportUserById('${u.user_id}')" class="btn px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs font-bold text-slate-300 hover:text-white" title="导出该用户全量 JSON 数据">导出</button>
-                                <button onclick="Admin.openResetPwModal('${u.user_id}')" class="btn px-2 py-1.5 text-amber-500 hover:text-amber-400 hover:underline text-xs font-bold">改密</button>
-                                <button onclick="Admin.viewSets('${u.user_id}')" class="btn px-2 py-1.5 text-teal-400 hover:text-teal-300 hover:underline text-xs font-bold">题库</button>
+                            <td class="px-5 py-4 text-right whitespace-nowrap">
+                                <div class="inline-flex items-center gap-1.5">
+                                    <button onclick="Admin.openUserDossierModal('${u.user_id}')" class="btn px-2.5 py-1 btn-teal-ghost rounded-lg text-xs font-bold transition-all shadow-sm">全景画像</button>
+                                    <button onclick="Admin.viewSets('${u.user_id}')" class="btn px-2.5 py-1 bg-[var(--bg)] hover:bg-[var(--bg-hover)] text-[var(--brand)] border border-[var(--border)] rounded-lg text-xs font-bold transition-colors">题库</button>
+                                    <button onclick="Admin.openResetPwModal('${u.user_id}')" class="btn px-2.5 py-1 bg-[var(--bg)] hover:bg-[var(--bg-hover)] text-[var(--text)] border border-[var(--border)] rounded-lg text-xs font-bold transition-colors">改密</button>
+                                    <button onclick="Admin.exportUserById('${u.user_id}')" class="btn px-2.5 py-1 bg-[var(--bg)] hover:bg-[var(--bg-hover)] text-[var(--sub)] hover:text-[var(--text)] border border-[var(--border)] rounded-lg text-xs font-bold transition-colors" title="导出该用户全量 JSON 数据">导出</button>
+                                </div>
                             </td>
                         </tr>
                         `;
