@@ -150,6 +150,56 @@ async function readJson(request, maxBytes = MAX_JSON_BYTES) {
     }
 }
 
+// 通用题目数据标准化清洗函数：实现系统级双向字段映射与容错
+// 统一兼容 canonical 字段 (q, o, a, d) 与模板别名 (stem, options, ans, analysis)
+function normalizeQuestion(raw, defaultSub = '默认科目', defaultChap = '默认章节') {
+    if (!raw || typeof raw !== 'object') return null;
+    const qText = (typeof raw.q === 'string' && raw.q) ||
+                  (typeof raw.stem === 'string' && raw.stem) ||
+                  (typeof raw.question === 'string' && raw.question) ||
+                  (typeof raw.title === 'string' && raw.title) || '';
+    
+    let opts = [];
+    if (Array.isArray(raw.o)) opts = raw.o;
+    else if (Array.isArray(raw.options)) opts = raw.options;
+    else if (typeof raw.options === 'string') {
+        try { opts = JSON.parse(raw.options); } catch (e) { opts = []; }
+    }
+    opts = opts.map(o => String(o == null ? '' : o).trim()).filter(Boolean);
+
+    const aText = (typeof raw.a === 'string' && raw.a) ||
+                  (typeof raw.ans === 'string' && raw.ans) ||
+                  (typeof raw.answer === 'string' && raw.answer) ||
+                  (typeof raw.correct === 'string' && raw.correct) || '';
+
+    let type = raw.type;
+    if (type === '单选' || type === '单选题') type = 'mcq';
+    else if (type === '多选' || type === '多选题') type = 'multi';
+    else if (type === '判断' || type === '判断题') type = 'tf';
+    else if (type === '填空' || type === '填空题') type = 'fill';
+    else if (!['mcq', 'multi', 'tf', 'fill'].includes(type)) {
+        type = (opts.length === 2 && (opts.includes('正确') || opts.includes('对') || opts.includes('True'))) ? 'tf' : (aText.length > 1 ? 'multi' : 'mcq');
+    }
+
+    const rawSub = (typeof raw.sub === 'string' && raw.sub.trim()) || (typeof raw.subject === 'string' && raw.subject.trim()) || defaultSub;
+    const rawChap = (typeof raw.chap === 'string' && raw.chap.trim()) || (typeof raw.chapter === 'string' && raw.chapter.trim()) || (type === 'multi' ? '多选题' : (type === 'tf' ? '判断题' : '单选题'));
+    const sub = isSafeKey(rawSub) ? rawSub : '默认科目';
+    const chap = isSafeKey(rawChap) ? rawChap : '默认章节';
+    const id = raw.id || crypto.randomUUID();
+    const d = (typeof raw.d === 'string' && raw.d) || (typeof raw.desc === 'string' && raw.desc) || (typeof raw.analysis === 'string' && raw.analysis) || (typeof raw.explanation === 'string' && raw.explanation) || '';
+
+    return {
+        id,
+        type,
+        q: qText,
+        o: opts,
+        a: aText.toUpperCase().trim(),
+        sub,
+        chap,
+        d
+    };
+}
+
 // D1 批量插入优化：每条 INSERT 合并最多 40 行（80 个绑定参数，低于 D1 单条 100 参数上限），
 // 将 2000 题保存从 2000 条 SQL 降至 50 条 SQL，大幅降低 Worker 与 D1 往返开销。
 function buildQuestionInsertStatements(db, setId, questionList) {
@@ -1697,16 +1747,15 @@ export default {
 
                             const toInsertQs = [];
                             for (const t of template) {
-                                // 关键：每个用户一份独立副本 + 独立 id（原来在循环里原地改 questions，导致跨用户复用同一个 id）
-                                const q = { ...t, id: crypto.randomUUID() };
-                                if (!isSafeKey(q.sub)) q.sub = '默认科目';
-                                if (!isSafeKey(q.chap)) q.chap = '默认章节';
+                                const normalized = normalizeQuestion(t);
+                                if (!normalized) continue;
+                                const q = { ...normalized, id: crypto.randomUUID() };
                                 const fingerprint = JSON.stringify({ q: q.q, o: q.o, a: q.a, type: q.type, sub: q.sub, chap: q.chap });
                                 if (seen.has(fingerprint)) { skippedDuplicate++; continue; }
                                 seen.add(fingerprint);
 
                                 toInsertQs.push(q);
-                                // 同步写入 state.bank，让两处表示保持一致（原来只改 questions 表，state 不动）
+                                // 同步写入 state.bank，让两处表示保持一致
                                 if (!Object.prototype.hasOwnProperty.call(setState.bank, q.sub)) setState.bank[q.sub] = {};
                                 if (!Array.isArray(setState.bank[q.sub][q.chap])) setState.bank[q.sub][q.chap] = [];
                                 setState.bank[q.sub][q.chap].push(q);
@@ -1802,7 +1851,18 @@ export default {
                         .bind(set.id)
                         .all();
                     const questions = results.map(row => {
-                        try { return JSON.parse(row.content); } catch (e) { return null; }
+                        try {
+                            const parsed = JSON.parse(row.content);
+                            const n = normalizeQuestion(parsed, '默认科目', '默认章节');
+                            if (!n) return null;
+                            return {
+                                ...n,
+                                stem: n.q,
+                                options: n.o,
+                                ans: n.a,
+                                analysis: n.d
+                            };
+                        } catch (e) { return null; }
                     }).filter(Boolean);
 
                     return jsonResponse({
@@ -1835,17 +1895,12 @@ export default {
                     // 管理端的删改可能被旧 JSON 里的题目数量回退逻辑"复活"。
                     const newState = { bank: Object.create(null), history: [], trash: {}, hiddenMistakeIds: [], starred: [] };
                     const validUpdateQs = [];
-                    for (const q of questions) {
-                        if (!q || typeof q !== 'object') continue;
-                        if (!q.id) q.id = crypto.randomUUID();
-                        if (!['mcq', 'multi', 'tf', 'fill'].includes(q.type)) q.type = 'mcq';
-                        const rawSub = (typeof q.sub === 'string' && q.sub.trim()) || '默认科目';
-                        const rawChap = (typeof q.chap === 'string' && q.chap.trim()) || '默认章节';
-                        const sub = isSafeKey(rawSub) ? rawSub : '默认科目';
-                        const chap = isSafeKey(rawChap) ? rawChap : '默认章节';
-                        if (!Object.prototype.hasOwnProperty.call(newState.bank, sub)) newState.bank[sub] = Object.create(null);
-                        if (!Array.isArray(newState.bank[sub][chap])) newState.bank[sub][chap] = [];
-                        newState.bank[sub][chap].push(q);
+                    for (const raw of questions) {
+                        const q = normalizeQuestion(raw);
+                        if (!q) continue;
+                        if (!Object.prototype.hasOwnProperty.call(newState.bank, q.sub)) newState.bank[q.sub] = Object.create(null);
+                        if (!Array.isArray(newState.bank[q.sub][q.chap])) newState.bank[q.sub][q.chap] = [];
+                        newState.bank[q.sub][q.chap].push(q);
                         validUpdateQs.push(q);
                     }
                     // 保留既有 state 中的历史记录等元数据（题目内容以外的东西不能丢）
