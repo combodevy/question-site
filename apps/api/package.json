@@ -1,0 +1,29 @@
+{
+  "name": "@qs/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "esbuild src/server.ts --bundle --platform=node --format=esm --target=node22 --external:better-sqlite3 --outfile=dist/server.mjs && esbuild src/db/migrate-cli.ts --bundle --platform=node --format=esm --target=node22 --external:better-sqlite3 --outfile=dist/migrate-v2.mjs",
+    "test": "vitest run",
+    "migrate:v2": "tsx src/db/migrate-cli.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.14.0",
+    "@hono/zod-validator": "^0.4.3",
+    "@qs/shared": "*",
+    "better-sqlite3": "^12.6.0",
+    "drizzle-orm": "^0.41.0",
+    "hono": "^4.7.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.0",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.0"
+  }
+}

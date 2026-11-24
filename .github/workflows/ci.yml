@@ -12,12 +12,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+          cache: npm
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: TypeScript typecheck (@qs/shared & @qs/api)
+        run: npm run typecheck
+
+      - name: API unit & integration tests (Vitest)
+        run: npm run test:api
+
+      - name: Build production API bundle
+        run: npm run build:api
 
       - name: Syntax check (all JS modules + repo scripts)
         run: node scripts/ci-check.mjs

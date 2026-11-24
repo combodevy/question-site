@@ -1,9 +1,17 @@
 {
   "name": "question-site",
   "version": "3.0.0",
-  "description": "Online Question Bank & Smart Study Platform (Cloudflare Pages + Workers + D1)",
-  "private": false,
+  "description": "Online Question Bank & Smart Study Platform (Monorepo + Hono + SQLite)",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
+    "typecheck": "npm run typecheck --workspace=@qs/shared && npm run typecheck --workspace=@qs/api",
+    "build:api": "npm run build --workspace=@qs/api",
+    "test:api": "npm run test --workspace=@qs/api",
+    "migrate:v2": "npm run migrate:v2 --workspace=@qs/api",
     "deploy:worker": "node scripts/check-deploy-target.mjs && cd worker && npx wrangler deploy",
     "deploy:pages": "node scripts/stage-pages.mjs && npx wrangler pages deploy .pages-dist --project-name question-site-front --commit-dirty",
     "deploy": "npm run deploy:worker && npm run deploy:pages",

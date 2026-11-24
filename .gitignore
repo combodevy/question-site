@@ -26,5 +26,9 @@ db/
 # OS files
 .DS_Store
 Thumbs.db
+# Build outputs
+apps/*/dist/
+packages/*/dist/
+
 # Wrangler local dev secrets
 worker/.dev.vars
