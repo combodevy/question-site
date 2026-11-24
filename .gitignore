@@ -28,6 +28,7 @@ worker/.wrangler/
 Thumbs.db
 # Build outputs
 apps/*/dist/
+apps/web/dev-dist/
 packages/*/dist/
 *.tsbuildinfo
 

@@ -24,14 +24,17 @@ jobs:
       - name: Install workspace dependencies
         run: npm ci
 
-      - name: TypeScript typecheck (@qs/shared & @qs/api)
+      - name: TypeScript typecheck (@qs/shared, @qs/api & @qs/web)
         run: npm run typecheck
 
       - name: API unit & integration tests (Vitest)
         run: npm run test:api
 
-      - name: Build production API bundle
-        run: npm run build:api
+      - name: Web unit tests (Vitest)
+        run: npm run test:web
+
+      - name: Build production API & Web bundles
+        run: npm run build:api && npm run build:web
 
       - name: Syntax check (all JS modules + repo scripts)
         run: node scripts/ci-check.mjs

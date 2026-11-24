@@ -1,0 +1,144 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'InterVar';
+  src: url('/fonts/inter-var.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  --canvas: #F7F6F2;
+  --surface: #FFFFFF;
+  --surface-2: #F0EFE9;
+  --border: #E5E2DA;
+  --text: #18181B;
+  --text-muted: #64646E;
+  --accent: #0F766E;
+  --accent-hover: #0D5E58;
+  --accent-soft: #E6F4F1;
+  --accent-fg: #FFFFFF;
+  color-scheme: light;
+}
+
+.dark {
+  --canvas: #0E1116;
+  --surface: #161B22;
+  --surface-2: #1E242E;
+  --border: #27303F;
+  --text: #F1F5F9;
+  --text-muted: #94A3B8;
+  --accent: #14B8A6;
+  --accent-hover: #2DD4BF;
+  --accent-soft: rgba(20, 184, 166, 0.14);
+  --accent-fg: #042F2E;
+  color-scheme: dark;
+}
+
+@layer base {
+  body {
+    font-family: 'InterVar', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+    background-color: var(--canvas);
+    color: var(--text);
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom hairline scrollbars */
+.custom-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Safe question media tables */
+.media-table {
+  margin: 0.75rem 0;
+  overflow-x: auto;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.media-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.media-table th,
+.media-table td {
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+.media-table th:last-child,
+.media-table td:last-child {
+  border-right: none;
+}
+.media-table tr:last-child td {
+  border-bottom: none;
+}
+.media-table th {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+
+/* English interactive blank slot */
+.eng-blank-slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0 0.2rem;
+  padding: 0.08rem 0.5rem;
+  border-radius: 0.45rem;
+  border: 1px dashed var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: 'InterVar', system-ui, sans-serif;
+  font-size: 0.85em;
+  font-weight: 600;
+  line-height: 1.45;
+  vertical-align: baseline;
+  cursor: pointer;
+  transition: transform 0.12s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+.eng-blank-slot:hover {
+  transform: translateY(-1px);
+  border-style: solid;
+}
+.eng-blank-slot.filled {
+  border-style: solid;
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--border);
+}
+.eng-blank-slot.ok {
+  border-color: #059669;
+  background: rgba(5, 150, 105, 0.12);
+  color: #059669;
+}
+.eng-blank-slot.bad {
+  border-color: #DC2626;
+  background: rgba(220, 38, 38, 0.12);
+  color: #DC2626;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
