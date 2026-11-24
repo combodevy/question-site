@@ -1,23 +1,35 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
+  BookOpen,
   Bookmark,
   Brain,
+  CalendarDays,
   Flame,
   FolderPlus,
+  History,
   Layers,
   Play,
+  RotateCcw,
   Sparkles,
   Target,
   Upload,
 } from 'lucide-react';
 import type { LiveStudySnapshot, StudyStats } from '@/sync/hooks';
-import { useQuizStore } from '@/store/useQuizStore';
+import {
+  clearUnfinishedQuizSnapshot,
+  readUnfinishedQuizSnapshot,
+  useQuizStore,
+  type UnfinishedQuizSnapshot,
+} from '@/store/useQuizStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import { useUiStore } from '@/store/useUiStore';
 import { useBi } from '@/i18n/useBi';
 import { localDayKey } from '@/lib/text';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { Modal } from '@/components/ui/Modal';
 import type { NavTab } from '@/components/layout/ShellLayout';
 
 interface DashboardViewProps {
@@ -34,7 +46,41 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenImport,
 }) => {
   const { bi } = useBi();
-  const startSession = useQuizStore((s) => s.startSession);
+  const user = useAuthStore((s) => s.user);
+  const { dailyGoal, defaultLimit, pushToast } = useUiStore();
+  const { startSession, resumeFromSnapshot } = useQuizStore();
+
+  const [unfinishedSnap, setUnfinishedSnap] = useState<UnfinishedQuizSnapshot | null>(null);
+  const [resumeDismissed, setResumeDismissed] = useState(false);
+
+  useEffect(() => {
+    if (resumeDismissed || data.loading || data.questions.length === 0) return;
+    const snap = readUnfinishedQuizSnapshot(user?.id);
+    if (!snap) return;
+    const activeIds = new Set(data.questions.map((q) => q.id));
+    const validCount = snap.questionIds.filter((id) => activeIds.has(id)).length;
+    if (validCount === 0) {
+      clearUnfinishedQuizSnapshot(user?.id);
+      return;
+    }
+    setUnfinishedSnap(snap);
+  }, [user?.id, data.loading, data.questions, resumeDismissed]);
+
+  const handleDismissUnfinished = () => {
+    clearUnfinishedQuizSnapshot(user?.id);
+    setUnfinishedSnap(null);
+    setResumeDismissed(true);
+  };
+
+  const handleResumeUnfinished = () => {
+    if (!unfinishedSnap) return;
+    const ok = resumeFromSnapshot(unfinishedSnap, data.questions);
+    setUnfinishedSnap(null);
+    setResumeDismissed(true);
+    if (!ok) {
+      pushToast(bi('原题库题目已变动，无法恢复该场练习', 'Original questions no longer available'), 'warning');
+    }
+  };
 
   const last7Days = useMemo(() => {
     const map = new Map<string, { total: number; correct: number }>();
@@ -81,9 +127,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       const j = Math.floor(Math.random() * (i + 1));
       [pool[i], pool[j]] = [pool[j], pool[i]];
     }
+    const maxCount = defaultLimit === 'all' ? pool.length : Math.max(1, Number(defaultLimit) || 20);
     startSession({
       mode: 'random',
-      questions: pool.slice(0, 20),
+      questions: pool.slice(0, maxCount),
       title: sub ? `${sub}` : bi('随机刷题', 'Quick Practice'),
     });
   };
@@ -171,14 +218,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
 
               {stats.dueCount > 0 ? (
-                <>
-                  <h2 className="text-xl sm:text-2xl font-semibold text-ink tabular-nums">
-                    {bi(`今日有 ${stats.dueCount} 道题到达复习节点`, `${stats.dueCount} questions due for review today`)}
-                  </h2>
-                  <p className="text-sm text-ink-muted">
-                    {bi('按遗忘临界时间从早到晚排序，优先巩固最容易淡忘的知识点。', 'Ordered by earliest scheduled due timestamp.')}
-                  </p>
-                </>
+                <h2 className="text-xl sm:text-2xl font-semibold text-ink tabular-nums">
+                  {bi(`今日有 ${stats.dueCount} 道题到达复习节点`, `${stats.dueCount} questions due for review today`)}
+                </h2>
               ) : (
                 <>
                   <h2 className="text-xl sm:text-2xl font-semibold text-ink">
@@ -234,19 +276,36 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <Card padding="sm">
           <div className="flex items-center justify-between text-xs text-ink-muted">
             <span>{bi('今日已刷', 'Today Answered')}</span>
-            <Target className="w-3.5 h-3.5" />
+            <Target className="w-3.5 h-3.5 text-accent" />
           </div>
-          <div className="text-2xl font-semibold text-ink tabular-nums mt-2">
-            {stats.todayAttempts}
+          <div className="flex items-baseline justify-between gap-2 mt-2">
+            <div className="text-2xl font-semibold text-ink tabular-nums">
+              {stats.todayAttempts}
+              {dailyGoal > 0 && (
+                <span className="text-xs font-normal text-ink-muted ml-1">/ {dailyGoal}</span>
+              )}
+            </div>
+            {dailyGoal > 0 && stats.todayAttempts >= dailyGoal && (
+              <Badge tone="success">{bi('已达标', 'Goal Met')}</Badge>
+            )}
           </div>
-          <div className="text-[11px] text-ink-muted mt-1">
-            {stats.todayAttempts > 0
-              ? bi(
-                  `正确 ${Math.round((stats.todayCorrect / stats.todayAttempts) * 100)}%`,
-                  `${Math.round((stats.todayCorrect / stats.todayAttempts) * 100)}% accurate`,
-                )
-              : bi('今日尚未作答', 'No attempts yet')}
-          </div>
+          {dailyGoal > 0 ? (
+            <div className="mt-2 h-1.5 w-full rounded-full bg-surface-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-accent transition-all"
+                style={{ width: `${Math.min(100, Math.round((stats.todayAttempts / dailyGoal) * 100))}%` }}
+              />
+            </div>
+          ) : (
+            <div className="text-[11px] text-ink-muted mt-1">
+              {stats.todayAttempts > 0
+                ? bi(
+                    `正确 ${Math.round((stats.todayCorrect / stats.todayAttempts) * 100)}%`,
+                    `${Math.round((stats.todayCorrect / stats.todayAttempts) * 100)}% accurate`,
+                  )
+                : bi('今日尚未作答', 'No attempts yet')}
+            </div>
+          )}
         </Card>
 
         <Card padding="sm">
@@ -294,9 +353,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         <Card className="lg:col-span-5">
           <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-sm font-semibold text-ink">{bi('近 7 日练习节律', 'Last 7 Days')}</h3>
-              <p className="text-[11px] text-ink-muted">{bi('浅色为作答总量，实色为答对题数', 'Total vs. correct daily volume')}</p>
+            <div className="flex items-start gap-2.5">
+              <span className="w-7 h-7 rounded-lg bg-accent-soft text-accent inline-flex items-center justify-center mt-0.5">
+                <CalendarDays className="w-3.5 h-3.5" />
+              </span>
+              <div>
+                <h3 className="text-sm font-semibold text-ink">{bi('近 7 日练习节律', 'Last 7 Days')}</h3>
+                <p className="text-[11px] text-ink-muted">{bi('浅色为作答总量，实色为答对题数', 'Total vs. correct daily volume')}</p>
+              </div>
             </div>
             <button
               type="button"
@@ -337,11 +401,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
         <Card className="lg:col-span-7">
           <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-sm font-semibold text-ink">{bi('科目掌握度', 'Subjects')}</h3>
-              <p className="text-[11px] text-ink-muted">
-                {bi('按自然章节整理，可直接发起单科速练', 'Quick practice per subject')}
-              </p>
+            <div className="flex items-start gap-2.5">
+              <span className="w-7 h-7 rounded-lg bg-accent-soft text-accent inline-flex items-center justify-center mt-0.5">
+                <BookOpen className="w-3.5 h-3.5" />
+              </span>
+              <div>
+                <h3 className="text-sm font-semibold text-ink">{bi('科目掌握度', 'Subjects')}</h3>
+                <p className="text-[11px] text-ink-muted">
+                  {bi('按自然章节整理，可直接发起单科速练', 'Quick practice per subject')}
+                </p>
+              </div>
             </div>
             <button
               type="button"
@@ -397,6 +466,68 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           )}
         </Card>
       </div>
+
+      {/* Unfinished Quiz Recovery Modal */}
+      {(() => {
+        if (!unfinishedSnap) return null;
+        const activeIds = new Set(data.questions.map((q) => q.id));
+        const validIds = unfinishedSnap.questionIds.filter((id) => activeIds.has(id));
+        const answeredValid = validIds.filter((id) => unfinishedSnap.answers?.[id]?.answered).length;
+        const pct = validIds.length > 0 ? Math.round((answeredValid / validIds.length) * 100) : 0;
+        const whenStr = new Date(unfinishedSnap.savedAt || Date.now()).toLocaleString();
+
+        return (
+          <Modal
+            open={true}
+            onClose={handleDismissUnfinished}
+            title={bi('发现未完成的练习进度', 'Resume Unfinished Session')}
+            subtitle={bi(`保存于 ${whenStr}`, `Saved at ${whenStr}`)}
+            size="sm"
+            footer={
+              <div className="flex items-center justify-end gap-2 w-full">
+                <Button variant="ghost" size="sm" onClick={handleDismissUnfinished} data-testid="dismiss-unfinished-quiz">
+                  {bi('放弃并关闭', 'Discard')}
+                </Button>
+                <Button variant="primary" size="sm" onClick={handleResumeUnfinished} data-testid="resume-unfinished-quiz">
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  {bi('继续上次刷题', 'Resume Now')}
+                </Button>
+              </div>
+            }
+          >
+            <div className="space-y-3" data-testid="unfinished-quiz-modal">
+              <div className="p-3.5 rounded-xl bg-canvas border border-line space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-7 h-7 rounded-lg bg-accent-soft text-accent inline-flex items-center justify-center flex-shrink-0">
+                      <History className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="text-sm font-semibold text-ink truncate">
+                      {unfinishedSnap.title || bi('自由练习', 'Practice Session')}
+                    </span>
+                  </div>
+                  <Badge tone="accent">{pct}%</Badge>
+                </div>
+
+                <div className="h-2 w-full rounded-full bg-surface-muted overflow-hidden">
+                  <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} />
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-ink-muted tabular-nums">
+                  <span>{bi(`已作答 ${answeredValid} / ${validIds.length} 题`, `${answeredValid} / ${validIds.length} answered`)}</span>
+                  <span>{bi(`剩余 ${Math.max(0, validIds.length - answeredValid)} 题`, `${Math.max(0, validIds.length - answeredValid)} left`)}</span>
+                </div>
+              </div>
+              <p className="text-xs text-ink-muted leading-relaxed">
+                {bi(
+                  '系统为你自动暂存了上次离开前的作答队列与答题记录，点击继续即可无缝接力；如不需要可直接点击右上角关闭或放弃。',
+                  'Your progress was saved automatically. Resume right where you left off, or dismiss to clear it.',
+                )}
+              </p>
+            </div>
+          </Modal>
+        );
+      })()}
     </div>
   );
 };

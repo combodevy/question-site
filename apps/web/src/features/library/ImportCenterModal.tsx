@@ -89,7 +89,7 @@ export const ImportCenterModal: React.FC<ImportCenterModalProps> = ({
       setPreviewQs(res.questions);
       setStats(res.stats);
       if (!res.questions.length) {
-        pushToast(bi('未能从文本中识别出标准题目，请检查编号与「答案：」行格式。', 'No questions recognized in text.'), 'warning');
+        pushToast(bi('未能从文本中识别出标准题目，请检查编号与 "答案：" 行格式。', 'No questions recognized in text.'), 'warning');
       }
       return;
     }
@@ -478,7 +478,7 @@ export const ImportCenterModal: React.FC<ImportCenterModalProps> = ({
               {previewQs.slice(0, 40).map((q, idx) => (
                 <div key={q.id} className="p-3 text-xs space-y-1">
                   <div className="flex items-center justify-between gap-2 text-ink-muted">
-                    <span className="font-mono">#{idx + 1} · {q.type}</span>
+                    <span className="font-mono">#{idx + 1} / {q.type}</span>
                     <span className="truncate">{q.sub} / {q.chap}</span>
                   </div>
                   <div className="text-ink font-medium line-clamp-2">{q.q}</div>

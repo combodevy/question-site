@@ -68,7 +68,7 @@ export const AdminUsersView: React.FC<{ onInspectBank?: (userId: string) => void
 
   const handleResetPw = async (u: AdminUserRow) => {
     const pw = await prompt({
-      title: `重置密码 · ${u.username}`,
+      title: `重置密码 - ${u.username}`,
       message: '请输入新密码（6-128 位，修改后该用户旧 Token 立即失效）：',
       inputType: 'password',
     });
@@ -132,7 +132,7 @@ export const AdminUsersView: React.FC<{ onInspectBank?: (userId: string) => void
         <div>
           <h1 className="text-xl font-semibold text-ink">用户资产与 360° 档案</h1>
           <p className="text-xs text-ink-muted mt-0.5">
-            共 {meta.total} 名用户 · 支持档案透视、数据导出、密码重置与清理
+            共 {meta.total} 名用户 | 支持档案透视、数据导出、密码重置与清理
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -316,7 +316,7 @@ export const AdminUsersView: React.FC<{ onInspectBank?: (userId: string) => void
       <Modal
         open={Boolean(dossier)}
         onClose={() => setDossier(null)}
-        title={dossier ? `用户档案 · ${dossier.user.username}` : ''}
+        title={dossier ? `用户档案 - ${dossier.user.username}` : ''}
         subtitle={dossier?.user.id}
         size="lg"
       >

@@ -5,15 +5,17 @@ import {
   Download,
   KeyRound,
   LogOut,
+  Palette,
   RefreshCw,
   RotateCcw,
   Shield,
+  SlidersHorizontal,
   Trash2,
 } from 'lucide-react';
 import type { LiveStudySnapshot, StudyStats } from '@/sync/hooks';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useSyncStore } from '@/store/useSyncStore';
-import { useUiStore, type ThemeMode } from '@/store/useUiStore';
+import { useUiStore, type DefaultLimitPref, type ThemeMode } from '@/store/useUiStore';
 import { authApi, setStoredToken, syncApi, type BackupSummary, type SyncLogEntry } from '@/lib/api';
 import { exportBankJson } from '@/lib/parsers';
 import { getSyncEngine } from '@/sync/engine';
@@ -30,7 +32,20 @@ export const ProfileView: React.FC<{ data: LiveStudySnapshot; stats: StudyStats 
   const { bi, lang } = useBi();
   const { user, logout, refreshMe } = useAuthStore();
   const sync = useSyncStore();
-  const { theme, setTheme, setLang, confirm, prompt, pushToast } = useUiStore();
+  const {
+    theme,
+    setTheme,
+    setLang,
+    autoNextOnCorrect,
+    setAutoNextOnCorrect,
+    dailyGoal,
+    setDailyGoal,
+    defaultLimit,
+    setDefaultLimit,
+    confirm,
+    prompt,
+    pushToast,
+  } = useUiStore();
 
   const [backups, setBackups] = useState<BackupSummary[]>([]);
   const [logs, setLogs] = useState<SyncLogEntry[]>([]);
@@ -167,7 +182,7 @@ export const ProfileView: React.FC<{ data: LiveStudySnapshot; stats: StudyStats 
     const ok = await confirm({
       title: bi('永久注销账号', 'Delete Account'),
       message: bi(
-        `此操作将永久删除账号「${user.username}」下的全部 ${stats.totalQuestions} 道题、历史记录与云端备份，不可恢复！`,
+        `此操作将永久删除账号 "${user.username}" 下的全部 ${stats.totalQuestions} 道题、历史记录与云端备份，不可恢复！`,
         `Permanently delete account "${user.username}" and all data? Cannot be undone!`,
       ),
       danger: true,
@@ -353,7 +368,12 @@ export const ProfileView: React.FC<{ data: LiveStudySnapshot; stats: StudyStats 
       {/* Preferences & Backups */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         <Card className="lg:col-span-5 space-y-4">
-          <h3 className="text-sm font-semibold text-ink">{bi('显示与语言偏好', 'Preferences')}</h3>
+          <div className="flex items-center gap-2">
+            <span className="w-7 h-7 rounded-lg bg-accent-soft text-accent inline-flex items-center justify-center">
+              <Palette className="w-4 h-4" />
+            </span>
+            <h3 className="text-sm font-semibold text-ink">{bi('显示与刷题偏好', 'Preferences')}</h3>
+          </div>
           <div>
             <label className="block text-xs text-ink-muted mb-1.5">{bi('外观主题', 'Appearance')}</label>
             <div className="grid grid-cols-3 gap-1.5">
@@ -402,6 +422,98 @@ export const ProfileView: React.FC<{ data: LiveStudySnapshot; stats: StudyStats 
                   {l.label}
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div className="pt-2 border-t border-line space-y-3">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-accent" />
+              {bi('刷题行为与目标设置', 'Practice Preferences')}
+            </div>
+
+            <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-canvas border border-line">
+              <div>
+                <div className="text-xs font-medium text-ink">{bi('答对后自动下一题', 'Auto-next on correct')}</div>
+                <div className="text-[11px] text-ink-muted">
+                  {bi('作答正确时短暂显示反馈并自动跳转下一题', 'Automatically advance shortly after a correct answer')}
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={autoNextOnCorrect}
+                data-testid="pref-auto-next"
+                onClick={() => setAutoNextOnCorrect(!autoNextOnCorrect)}
+                className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${
+                  autoNextOnCorrect ? 'bg-accent' : 'bg-surface-muted border border-line'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                    autoNextOnCorrect ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between text-xs text-ink-muted mb-1.5">
+                <span>{bi('每日刷题目标（0 为关闭）', 'Daily Goal (0 = off)')}</span>
+                <span className="font-mono text-ink tabular-nums">
+                  {dailyGoal > 0 ? bi(`${dailyGoal} 题/天`, `${dailyGoal}/day`) : bi('已关闭', 'Off')}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={0}
+                  max={5000}
+                  value={dailyGoal}
+                  onChange={(e) => setDailyGoal(Number(e.target.value || 0))}
+                  className="w-24 h-8 px-2.5 rounded-lg border border-line bg-canvas text-xs text-ink tabular-nums outline-none focus:border-accent"
+                />
+                {([0, 20, 50, 100] as const).map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setDailyGoal(preset)}
+                    className={`px-2.5 h-8 rounded-lg border text-xs font-medium transition-colors ${
+                      dailyGoal === preset
+                        ? 'border-accent bg-accent-soft text-accent'
+                        : 'border-line bg-canvas text-ink-muted hover:text-ink'
+                    }`}
+                  >
+                    {preset === 0 ? bi('关', 'Off') : `${preset}`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs text-ink-muted mb-1.5">{bi('默认每次练习题数', 'Default Question Limit')}</label>
+              <div className="grid grid-cols-4 gap-1.5">
+                {(
+                  [
+                    { k: '10', label: '10' },
+                    { k: '20', label: '20' },
+                    { k: '50', label: '50' },
+                    { k: 'all', label: bi('全部', 'All') },
+                  ] as Array<{ k: DefaultLimitPref; label: string }>
+                ).map((opt) => (
+                  <button
+                    key={opt.k}
+                    type="button"
+                    onClick={() => setDefaultLimit(opt.k)}
+                    className={`py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                      defaultLimit === opt.k
+                        ? 'border-accent bg-accent-soft text-accent'
+                        : 'border-line bg-canvas text-ink-muted hover:text-ink'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -464,7 +576,7 @@ export const ProfileView: React.FC<{ data: LiveStudySnapshot; stats: StudyStats 
                         {b.type === 'bank' ? bi('题库', 'Bank') : bi('刷题记录', 'History')}
                       </Badge>
                       <span className="text-xs font-mono text-ink-muted">
-                        #{b.id} · {Math.round(b.size / 1024)} KB
+                        #{b.id} / {Math.round(b.size / 1024)} KB
                       </span>
                     </div>
                     <div className="text-[11px] text-ink-muted mt-1">{b.created_at}</div>

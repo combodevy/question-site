@@ -952,7 +952,7 @@ export function openPrintableSheet(
   </div>
   <div class="sheet">
     <h1>${title}</h1>
-    <div class="meta">共 ${n} 题 · 生成于 ${new Date().toISOString().slice(0, 10)}</div>
+    <div class="meta">共 ${n} 题 | 生成于 ${new Date().toISOString().slice(0, 10)}</div>
     ${parts.join('\n')}
   </div>
 </body>

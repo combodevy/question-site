@@ -1,10 +1,10 @@
 import React, { useEffect } from 'react';
-import { CheckCircle2, Clock, X, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock, FileText, X, XCircle } from 'lucide-react';
 import type { HistoryEntry } from '@qs/shared';
 import type { LocalQuestion } from '@/db';
 import { useBi } from '@/i18n/useBi';
-import { MediaContent } from '@/components/ui/MediaContent';
 import { Badge } from '@/components/ui/Badge';
+import { QuestionPreviewBlock } from '@/components/ui/QuestionPreviewBlock';
 
 interface QuestionInsightDrawerProps {
   question: LocalQuestion | null;
@@ -33,7 +33,7 @@ export const QuestionInsightDrawer: React.FC<QuestionInsightDrawerProps> = ({
   const records = history
     .filter((h) => h.id === question.id)
     .sort((a, b) => a.t - b.t);
-  const recent = [...records].reverse().slice(0, 8);
+  const recent = [...records].reverse().slice(0, 10);
   const correct = records.filter((r) => r.r).length;
   const errRate = records.length ? Math.round(((records.length - correct) / records.length) * 100) : 0;
   const durRecs = records.filter((r) => typeof r.d === 'number' && r.d > 0);
@@ -53,9 +53,9 @@ export const QuestionInsightDrawer: React.FC<QuestionInsightDrawerProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex justify-end">
+    <div className="fixed inset-0 z-[60] flex justify-end" data-testid="question-insight-drawer">
       <div className="fixed inset-0 bg-black/40 backdrop-blur-[1px]" onClick={onClose} />
-      <aside className="relative w-full max-w-md bg-surface border-l border-line h-full flex flex-col shadow-2xl z-10">
+      <aside className="relative w-full max-w-lg bg-surface border-l border-line h-full flex flex-col shadow-2xl z-10">
         <div className="px-5 py-4 border-b border-line flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-xs text-ink-muted truncate">
@@ -74,8 +74,20 @@ export const QuestionInsightDrawer: React.FC<QuestionInsightDrawerProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scroll p-5 space-y-5">
-          <div className="p-4 rounded-xl bg-canvas border border-line text-sm text-ink leading-relaxed">
-            <MediaContent text={question.q} media={question.media} />
+          {question.psg && (
+            <details className="p-3 rounded-xl bg-canvas border border-line text-xs">
+              <summary className="cursor-pointer font-medium text-ink-muted inline-flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-accent" />
+                {bi('查看关联短文材料', 'View Reading Passage')}
+              </summary>
+              <div className="mt-2 pt-2 border-t border-line font-serif leading-relaxed text-ink whitespace-pre-wrap max-h-48 overflow-y-auto custom-scroll">
+                {question.psg}
+              </div>
+            </details>
+          )}
+
+          <div className="p-4 rounded-xl bg-canvas border border-line">
+            <QuestionPreviewBlock question={question} />
           </div>
 
           <div className="grid grid-cols-2 gap-2.5 text-xs">
@@ -86,9 +98,9 @@ export const QuestionInsightDrawer: React.FC<QuestionInsightDrawerProps> = ({
               </div>
             </div>
             <div className="p-3 rounded-xl bg-surface-muted/60">
-              <div className="text-ink-muted">{bi('错误率 · 均时', 'Error Rate · Avg')}</div>
+              <div className="text-ink-muted">{bi('错误率 / 均时', 'Error Rate / Avg')}</div>
               <div className="text-base font-semibold text-ink tabular-nums mt-1">
-                {errRate}% · {avgSec !== null ? `${avgSec}s` : '—'}
+                {errRate}% / {avgSec !== null ? `${avgSec}s` : '—'}
               </div>
             </div>
           </div>
@@ -96,7 +108,7 @@ export const QuestionInsightDrawer: React.FC<QuestionInsightDrawerProps> = ({
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold text-ink-muted">{bi('最近作答记录', 'Recent Attempts')}</span>
-              {records.length > 8 && (
+              {records.length > 10 && (
                 <Badge tone="neutral">{bi(`共 ${records.length} 次`, `${records.length} total`)}</Badge>
               )}
             </div>

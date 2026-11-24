@@ -33,13 +33,18 @@ function readInitialTab(): NavTab {
 }
 
 const AuthenticatedApp: React.FC = () => {
+  const user = useAuthStore((s) => s.user);
   const data = useLiveStudyData();
   const stats = useStudyStats(data);
   const quizActive = useQuizStore((s) => s.active);
+  const setQuizUserId = useQuizStore((s) => s.setUserId);
+
+  useEffect(() => {
+    setQuizUserId(user?.id || '');
+  }, [user?.id, setQuizUserId]);
 
   const [activeTab, setActiveTab] = useState<NavTab>(readInitialTab);
-  const [libFilterSub, setLibFilterSub] = useState('all');
-  const [libFilterChap, setLibFilterChap] = useState('all');
+  const [libJump, setLibJump] = useState<{ sub: string; chap: string; nonce: number } | null>(null);
 
   // Shared modals & drawer state
   const [editorState, setEditorState] = useState<{
@@ -111,11 +116,9 @@ const AuthenticatedApp: React.FC = () => {
           )}
           {activeTab === 'library' && (
             <LibraryView
-              key={`${libFilterSub}::${libFilterChap}`}
               data={data}
               stats={stats}
-              initialSub={libFilterSub}
-              initialChap={libFilterChap}
+              jumpFilter={libJump}
               onEditQuestion={(q, presetSub, presetChap) =>
                 setEditorState({ open: true, question: q, presetSub, presetChap })
               }
@@ -164,9 +167,11 @@ const AuthenticatedApp: React.FC = () => {
         data={data}
         stats={stats}
         onJumpFilter={(sub, chap) => {
-          setLibFilterSub(sub);
-          setLibFilterChap(chap || 'all');
+          setLibJump({ sub, chap: chap || 'all', nonce: Date.now() });
           selectTab('library');
+        }}
+        onCreateQuestionIn={(sub, chap) => {
+          setEditorState({ open: true, question: null, presetSub: sub, presetChap: chap });
         }}
         onClose={() => setBankMgrOpen(false)}
       />
@@ -233,7 +238,7 @@ export const App: React.FC = () => {
       <QueryClientProvider client={queryClient}>
         {status === 'booting' ? (
           <div className="min-h-screen bg-canvas flex items-center justify-center text-xs text-ink-muted">
-            正在载入研习书桌…
+            正在载入在线刷题平台…
           </div>
         ) : status === 'authenticated' ? (
           <AuthenticatedApp />

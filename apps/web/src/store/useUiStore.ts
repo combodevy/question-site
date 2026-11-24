@@ -23,6 +23,43 @@ export interface DialogState {
 }
 
 const THEME_KEY = 'qs_theme';
+const SIDEBAR_COLLAPSED_KEY = 'qs_sidebar_collapsed';
+const AUTO_NEXT_KEY = 'qs_auto_next';
+const DAILY_GOAL_KEY = 'qs_daily_goal';
+const DEFAULT_LIMIT_KEY = 'qs_default_limit';
+
+export type DefaultLimitPref = '10' | '20' | '50' | 'all';
+
+function getInitialBool(key: string, defaultVal: boolean): boolean {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === '1' || raw === 'true') return true;
+    if (raw === '0' || raw === 'false') return false;
+  } catch {
+    // ignore
+  }
+  return defaultVal;
+}
+
+function getInitialDailyGoal(): number {
+  try {
+    const raw = Number.parseInt(localStorage.getItem(DAILY_GOAL_KEY) || '0', 10);
+    if (Number.isFinite(raw) && raw >= 0 && raw <= 5000) return raw;
+  } catch {
+    // ignore
+  }
+  return 0;
+}
+
+function getInitialDefaultLimit(): DefaultLimitPref {
+  try {
+    const raw = localStorage.getItem(DEFAULT_LIMIT_KEY);
+    if (raw === '10' || raw === '20' || raw === '50' || raw === 'all') return raw;
+  } catch {
+    // ignore
+  }
+  return '20';
+}
 
 export function getInitialTheme(): ThemeMode {
   try {
@@ -55,10 +92,19 @@ export function applyThemeToDom(mode: ThemeMode): void {
 interface UiState {
   theme: ThemeMode;
   lang: 'zh' | 'en';
+  sidebarCollapsed: boolean;
+  autoNextOnCorrect: boolean;
+  dailyGoal: number;
+  defaultLimit: DefaultLimitPref;
   toasts: ToastItem[];
   dialog: DialogState | null;
   setTheme: (mode: ThemeMode) => void;
   setLang: (lang: 'zh' | 'en') => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+  toggleSidebarCollapsed: () => void;
+  setAutoNextOnCorrect: (enabled: boolean) => void;
+  setDailyGoal: (goal: number) => void;
+  setDefaultLimit: (limit: DefaultLimitPref) => void;
   pushToast: (message: string, tone?: ToastItem['tone']) => void;
   dismissToast: (id: string) => void;
   confirm: (opts: {
@@ -86,8 +132,54 @@ applyThemeToDom(initTheme);
 export const useUiStore = create<UiState>((set, get) => ({
   theme: initTheme,
   lang: (i18n.language === 'en' ? 'en' : 'zh') as 'zh' | 'en',
+  sidebarCollapsed: getInitialBool(SIDEBAR_COLLAPSED_KEY, false),
+  autoNextOnCorrect: getInitialBool(AUTO_NEXT_KEY, true),
+  dailyGoal: getInitialDailyGoal(),
+  defaultLimit: getInitialDefaultLimit(),
   toasts: [],
   dialog: null,
+
+  setSidebarCollapsed: (collapsed) => {
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0');
+    } catch {
+      // ignore
+    }
+    set({ sidebarCollapsed: collapsed });
+  },
+
+  toggleSidebarCollapsed: () => {
+    const next = !get().sidebarCollapsed;
+    get().setSidebarCollapsed(next);
+  },
+
+  setAutoNextOnCorrect: (enabled) => {
+    try {
+      localStorage.setItem(AUTO_NEXT_KEY, enabled ? '1' : '0');
+    } catch {
+      // ignore
+    }
+    set({ autoNextOnCorrect: enabled });
+  },
+
+  setDailyGoal: (goal) => {
+    const clamped = Number.isFinite(goal) ? Math.max(0, Math.min(5000, Math.round(goal))) : 0;
+    try {
+      localStorage.setItem(DAILY_GOAL_KEY, String(clamped));
+    } catch {
+      // ignore
+    }
+    set({ dailyGoal: clamped });
+  },
+
+  setDefaultLimit: (limit) => {
+    try {
+      localStorage.setItem(DEFAULT_LIMIT_KEY, limit);
+    } catch {
+      // ignore
+    }
+    set({ defaultLimit: limit });
+  },
 
   setTheme: (mode) => {
     try {

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -13,6 +13,7 @@ import {
   Star,
   X,
   XCircle,
+  Zap,
 } from 'lucide-react';
 import type { HistoryEntry } from '@qs/shared';
 import type { LocalQuestion } from '@/db';
@@ -50,7 +51,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
   anyModalOpen,
 }) => {
   const { bi } = useBi();
-  const { confirm, pushToast } = useUiStore();
+  const { confirm, pushToast, autoNextOnCorrect, setAutoNextOnCorrect } = useUiStore();
   const {
     queue,
     idx,
@@ -63,6 +64,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
     setIndex,
     setDraft,
     recordAnswer,
+    retryCurrentQuestion,
     finishSession,
     exitSession,
     retryWrong,
@@ -73,6 +75,20 @@ export const QuizView: React.FC<QuizViewProps> = ({
   const [psgFontSize, setPsgFontSize] = useState(15);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [multiDraft, setMultiDraft] = useState<Set<string>>(new Set());
+  const [autoAdvancing, setAutoAdvancing] = useState(false);
+  const autoNextTimerRef = useRef<number | null>(null);
+
+  const clearAutoNext = useCallback(() => {
+    if (autoNextTimerRef.current !== null) {
+      window.clearTimeout(autoNextTimerRef.current);
+      autoNextTimerRef.current = null;
+    }
+    setAutoAdvancing(false);
+  }, []);
+
+  useEffect(() => {
+    return () => clearAutoNext();
+  }, [clearAutoNext]);
 
   // Always resolve latest live question record from Dexie snapshot (so live edits reflect immediately)
   const rawQ = queue[idx];
@@ -87,6 +103,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
   // Sync multiDraft whenever question index changes
   useEffect(() => {
+    clearAutoNext();
     if (!q) return;
     if (saved?.answered && q.type === 'multi') {
       setMultiDraft(new Set(saved.userAns.split('').filter(Boolean)));
@@ -96,7 +113,39 @@ export const QuizView: React.FC<QuizViewProps> = ({
       setMultiDraft(new Set());
     }
     setPsgOpenMobile(false);
-  }, [q?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [q?.id, clearAutoNext]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const goToIndex = useCallback(
+    (nextIdx: number) => {
+      clearAutoNext();
+      setIndex(nextIdx);
+    },
+    [clearAutoNext, setIndex],
+  );
+
+  const handleFinishSession = useCallback(() => {
+    clearAutoNext();
+    finishSession();
+  }, [clearAutoNext, finishSession]);
+
+  const scheduleAutoNext = useCallback(
+    (targetQ: LocalQuestion, expectedIdx: number) => {
+      if (!useUiStore.getState().autoNextOnCorrect) return;
+      clearAutoNext();
+      setAutoAdvancing(true);
+      const hasRichContext = Boolean((targetQ.media && targetQ.media.length > 0) || targetQ.psg);
+      const delay = hasRichContext ? 1000 : 650;
+      autoNextTimerRef.current = window.setTimeout(() => {
+        autoNextTimerRef.current = null;
+        setAutoAdvancing(false);
+        const st = useQuizStore.getState();
+        if (!st.active || st.finished || st.idx !== expectedIdx) return;
+        if (st.idx < st.queue.length - 1) st.setIndex(st.idx + 1);
+        else st.finishSession();
+      }, delay);
+    },
+    [clearAutoNext],
+  );
 
   // Elapsed timer per unanswered question
   useEffect(() => {
@@ -111,7 +160,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
   }, [qStartedAt, isAnswered, finished]);
 
   const commitAnswer = (userAnsRaw: string, ok: boolean, selfCheck?: boolean) => {
-    if (!q) return;
+    if (!q || isAnswered || autoAdvancing) return;
     const rawDuration = Math.max(200, Date.now() - (qStartedAt || Date.now()));
     const capped = rawDuration > MAX_QUESTION_MS;
     const durationMs = Math.min(rawDuration, MAX_QUESTION_MS);
@@ -134,10 +183,14 @@ export const QuizView: React.FC<QuizViewProps> = ({
       ...(capped ? { capped: true } : {}),
     };
     void getSyncEngine()?.appendHistory([entry]);
+
+    if (ok) {
+      scheduleAutoNext(q, idx);
+    }
   };
 
   const submitChoice = (val: string) => {
-    if (!q || isAnswered) return;
+    if (!q || isAnswered || autoAdvancing) return;
     if (q.type === 'mcq' || q.type === 'tf') {
       const ok = val.toUpperCase() === q.a.toUpperCase();
       commitAnswer(val.toUpperCase(), ok);
@@ -151,7 +204,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
   };
 
   const submitMulti = () => {
-    if (!q || isAnswered || q.type !== 'multi') return;
+    if (!q || isAnswered || autoAdvancing || q.type !== 'multi') return;
     if (multiDraft.size === 0) {
       pushToast(bi('请先选择至少一个选项', 'Select at least one option'), 'warning');
       return;
@@ -162,7 +215,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
   };
 
   const submitFill = () => {
-    if (!q || isAnswered || q.type !== 'fill') return;
+    if (!q || isAnswered || autoAdvancing || q.type !== 'fill') return;
     const val = (drafts[q.id] || '').trim();
     if (!val) {
       pushToast(bi('请填写答案后再提交', 'Enter an answer first'), 'warning');
@@ -190,6 +243,15 @@ export const QuizView: React.FC<QuizViewProps> = ({
       markCorrect ? bi('已按自测标记为答对', 'Marked correct via self-check') : bi('已标记为答错', 'Marked wrong'),
       markCorrect ? 'success' : 'info',
     );
+    if (markCorrect) {
+      scheduleAutoNext(q, idx);
+    }
+  };
+
+  const handleRetryCurrent = () => {
+    clearAutoNext();
+    setMultiDraft(new Set());
+    retryCurrentQuestion();
   };
 
   const toggleStar = () => {
@@ -198,6 +260,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
   };
 
   const handleExit = async () => {
+    clearAutoNext();
     const answeredCount = Object.values(answers).filter((a) => a.answered).length;
     if (!finished && answeredCount < queue.length && answeredCount > 0) {
       const ok = await confirm({
@@ -230,13 +293,13 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
       if (e.key === 'ArrowLeft' && idx > 0) {
         e.preventDefault();
-        setIndex(idx - 1);
+        goToIndex(idx - 1);
         return;
       }
       if (e.key === 'ArrowRight') {
         e.preventDefault();
-        if (idx < queue.length - 1) setIndex(idx + 1);
-        else finishSession();
+        if (idx < queue.length - 1) goToIndex(idx + 1);
+        else handleFinishSession();
         return;
       }
       if (e.key.toLowerCase() === 's') {
@@ -247,8 +310,8 @@ export const QuizView: React.FC<QuizViewProps> = ({
       if (e.key === 'Enter') {
         e.preventDefault();
         if (isAnswered) {
-          if (idx < queue.length - 1) setIndex(idx + 1);
-          else finishSession();
+          if (idx < queue.length - 1) goToIndex(idx + 1);
+          else handleFinishSession();
         } else if (q.type === 'multi' && multiDraft.size > 0) {
           submitMulti();
         }
@@ -296,8 +359,8 @@ export const QuizView: React.FC<QuizViewProps> = ({
             <h2 className="text-xl font-semibold text-ink">{bi('本组练习完成', 'Session Complete')}</h2>
             <p className="text-sm text-ink-muted mt-1 tabular-nums">
               {bi(
-                `作答 ${totalAnswered} / ${queue.length} 题 · 答对 ${correctCount} 题 · 耗时 ${totalSec} 秒`,
-                `Answered ${totalAnswered}/${queue.length} · ${correctCount} correct · ${totalSec}s`,
+                `作答 ${totalAnswered} / ${queue.length} 题 | 答对 ${correctCount} 题 | 耗时 ${totalSec} 秒`,
+                `Answered ${totalAnswered}/${queue.length} | ${correctCount} correct | ${totalSec}s`,
               )}
             </p>
           </div>
@@ -367,10 +430,10 @@ export const QuizView: React.FC<QuizViewProps> = ({
           </Button>
           <div className="min-w-0">
             <div className="text-xs font-medium text-ink truncate">
-              {title || `${q.sub} · ${q.chap}`}
+              {title || `${q.sub} / ${q.chap}`}
             </div>
             <div className="text-[11px] text-ink-muted tabular-nums">
-              {bi(`第 ${idx + 1} / ${queue.length} 题 · 已答 ${answeredCount}`, `${idx + 1} / ${queue.length} · ${answeredCount} answered`)}
+              {bi(`第 ${idx + 1} / ${queue.length} 题 | 已答 ${answeredCount}`, `${idx + 1} / ${queue.length} | ${answeredCount} answered`)}
             </div>
           </div>
         </div>
@@ -382,6 +445,18 @@ export const QuizView: React.FC<QuizViewProps> = ({
               {elapsedSec}s
             </span>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setAutoNextOnCorrect(!autoNextOnCorrect)}
+            className={autoNextOnCorrect ? 'text-accent border-accent/40 bg-accent-soft/50' : ''}
+            title={bi('答对自动跳转下一题', 'Auto-next when correct')}
+          >
+            <Zap className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">
+              {autoNextOnCorrect ? bi('自动下一题', 'Auto Next') : bi('手动切题', 'Manual')}
+            </span>
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -463,7 +538,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
           <Card padding="lg" className="space-y-4">
             <div className="flex items-center justify-between gap-2">
               <Badge tone="accent">{typeLabelMap[q.type] || q.type}</Badge>
-              <span className="text-xs text-ink-muted truncate">{q.sub} · {q.chap}</span>
+              <span className="text-xs text-ink-muted truncate">{q.sub} / {q.chap}</span>
             </div>
 
             <div className="text-base sm:text-[17px] font-medium text-ink leading-relaxed">
@@ -606,25 +681,35 @@ export const QuizView: React.FC<QuizViewProps> = ({
                   : 'border-red-500/40 bg-red-500/5'
               }`}
             >
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 font-semibold text-sm">
                   {saved?.ok ? (
                     <>
                       <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      <span className="text-emerald-700 dark:text-emerald-300">{bi('回答正确', 'Correct')}</span>
+                      <span className="text-emerald-700 dark:text-emerald-300">
+                        {autoAdvancing
+                          ? bi('回答正确，正在进入下一题…', 'Correct, advancing…')
+                          : bi('回答正确', 'Correct')}
+                      </span>
                     </>
                   ) : (
                     <>
                       <XCircle className="w-4 h-4 text-red-500" />
                       <span className="text-red-700 dark:text-red-300">
-                        {bi(`回答有误 · 正确答案：${q.a}`, `Incorrect · Correct: ${q.a}`)}
+                        {bi(`回答有误 | 正确答案：${q.a}`, `Incorrect | Correct: ${q.a}`)}
                       </span>
                     </>
                   )}
                 </div>
-                <span className="text-[11px] font-mono text-ink-muted tabular-nums">
-                  {Math.round((saved?.durationMs || 0) / 100) / 10}s
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono text-ink-muted tabular-nums">
+                    {Math.round((saved?.durationMs || 0) / 100) / 10}s
+                  </span>
+                  <Button size="sm" variant="ghost" onClick={handleRetryCurrent} data-testid="quiz-retry-current">
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    {bi('重做本题', 'Retry')}
+                  </Button>
+                </div>
               </div>
               {q.d && <p className="text-sm text-ink leading-relaxed whitespace-pre-wrap pt-1">{q.d}</p>}
             </Card>
@@ -635,23 +720,23 @@ export const QuizView: React.FC<QuizViewProps> = ({
             <Button
               variant="outline"
               disabled={idx === 0}
-              onClick={() => setIndex(idx - 1)}
+              onClick={() => goToIndex(idx - 1)}
             >
               <ArrowLeft className="w-4 h-4" />
               {bi('上一题', 'Previous')}
             </Button>
 
             <span className="hidden sm:inline text-[11px] text-ink-muted">
-              {bi('快捷键：1-4 / A-D 作答 · Enter 下一题 · S 收藏', 'Shortcuts: 1-4 / A-D · Enter next · S star')}
+              {bi('快捷键：1-4 / A-D 作答 | Enter 下一题 | S 收藏', 'Shortcuts: 1-4 / A-D | Enter next | S star')}
             </span>
 
             {idx < queue.length - 1 ? (
-              <Button variant="primary" onClick={() => setIndex(idx + 1)}>
+              <Button variant="primary" onClick={() => goToIndex(idx + 1)}>
                 {bi('下一题', 'Next')}
                 <ArrowRight className="w-4 h-4" />
               </Button>
             ) : (
-              <Button variant="primary" onClick={finishSession}>
+              <Button variant="primary" onClick={handleFinishSession}>
                 <Check className="w-4 h-4" />
                 {bi('查看本次结算', 'Finish Session')}
               </Button>
@@ -683,7 +768,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
         subtitle={bi(`共 ${queue.length} 题，已作答 ${answeredCount} 题`, `${answeredCount} / ${queue.length} answered`)}
         size="md"
         footer={
-          <Button variant="primary" size="sm" onClick={() => { setSheetOpen(false); finishSession(); }}>
+          <Button variant="primary" size="sm" onClick={() => { setSheetOpen(false); handleFinishSession(); }}>
             {bi('交卷结算', 'Finish Session')}
           </Button>
         }
@@ -703,7 +788,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
                 key={item.id}
                 type="button"
                 onClick={() => {
-                  setIndex(i);
+                  goToIndex(i);
                   setSheetOpen(false);
                 }}
                 className={`h-9 rounded-xl border text-xs font-mono font-semibold tabular-nums transition-all ${cls} ${

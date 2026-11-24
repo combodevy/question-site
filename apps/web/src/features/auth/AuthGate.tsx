@@ -78,8 +78,8 @@ export const AuthGate: React.FC = () => {
             <BookOpenCheck className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-sm font-semibold text-ink">{bi('研习书桌', 'Study Atelier')}</div>
-            <div className="text-[11px] text-ink-muted">{bi('个人题库 · SM-2 记忆 · 历年英语真题', 'Question Bank · SM-2 · Past Papers')}</div>
+            <div className="text-sm font-semibold text-ink">{bi('在线刷题平台', 'Question Bank')}</div>
+            <div className="text-[11px] text-ink-muted">{bi('个人题库 / SM-2 记忆 / 历年英语真题', 'Question Bank / SM-2 / Past Papers')}</div>
           </div>
         </div>
         <div className="flex items-center gap-1.5">
@@ -124,7 +124,7 @@ export const AuthGate: React.FC = () => {
             </div>
             <div className="p-3 rounded-xl bg-surface border border-line">
               <div className="text-xs font-semibold text-ink">{bi('英语真题', 'Past Papers')}</div>
-              <div className="text-[11px] text-ink-muted mt-1">{bi('选词 · 匹配 · 阅读联动', 'Synced split-pane reading')}</div>
+              <div className="text-[11px] text-ink-muted mt-1">{bi('选词 / 匹配 / 阅读联动', 'Synced split-pane reading')}</div>
             </div>
           </div>
         </div>
@@ -234,14 +234,14 @@ export const AuthGate: React.FC = () => {
               )}
 
               <Button type="submit" variant="primary" size="lg" loading={busy} className="w-full">
-                {mode === 'login' ? bi('登录并进入书桌', 'Sign In') : bi('创建账号并开始', 'Create Account')}
+                {mode === 'login' ? bi('登录并开始学习', 'Sign In') : bi('创建账号并开始', 'Create Account')}
               </Button>
             </form>
 
             <div className="mt-4 pt-3.5 border-t border-line flex items-center justify-between text-[11px] text-ink-muted">
               <span className="inline-flex items-center gap-1">
                 <ShieldCheck className="w-3.5 h-3.5 text-accent" />
-                {bi('加密传输 · 本地备份保护', 'Encrypted session · Local-first backup')}
+                {bi('加密传输 / 本地备份保护', 'Encrypted session / Local-first backup')}
               </span>
               <a href="/admin.html" className="hover:text-ink transition-colors">
                 {bi('管理后台', 'Admin')}
@@ -252,7 +252,7 @@ export const AuthGate: React.FC = () => {
       </main>
 
       <footer className="max-w-5xl w-full mx-auto text-center text-[11px] text-ink-muted">
-        quiz.devy.cc.cd · Study Atelier
+        quiz.devy.cc.cd - Question Bank
       </footer>
     </div>
   );

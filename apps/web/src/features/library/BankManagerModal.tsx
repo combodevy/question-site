@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Edit2, ExternalLink, Trash2 } from 'lucide-react';
+import { BookOpen, Edit2, ExternalLink, FolderPlus, Plus, Trash2 } from 'lucide-react';
 import type { LiveStudySnapshot, StudyStats } from '@/sync/hooks';
 import { getSyncEngine } from '@/sync/engine';
 import { useUiStore } from '@/store/useUiStore';
@@ -12,6 +12,7 @@ interface BankManagerModalProps {
   data: LiveStudySnapshot;
   stats: StudyStats;
   onJumpFilter: (sub: string, chap?: string) => void;
+  onCreateQuestionIn: (sub: string, chap: string) => void;
   onClose: () => void;
 }
 
@@ -20,6 +21,7 @@ export const BankManagerModal: React.FC<BankManagerModalProps> = ({
   data,
   stats,
   onJumpFilter,
+  onCreateQuestionIn,
   onClose,
 }) => {
   const { bi } = useBi();
@@ -30,10 +32,39 @@ export const BankManagerModal: React.FC<BankManagerModalProps> = ({
     stats.subjectTree.find((s) => s.sub === selectedSub)?.sub || stats.subjectTree[0]?.sub || '';
   const currentChaps = stats.subjectTree.find((s) => s.sub === currentSub)?.chapters || [];
 
+  const handleCreateSubject = async () => {
+    const nextSub = await prompt({
+      title: bi('新增科目', 'Create New Subject'),
+      message: bi('请输入新科目名称（将打开录题面板创建该科目首道题）：', 'New subject name (opens question editor):'),
+      placeholder: bi('例如：高等数学', 'e.g. Calculus'),
+    });
+    if (!nextSub || !nextSub.trim()) return;
+    const cleanSub = nextSub.trim();
+    const nextChap = await prompt({
+      title: bi('初始章节名称', 'Initial Chapter Name'),
+      message: bi(`为科目 "${cleanSub}" 设置首个章节名称：`, `First chapter under "${cleanSub}":`),
+      defaultValue: bi('第一章', 'Chapter 1'),
+    });
+    if (!nextChap || !nextChap.trim()) return;
+    onClose();
+    onCreateQuestionIn(cleanSub, nextChap.trim());
+  };
+
+  const handleCreateChapter = async (sub: string) => {
+    const nextChap = await prompt({
+      title: bi('新增章节', 'Create New Chapter'),
+      message: bi(`在科目 "${sub}" 下新增章节名称：`, `New chapter name under "${sub}":`),
+      placeholder: bi('例如：第五章 综合测试', 'e.g. Chapter 5'),
+    });
+    if (!nextChap || !nextChap.trim()) return;
+    onClose();
+    onCreateQuestionIn(sub, nextChap.trim());
+  };
+
   const handleRenameSub = async (sub: string) => {
     const next = await prompt({
       title: bi('重命名科目', 'Rename Subject'),
-      message: bi(`将科目「${sub}」重命名为：`, `Rename "${sub}" to:`),
+      message: bi(`将科目 "${sub}" 重命名为：`, `Rename "${sub}" to:`),
       defaultValue: sub,
     });
     if (!next || next.trim() === sub) return;
@@ -47,7 +78,7 @@ export const BankManagerModal: React.FC<BankManagerModalProps> = ({
     const ok = await confirm({
       title: bi('删除整个科目', 'Trash Subject'),
       message: bi(
-        `确定将科目「${sub}」下的 ${targets.length} 道题全部移入回收站吗？`,
+        `确定将科目 "${sub}" 下的 ${targets.length} 道题全部移入回收站吗？`,
         `Move all ${targets.length} questions in "${sub}" to Trash?`,
       ),
       danger: true,
@@ -63,7 +94,7 @@ export const BankManagerModal: React.FC<BankManagerModalProps> = ({
   const handleRenameChap = async (sub: string, chap: string) => {
     const next = await prompt({
       title: bi('重命名章节', 'Rename Chapter'),
-      message: bi(`将「${chap}」重命名为：`, `Rename "${chap}" to:`),
+      message: bi(`将章节 "${chap}" 重命名为：`, `Rename "${chap}" to:`),
       defaultValue: chap,
     });
     if (!next || next.trim() === chap) return;
@@ -76,7 +107,7 @@ export const BankManagerModal: React.FC<BankManagerModalProps> = ({
     const ok = await confirm({
       title: bi('删除章节', 'Trash Chapter'),
       message: bi(
-        `确定将「${chap}」下的 ${targets.length} 道题移入回收站吗？`,
+        `确定将章节 "${chap}" 下的 ${targets.length} 道题移入回收站吗？`,
         `Move ${targets.length} questions in "${chap}" to Trash?`,
       ),
       danger: true,
@@ -94,15 +125,30 @@ export const BankManagerModal: React.FC<BankManagerModalProps> = ({
       open={open}
       onClose={onClose}
       title={bi('科目与章节管理', 'Subjects & Chapters')}
-      subtitle={bi('章节按自然数字与中文序号自动排序；重命名或删除均会云端同步', 'Sorted naturally; renames & deletes sync automatically')}
+      subtitle={bi('支持新增科目/章节、重命名、清理及自然数字序号排序', 'Create, rename, organize, and naturally sort subjects and chapters')}
       size="lg"
     >
       {stats.subjectTree.length === 0 ? (
-        <div className="text-xs text-ink-muted py-10 text-center">{bi('当前题库为空', 'Bank is empty')}</div>
+        <div className="py-10 text-center space-y-3">
+          <div className="text-xs text-ink-muted">{bi('当前题库为空', 'Bank is empty')}</div>
+          <Button size="sm" variant="primary" onClick={() => void handleCreateSubject()}>
+            <FolderPlus className="w-3.5 h-3.5" />
+            {bi('新建首个科目', 'Create First Subject')}
+          </Button>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <div className="text-xs font-semibold text-ink-muted">{bi('科目列表', 'Subjects')}</div>
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-semibold text-ink-muted inline-flex items-center gap-1.5">
+                <BookOpen className="w-3.5 h-3.5 text-accent" />
+                {bi('科目列表', 'Subjects')}
+              </div>
+              <Button size="sm" variant="outline" onClick={() => void handleCreateSubject()}>
+                <FolderPlus className="w-3.5 h-3.5" />
+                {bi('新增科目', 'New Subject')}
+              </Button>
+            </div>
             <div className="space-y-2 max-h-80 overflow-y-auto custom-scroll pr-1">
               {stats.subjectTree.map((s) => (
                 <div
@@ -117,7 +163,7 @@ export const BankManagerModal: React.FC<BankManagerModalProps> = ({
                   <div className="min-w-0">
                     <div className="text-sm font-medium text-ink truncate">{s.sub}</div>
                     <div className="text-[11px] text-ink-muted tabular-nums">
-                      {s.chapters.length} {bi('章', 'ch')} · {s.total} {bi('题', 'Q')}
+                      {s.chapters.length} {bi('章', 'ch')} / {s.total} {bi('题', 'Q')}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -150,9 +196,17 @@ export const BankManagerModal: React.FC<BankManagerModalProps> = ({
           </div>
 
           <div className="space-y-2">
-            <div className="text-xs font-semibold text-ink-muted">
-              {bi('章节列表：', 'Chapters: ')}
-              <span className="text-ink">{currentSub}</span>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs font-semibold text-ink-muted truncate">
+                {bi('章节列表：', 'Chapters: ')}
+                <span className="text-ink">{currentSub}</span>
+              </div>
+              {currentSub && (
+                <Button size="sm" variant="outline" onClick={() => void handleCreateChapter(currentSub)}>
+                  <Plus className="w-3.5 h-3.5" />
+                  {bi('新增章节', 'New Chapter')}
+                </Button>
+              )}
             </div>
             <div className="space-y-2 max-h-80 overflow-y-auto custom-scroll pr-1">
               {currentChaps.map((c) => (

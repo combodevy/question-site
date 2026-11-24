@@ -81,7 +81,7 @@ export const AdminOpsView: React.FC = () => {
         <div>
           <h1 className="text-xl font-semibold text-ink">系统概览与运维监控</h1>
           <p className="text-xs text-ink-muted mt-0.5">
-            平台核心指标 · 主机硬件遥测 · 备份与服务进程控制
+            平台核心指标 / 主机硬件遥测 / 备份与服务进程控制
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -144,9 +144,9 @@ export const AdminOpsView: React.FC = () => {
               <Cpu className="w-3.5 h-3.5" />
             </div>
             <div className="text-lg font-semibold text-ink tabular-nums">
-              {metrics.cpu.cores} 核心 · Load {metrics.cpu.loadavg.join(' / ')}
+              {metrics.cpu.cores} 核心 / Load {metrics.cpu.loadavg.join(' / ')}
             </div>
-            <div className="text-[11px] text-ink-muted truncate">{metrics.os.hostname} · {metrics.os.nodeVersion}</div>
+            <div className="text-[11px] text-ink-muted truncate">{metrics.os.hostname} / {metrics.os.nodeVersion}</div>
           </Card>
 
           <Card padding="sm" className="space-y-2">
@@ -175,7 +175,7 @@ export const AdminOpsView: React.FC = () => {
             </div>
             <div className="text-[11px] text-ink-muted tabular-nums flex items-center gap-2">
               <Database className="w-3 h-3" />
-              app.db: {metrics.disk.d1DbSize} · 备份: {metrics.disk.backupSize}
+              app.db: {metrics.disk.d1DbSize} / 备份: {metrics.disk.backupSize}
             </div>
           </Card>
 

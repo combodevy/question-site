@@ -99,7 +99,7 @@ export const AdminApp: React.FC = () => {
           {state === 'forbidden' && (
             <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
               <ShieldAlert className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <span>当前账号「{user?.username}」没有管理员权限，请使用管理员账号登录。</span>
+              <span>当前账号 "{user?.username}" 没有管理员权限，请使用管理员账号登录。</span>
             </div>
           )}
 

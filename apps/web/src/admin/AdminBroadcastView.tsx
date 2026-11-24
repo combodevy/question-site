@@ -199,7 +199,7 @@ export const AdminBroadcastView: React.FC = () => {
             <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-700 dark:text-emerald-300 space-y-1">
               <div className="font-semibold">下发完成汇总：</div>
               <div>
-                目标 {summary.total} 人 · 成功 {summary.success} · 失败 {summary.failed} · 去重跳过{' '}
+                目标 {summary.total} 人 | 成功 {summary.success} | 失败 {summary.failed} | 去重跳过{' '}
                 {summary.skippedDuplicate} 题
               </div>
             </div>
@@ -232,7 +232,7 @@ export const AdminBroadcastView: React.FC = () => {
             rows={10}
             value={rawInput}
             onChange={(e) => setRawInput(e.target.value)}
-            placeholder="在此粘贴 JSON 题库或带「答案：」行的纯文本试卷…"
+            placeholder='在此粘贴 JSON 题库或带 "答案：" 行的纯文本试卷…'
             className="w-full p-3 rounded-xl bg-canvas border border-line font-mono text-xs text-ink outline-none focus:border-accent"
           />
 

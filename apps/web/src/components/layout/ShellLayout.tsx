@@ -10,6 +10,8 @@ import {
   LayoutDashboard,
   Library,
   Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
   RefreshCw,
   Shield,
   SlidersHorizontal,
@@ -44,7 +46,7 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({
   const { bi, lang } = useBi();
   const { user, sessionExpired } = useAuthStore();
   const sync = useSyncStore();
-  const { theme, setTheme, setLang } = useUiStore();
+  const { theme, setTheme, setLang, sidebarCollapsed, toggleSidebarCollapsed } = useUiStore();
   const [reauthOpen, setReauthOpen] = useState(false);
 
   const navItems: Array<{
@@ -138,26 +140,61 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({
   return (
     <div className="min-h-screen bg-canvas flex flex-col md:flex-row">
       {/* Desktop Left Navigation Rail */}
-      <aside className="hidden md:flex md:w-60 lg:w-64 md:flex-col md:fixed md:inset-y-0 bg-surface border-r border-line z-30">
-        <div className="px-5 py-5 flex items-center gap-2.5 border-b border-line">
-          <div className="w-8 h-8 rounded-xl bg-accent text-accent-fg flex items-center justify-center shadow-sm">
-            <BookOpenCheck className="w-4 h-4" />
+      <aside
+        data-collapsed={sidebarCollapsed ? 'true' : 'false'}
+        className={`hidden md:flex md:flex-col md:fixed md:inset-y-0 bg-surface border-r border-line z-30 transition-all duration-200 ${
+          sidebarCollapsed ? 'md:w-[72px]' : 'md:w-60 lg:w-64'
+        }`}
+      >
+        <div
+          className={`border-b border-line flex ${
+            sidebarCollapsed ? 'flex-col items-center gap-2 py-4 px-2' : 'items-center justify-between gap-2 px-4 py-4'
+          }`}
+        >
+          <div className={`flex items-center gap-2.5 min-w-0 ${sidebarCollapsed ? 'justify-center' : ''}`}>
+            <div
+              title={user?.username || '—'}
+              className="w-8 h-8 rounded-xl bg-accent text-accent-fg flex items-center justify-center shadow-sm flex-shrink-0 font-semibold text-sm"
+            >
+              {user?.username ? user.username[0].toUpperCase() : <BookOpenCheck className="w-4 h-4" />}
+            </div>
+            {!sidebarCollapsed && (
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-ink truncate" data-testid="sidebar-username">
+                  {user?.username || '—'}
+                </div>
+                {user?.isAdmin && (
+                  <div className="text-[10px] text-accent font-medium truncate">
+                    {bi('管理员', 'Admin')}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-ink truncate">{bi('研习书桌', 'Study Atelier')}</div>
-            <div className="text-[11px] text-ink-muted truncate">{user?.username || '—'}</div>
-          </div>
+          <button
+            type="button"
+            data-testid="sidebar-collapse-btn"
+            onClick={toggleSidebarCollapsed}
+            title={sidebarCollapsed ? bi('展开侧边栏', 'Expand sidebar') : bi('收起侧边栏', 'Collapse sidebar')}
+            aria-label={sidebarCollapsed ? bi('展开侧边栏', 'Expand sidebar') : bi('收起侧边栏', 'Collapse sidebar')}
+            className="w-7 h-7 rounded-lg border border-line/80 bg-canvas/60 text-ink-muted hover:text-ink hover:bg-surface-muted flex items-center justify-center transition-colors flex-shrink-0"
+          >
+            {sidebarCollapsed ? <PanelLeftOpen className="w-3.5 h-3.5" /> : <PanelLeftClose className="w-3.5 h-3.5" />}
+          </button>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto custom-scroll">
+        <nav className={`flex-1 py-4 space-y-1 overflow-y-auto custom-scroll ${sidebarCollapsed ? 'px-2' : 'px-3'}`}>
           {navItems.map((item) => {
             const active = activeTab === item.key;
             return (
               <button
                 key={item.key}
                 type="button"
+                title={sidebarCollapsed ? item.label : undefined}
                 onClick={() => onSelectTab(item.key)}
-                className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                className={`relative w-full flex items-center gap-2 ${
+                  sidebarCollapsed ? 'justify-center px-2' : 'justify-between px-3'
+                } py-2.5 rounded-xl text-sm font-medium transition-colors ${
                   active
                     ? 'bg-accent-soft text-accent'
                     : 'text-ink-muted hover:text-ink hover:bg-surface-muted'
@@ -165,12 +202,15 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({
               >
                 <span className="flex items-center gap-2.5 min-w-0">
                   {item.icon}
-                  <span className="truncate">{item.label}</span>
+                  {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
                 </span>
-                {item.badge !== undefined && (
+                {item.badge !== undefined && !sidebarCollapsed && (
                   <span className="px-1.5 py-0.5 rounded-md bg-red-500/10 text-red-600 dark:text-red-400 text-[11px] font-semibold tabular-nums">
                     {item.badge}
                   </span>
+                )}
+                {item.badge !== undefined && sidebarCollapsed && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500" />
                 )}
               </button>
             );
@@ -180,42 +220,66 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({
             <div className="pt-3 mt-3 border-t border-line">
               <a
                 href="/admin.html"
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-muted transition-colors"
+                title={sidebarCollapsed ? bi('管理控制台', 'Admin Console') : undefined}
+                className={`w-full flex items-center ${
+                  sidebarCollapsed ? 'justify-center px-2' : 'gap-2.5 px-3'
+                } py-2.5 rounded-xl text-sm font-medium text-ink-muted hover:text-ink hover:bg-surface-muted transition-colors`}
               >
                 <Shield className="w-4 h-4 text-accent" />
-                <span>{bi('管理控制台', 'Admin Console')}</span>
+                {!sidebarCollapsed && <span>{bi('管理控制台', 'Admin Console')}</span>}
               </a>
             </div>
           )}
         </nav>
 
-        <div className="p-3 border-t border-line space-y-2.5">
+        <div className="p-2.5 border-t border-line space-y-2">
           <button
             type="button"
+            title={bi('点击立即同步', 'Click to sync')}
             onClick={() => {
               if (sessionExpired) setReauthOpen(true);
               else void getSyncEngine()?.syncNow();
             }}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-surface-muted/70 hover:bg-surface-muted transition-colors"
+            className={`w-full flex items-center ${
+              sidebarCollapsed ? 'justify-center px-2' : 'justify-between px-3'
+            } py-2 rounded-xl bg-surface-muted/70 hover:bg-surface-muted transition-colors`}
           >
-            {syncChip()}
-            <span className="text-[11px] text-ink-muted tabular-nums">v{sync.version}</span>
+            {sidebarCollapsed ? (
+              sync.status === 'syncing' ? (
+                <RefreshCw className="w-3.5 h-3.5 text-accent animate-spin" />
+              ) : sync.status === 'offline' ? (
+                <CloudOff className="w-3.5 h-3.5 text-amber-500" />
+              ) : sync.status === 'error' || sync.status === 'auth_expired' || sessionExpired ? (
+                <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+              ) : (
+                <Cloud className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              )
+            ) : (
+              <>
+                {syncChip()}
+                <span className="text-[11px] text-ink-muted tabular-nums">v{sync.version}</span>
+              </>
+            )}
           </button>
 
-          <div className="flex items-center gap-1.5">
+          <div className={`flex ${sidebarCollapsed ? 'flex-col items-center gap-1.5' : 'items-center gap-1.5'}`}>
             <button
               type="button"
+              title={lang === 'zh' ? 'Switch to English' : '切换为简体中文'}
               onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
-              className="flex-1 h-8 rounded-lg border border-line bg-canvas text-xs font-medium text-ink-muted hover:text-ink inline-flex items-center justify-center gap-1.5"
+              className={`${
+                sidebarCollapsed ? 'w-9 h-8' : 'flex-1 h-8'
+              } rounded-lg border border-line bg-canvas text-xs font-medium text-ink-muted hover:text-ink inline-flex items-center justify-center gap-1.5`}
             >
               <Globe className="w-3.5 h-3.5" />
-              {lang === 'zh' ? 'English' : '简体中文'}
+              {!sidebarCollapsed && (lang === 'zh' ? 'English' : '简体中文')}
             </button>
             <button
               type="button"
               onClick={toggleDark}
-              className="w-8 h-8 rounded-lg border border-line bg-canvas text-ink-muted hover:text-ink inline-flex items-center justify-center"
+              className={`${sidebarCollapsed ? 'w-9 h-8' : 'w-8 h-8'} rounded-lg border border-line bg-canvas text-ink-muted hover:text-ink inline-flex items-center justify-center`}
               aria-label="Toggle theme"
+              title={isDarkActive ? bi('切换浅色模式', 'Switch to light') : bi('切换深色模式', 'Switch to dark')}
             >
               {isDarkActive ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
@@ -226,10 +290,10 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({
       {/* Mobile Top Header */}
       <header className="md:hidden sticky top-0 z-30 bg-surface/95 backdrop-blur border-b border-line px-4 py-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="w-7 h-7 rounded-lg bg-accent text-accent-fg flex items-center justify-center">
-            <BookOpenCheck className="w-4 h-4" />
+          <div className="w-7 h-7 rounded-lg bg-accent text-accent-fg flex items-center justify-center font-semibold text-xs">
+            {user?.username ? user.username[0].toUpperCase() : <BookOpenCheck className="w-4 h-4" />}
           </div>
-          <span className="text-sm font-semibold text-ink truncate">{bi('研习书桌', 'Study Atelier')}</span>
+          <span className="text-sm font-semibold text-ink truncate">{user?.username || '—'}</span>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -251,7 +315,11 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({
       </header>
 
       {/* Main Content Area */}
-      <div className="flex-1 md:pl-60 lg:pl-64 flex flex-col min-w-0 pb-20 md:pb-8">
+      <div
+        className={`flex-1 flex flex-col min-w-0 pb-20 md:pb-8 transition-all duration-200 ${
+          sidebarCollapsed ? 'md:pl-[72px]' : 'md:pl-60 lg:pl-64'
+        }`}
+      >
         {sessionExpired && (
           <div className="bg-amber-500/15 border-b border-amber-500/30 px-4 sm:px-6 py-2.5 text-xs text-amber-800 dark:text-amber-200 flex flex-wrap items-center justify-between gap-2">
             <span>

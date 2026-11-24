@@ -1,6 +1,6 @@
 import React from 'react';
 
-export interface BadgeProps {
+export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   tone?: 'neutral' | 'accent' | 'success' | 'warning' | 'danger';
   className?: string;
   children: React.ReactNode;
@@ -14,8 +14,9 @@ const TONE_CLS: Record<NonNullable<BadgeProps['tone']>, string> = {
   danger: 'bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/20',
 };
 
-export const Badge: React.FC<BadgeProps> = ({ tone = 'neutral', className = '', children }) => (
+export const Badge: React.FC<BadgeProps> = ({ tone = 'neutral', className = '', children, ...rest }) => (
   <span
+    {...rest}
     className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-xs font-medium leading-tight ${TONE_CLS[tone]} ${className}`}
   >
     {children}
