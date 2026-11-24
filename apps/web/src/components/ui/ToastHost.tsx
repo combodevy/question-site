@@ -25,7 +25,7 @@ export const ToastHost: React.FC = () => {
       {toasts.map((t) => (
         <div
           key={t.id}
-          className={`pointer-events-auto flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl border shadow-lg text-xs font-medium leading-relaxed ${STYLE_MAP[t.tone]}`}
+          className={`pointer-events-auto anim-toast-in flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl border shadow-lg text-xs font-medium leading-relaxed ${STYLE_MAP[t.tone]}`}
         >
           <span className="mt-0.5">{ICON_MAP[t.tone]}</span>
           <span className="flex-1 text-ink">{t.message}</span>

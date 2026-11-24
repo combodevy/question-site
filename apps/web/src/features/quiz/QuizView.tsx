@@ -350,8 +350,8 @@ export const QuizView: React.FC<QuizViewProps> = ({
     const totalSec = Math.max(1, Math.round((Date.now() - (startedAt || Date.now())) / 1000));
 
     return (
-      <div className="max-w-3xl mx-auto space-y-6 py-4">
-        <Card padding="lg" className="text-center space-y-4">
+      <div className="max-w-3xl mx-auto space-y-6 py-4 anim-page-in">
+        <Card padding="lg" className="text-center space-y-4 anim-modal-in">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-full border-4 border-accent/25 bg-accent-soft text-accent text-2xl font-semibold tabular-nums">
             {acc}%
           </div>
@@ -491,11 +491,11 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
       {/* Slim progress hairline */}
       <div className="h-1.5 w-full rounded-full bg-surface-muted overflow-hidden">
-        <div className="h-full bg-accent transition-all duration-200" style={{ width: `${pct}%` }} />
+        <div className="h-full bg-accent transition-all duration-500 ease-out" style={{ width: `${pct}%` }} />
       </div>
 
       {/* Main Question Workspace (auto split-pane when psg exists) */}
-      <div className={q.psg ? 'grid grid-cols-1 md:grid-cols-12 gap-5 items-start' : 'max-w-3xl mx-auto'}>
+      <div key={q.id} className={`${q.psg ? 'grid grid-cols-1 md:grid-cols-12 gap-5 items-start' : 'max-w-3xl mx-auto'} anim-question-in`}>
         {q.psg && (
           <>
             <div className="md:hidden">
@@ -579,7 +579,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
                     type="button"
                     disabled={isAnswered}
                     onClick={() => submitChoice(letter)}
-                    className={`w-full text-left p-4 rounded-2xl border transition-all flex items-start gap-3.5 ${boxCls}`}
+                    className={`w-full text-left p-4 rounded-2xl border transition-all duration-200 ${!isAnswered ? 'hover:translate-x-0.5 active:scale-[0.99]' : ''} flex items-start gap-3.5 ${boxCls}`}
                   >
                     <span
                       className={`w-7 h-7 rounded-lg border text-xs font-mono font-semibold flex items-center justify-center flex-shrink-0 transition-colors ${badgeCls}`}
@@ -622,7 +622,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
                     type="button"
                     disabled={isAnswered}
                     onClick={() => submitChoice(v)}
-                    className={`h-14 rounded-2xl border font-semibold text-base transition-all ${cls}`}
+                    className={`h-14 rounded-2xl border font-semibold text-base transition-all duration-200 ${!isAnswered ? 'hover:-translate-y-0.5 active:scale-[0.98]' : ''} ${cls}`}
                   >
                     {v === 'T' ? bi('√ 正确', 'True') : bi('× 错误', 'False')}
                   </button>
@@ -677,8 +677,8 @@ export const QuizView: React.FC<QuizViewProps> = ({
             <Card
               className={`space-y-2 ${
                 saved?.ok
-                  ? 'border-emerald-500/40 bg-emerald-500/5'
-                  : 'border-red-500/40 bg-red-500/5'
+                  ? 'border-emerald-500/40 bg-emerald-500/5 anim-pop-in'
+                  : 'border-red-500/40 bg-red-500/5 anim-shake'
               }`}
             >
               <div className="flex flex-wrap items-center justify-between gap-2">

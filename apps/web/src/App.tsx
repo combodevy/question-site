@@ -91,14 +91,16 @@ const AuthenticatedApp: React.FC = () => {
       pendingWrongCount={stats.visibleMistakeIds.size}
     >
       {quizActive ? (
-        <QuizView
-          data={data}
-          anyModalOpen={anyModalOpen}
-          onEditQuestion={(q) => setEditorState({ open: true, question: q })}
-          onInspectQuestion={(q) => setInspectQ(q)}
-        />
+        <div className="anim-page-in">
+          <QuizView
+            data={data}
+            anyModalOpen={anyModalOpen}
+            onEditQuestion={(q) => setEditorState({ open: true, question: q })}
+            onInspectQuestion={(q) => setInspectQ(q)}
+          />
+        </div>
       ) : (
-        <>
+        <div key={activeTab} className="anim-page-in">
           {activeTab === 'dashboard' && (
             <DashboardView
               data={data}
@@ -137,7 +139,7 @@ const AuthenticatedApp: React.FC = () => {
           )}
           {activeTab === 'english' && <EnglishView data={data} />}
           {activeTab === 'profile' && <ProfileView data={data} stats={stats} />}
-        </>
+        </div>
       )}
 
       <QuestionEditorModal

@@ -467,7 +467,7 @@ export const EnglishView: React.FC<{ data: LiveStudySnapshot }> = ({ data }) => 
     const pickerIdxInSec = pickerNo !== null ? secQs.findIndex((q) => q.no === pickerNo) : -1;
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 anim-page-in">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <Button variant="outline" size="sm" onClick={() => setSess(null)}>
@@ -775,7 +775,7 @@ export const EnglishView: React.FC<{ data: LiveStudySnapshot }> = ({ data }) => 
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 anim-page-in">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-ink">
@@ -835,7 +835,7 @@ export const EnglishView: React.FC<{ data: LiveStudySnapshot }> = ({ data }) => 
                   const answeredN = prog ? Object.keys(prog.answers || {}).length : 0;
 
                   return (
-                    <Card key={p.id} padding="sm" className="flex items-center justify-between gap-3">
+                    <Card key={p.id} padding="sm" className="flex items-center justify-between gap-3 card-hover">
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium text-ink line-clamp-2 leading-snug">{p.title}</div>
                         <div className="flex flex-wrap items-center gap-2 mt-1.5">

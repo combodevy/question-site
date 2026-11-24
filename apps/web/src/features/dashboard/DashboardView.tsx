@@ -260,7 +260,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       {/* 4 Crisp Metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <Card padding="sm">
+        <Card padding="sm" className="anim-stagger card-hover" style={{ '--stagger-i': 0 } as React.CSSProperties}>
           <div className="flex items-center justify-between text-xs text-ink-muted">
             <span>{bi('总题量', 'Total Bank')}</span>
             <Layers className="w-3.5 h-3.5" />
@@ -273,7 +273,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </Card>
 
-        <Card padding="sm">
+        <Card padding="sm" className="anim-stagger card-hover" style={{ '--stagger-i': 1 } as React.CSSProperties}>
           <div className="flex items-center justify-between text-xs text-ink-muted">
             <span>{bi('今日已刷', 'Today Answered')}</span>
             <Target className="w-3.5 h-3.5 text-accent" />
@@ -292,7 +292,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           {dailyGoal > 0 ? (
             <div className="mt-2 h-1.5 w-full rounded-full bg-surface-muted overflow-hidden">
               <div
-                className="h-full rounded-full bg-accent transition-all"
+                className="h-full rounded-full bg-accent transition-all duration-500 ease-out"
                 style={{ width: `${Math.min(100, Math.round((stats.todayAttempts / dailyGoal) * 100))}%` }}
               />
             </div>
@@ -308,7 +308,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           )}
         </Card>
 
-        <Card padding="sm">
+        <Card padding="sm" className="anim-stagger card-hover" style={{ '--stagger-i': 2 } as React.CSSProperties}>
           <div className="flex items-center justify-between text-xs text-ink-muted">
             <span>{bi('累计正确率', 'Overall Accuracy')}</span>
             <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
@@ -321,7 +321,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </Card>
 
-        <Card padding="sm" className="flex flex-col justify-between">
+        <Card padding="sm" className="flex flex-col justify-between anim-stagger card-hover" style={{ '--stagger-i': 3 } as React.CSSProperties}>
           <div className="flex items-center justify-between text-xs text-ink-muted">
             <span>{bi('错题与收藏', 'Mistakes & Stars')}</span>
             <Bookmark className="w-3.5 h-3.5 text-amber-500" />
@@ -383,11 +383,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </span>
                   <div className="w-full max-w-[28px] h-24 rounded-md bg-surface-muted flex items-end overflow-hidden relative">
                     <div
-                      className="w-full bg-accent/25 rounded-t-sm transition-all relative"
+                      className="w-full bg-accent/25 rounded-t-sm transition-all duration-500 relative anim-bar-grow"
                       style={{ height: `${totalH}%` }}
                     >
                       <div
-                        className="absolute bottom-0 inset-x-0 bg-accent rounded-t-sm transition-all"
+                        className="absolute bottom-0 inset-x-0 bg-accent rounded-t-sm transition-all duration-500"
                         style={{ height: totalH > 0 ? `${Math.round((okH / totalH) * 100)}%` : '0%' }}
                       />
                     </div>
@@ -433,7 +433,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 return (
                   <div
                     key={s.sub}
-                    className="p-3 rounded-xl border border-line bg-canvas/60 flex items-center justify-between gap-3"
+                    className="p-3 rounded-xl border border-line bg-canvas/60 card-hover flex items-center justify-between gap-3"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
@@ -447,7 +447,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       <div className="flex items-center gap-3 mt-1.5">
                         <div className="flex-1 h-1.5 rounded-full bg-surface-muted overflow-hidden">
                           <div
-                            className="h-full bg-accent rounded-full transition-all"
+                            className="h-full bg-accent rounded-full transition-all duration-500 ease-out"
                             style={{ width: `${mastery}%` }}
                           />
                         </div>

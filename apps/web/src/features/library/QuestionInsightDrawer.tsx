@@ -54,8 +54,8 @@ export const QuestionInsightDrawer: React.FC<QuestionInsightDrawerProps> = ({
 
   return (
     <div className="fixed inset-0 z-[60] flex justify-end" data-testid="question-insight-drawer">
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-[1px]" onClick={onClose} />
-      <aside className="relative w-full max-w-lg bg-surface border-l border-line h-full flex flex-col shadow-2xl z-10">
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-[1px] anim-fade-in" onClick={onClose} />
+      <aside className="relative w-full max-w-lg bg-surface border-l border-line h-full flex flex-col shadow-2xl z-10 anim-drawer-in">
         <div className="px-5 py-4 border-b border-line flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-xs text-ink-muted truncate">

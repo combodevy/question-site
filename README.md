@@ -1,25 +1,20 @@
-# 在线刷题系统 (Question Site)
+# 在线刷题与记忆巩固平台 (Question Site)
 
-[![Stack](https://img.shields.io/badge/Stack-Cloudflare%20Pages%20%2B%20Workers%20%2B%20D1%20%2F%20Linux%20Nginx-F38020)](https://workers.cloudflare.com/)
-[![Version](https://img.shields.io/badge/Version-v%202611231-0d9488)](https://quiz.devy.cc.cd)
-[![PWA](https://img.shields.io/badge/PWA-100%25%20Offline%20Ready-success)](https://quiz.devy.cc.cd)
+[![Version](https://img.shields.io/badge/Version-v3.0.0-0d9488)](https://quiz.devy.cc.cd)
+[![Architecture](https://img.shields.io/badge/Monorepo-TypeScript%20%2B%20React%2019%20%2B%20Hono%20%2B%20SQLite-0f766e)](https://github.com/combodevy/question-site)
+[![PWA](https://img.shields.io/badge/PWA-Offline%20First%20Dexie%20Outbox-success)](https://quiz.devy.cc.cd)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-一个基于 **无服务器边缘架构与独立生产服务双模驱动**（Cloudflare Pages + Workers + D1 / 独立 Linux Ubuntu + Nginx + Node Wrangler Runtime）的开源在线题库管理与智能刷题系统。前端采用原生 ES Modules（零运行时打包依赖）与构建期静态 Tailwind CSS，支持 **PWA 100% 离线冷启动**、离线优先 IndexedDB 存储、多端乐观锁弹性三方合并（彻底消除 Version Conflict）、增量云同步、客户端 Gzip 流式压缩上传、SM-2 遗忘曲线间隔复习，以及独立于主题库的 107 套四六级/考研英语真题专项模块与全新重构的现代化全功能管理控制台（Admin Console）。
+一个基于 **TypeScript Monorepo** 架构打造的离线优先在线题库管理与间隔记忆刷题平台（`@qs/shared` + `@qs/api` Hono & Drizzle SQLite + `@qs/web` React 19 + Vite 6 + Dexie Outbox SPA）。支持 **PWA 离线运行**、细粒度幂等增量同步（`opId` Outbox 队列）、SM-2 遗忘曲线调度、107 套四六级/考研英语历年真题独立作答模块，以及内置服务器遥测的现代化管理控制台（Admin Console）。
 
 | 环境组件 | 线上地址 / 标识 | 架构说明 |
 | :--- | :--- | :--- |
-| **生产网站 (Official Live)** | <https://quiz.devy.cc.cd> | 独立生产服务器（47.111.142.133，Nginx + 本地 D1/Worker 守护进程） |
-| **管理后台 (Admin Console)** | <https://quiz.devy.cc.cd/admin.html> | 全新重构后台（数据看板 / 智能查重体检 / 题目批量操作 / 深色模式） |
-| **边缘镜像 (Cloudflare Pages)** | <https://question-site-front.pages.dev> | Cloudflare 全球边缘静态托管镜像 |
-| **后端 API (Production)** | `https://quiz.devy.cc.cd/api` | Nginx 反向代理至本地 Wrangler 运行时（8787 端口） |
-| **云端 API (Cloudflare Worker)** | `https://question-site-api.combodevy-9b0.workers.dev` | Cloudflare Workers 边缘计算无服务器 API |
-| **持久化数据库 (Cloudflare D1)** | `question-site-db` (`128acd54-531e-4eba-9943-56768d095c98`) | 生产环境 D1 SQLite 持久化数据库 |
-| **源码仓库 (GitHub)** | <https://github.com/combodevy/question-site> | 主分支 `main`，严格自动化契约检验 |
+| **生产网站 (Official Live)** | <https://quiz.devy.cc.cd> | 独立生产服务器（`47.111.142.133`，Nginx 原子发布与反向代理） |
+| **管理后台 (Admin Console)** | <https://quiz.devy.cc.cd/admin.html> | 独立 Vite 入口（运维监控 / 用户 360° 档案 / 题库编辑器 / 全站广播下发） |
+| **后端 API (Production)** | `https://quiz.devy.cc.cd/api` | TypeScript Hono 服务 + `better-sqlite3`（WAL 模式）+ Drizzle ORM（`8787` 端口） |
+| **源码仓库 (GitHub)** | <https://github.com/combodevy/question-site> | 主分支 `main`，npm workspaces + Vitest 前后端自动化测试 |
 | **开源协议 (License)** | [MIT License](./LICENSE) | 宽松开源许可协议 |
-| **当前版本** | `v 2611231` | 版本格式：`YYMMDD` + 当日迭代序号 |
-
-> **部署目标防呆说明**：`scripts/check-deploy-target.mjs` 在每次打包和部署前会自动强校验前端 `config.js`、Worker 名称与 D1 `database_id` 是否同属同一套环境（`production` / `mirror` / `mirror2`），杜绝跨环境交叉污染；同时 `config.js` 具备自适应同源检测，自托管生产环境无缝直连本地反向代理 API。
+| **当前版本** | `v3.0.0` | TypeScript Monorepo 全栈演进版 |
 
 ---
 
@@ -27,22 +22,20 @@
 
 1. [系统架构与数据流](#1-系统架构与数据流)
 2. [核心功能矩阵](#2-核心功能矩阵)
-   - 2.1 [题库导入中心（三步可视化 + 智能容错 + 预览调序）](#21-题库导入中心三步可视化--智能容错--预览调序)
-   - 2.2 [总题库 / 错题本 / 已收藏 三合一视图与章节管理](#22-总题库--错题本--已收藏-三合一视图与章节管理)
-   - 2.3 [整章练习、自定义练习与顶栏固定刷题器](#23-整章练习自定义练习与顶栏固定刷题器)
-   - 2.4 [全新现代化管理后台 (Admin Console Workspace)](#24-全新现代化管理后台-admin-console-workspace)
-   - 2.5 [PWA 渐进式应用与 100% 离线冷启动](#25-pwa-渐进式应用与-100-离线冷启动)
-   - 2.6 [多端并发协同与弹性版本冲突解决](#26-多端并发协同与弹性版本冲突解决)
-3. [Cloudflare 网络传输与 D1 性能优化](#3-cloudflare-网络传输与-d1-性能优化)
-4. [全栈安全加固矩阵（防渗透、防注入与死锁熔断）](#4-全栈安全加固矩阵防渗透防注入与死锁熔断)
-5. [规范化登录与注册流程](#5-规范化登录与注册流程)
-6. [英语真题专项模块](#6-英语真题专项模块)
-7. [项目目录结构](#7-项目目录结构)
-8. [后端 API 接口契约](#8-后端-api-接口契约)
-9. [自动化测试与 CI 契约检查](#9-自动化测试与-ci-契约检查)
-10. [本地开发与双模生产部署指南](#10-本地开发与双模生产部署指南)
-11. [版本更新日志 (Changelog)](#11-版本更新日志-changelog)
-12. [开源协议 (License)](#12-开源协议-license)
+   - 2.1 [题库导入中心与多维题库管理](#21-题库导入中心与多维题库管理)
+   - 2.2 [沉浸式刷题、自动切题与首页进度恢复](#22-沉浸式刷题自动切题与首页进度恢复)
+   - 2.3 [自定义练习配置与全量选择记忆](#23-自定义练习配置与全量选择记忆)
+   - 2.4 [多维学习分析与高频错题透视](#24-多维学习分析与高频错题透视)
+   - 2.5 [全局 GPU 动效系统与无障碍减动效支持](#25-全局-gpu-动效系统与无障碍减动效支持)
+   - 2.6 [英语真题专项模块 (107 套历年真题)](#26-英语真题专项模块-107-套历年真题)
+   - 2.7 [管理后台 (Admin Console) 与运维看板](#27-管理后台-admin-console-与运维看板)
+3. [细粒度增量同步与离线安全设计](#3-细粒度增量同步与离线安全设计)
+4. [全栈安全矩阵](#4-全栈安全矩阵)
+5. [项目目录结构](#5-项目目录结构)
+6. [后端 API 接口契约](#6-后端-api-接口契约)
+7. [自动化测试与契约校验](#7-自动化测试与契约校验)
+8. [本地开发、生产部署与一键回滚](#8-本地开发生产部署与一键回滚)
+9. [开源协议 (License)](#9-开源协议-license)
 
 ---
 
@@ -50,413 +43,179 @@
 
 ```mermaid
 graph TD
-    Client["浏览器 / PWA 客户端 (PC / 移动端)"] -->|离线拦截与快照缓存| SW["Service Worker (sw.js)"]
-    SW -->|"优先本地缓存 / 离线直供"| Cache["CacheStorage 静态资产"]
-    SW -->|"网络请求转发"| Gateway["边缘网关 / Nginx 反向代理"]
-    Gateway -->|HTTPS + HSTS + CSP| Static["静态资源托管 (Pages / Nginx)"]
-    Gateway -->|"REST API + Bearer JWT + Gzip 流"| Worker["Worker API 引擎 (Cloudflare / Node workerd)"]
-    Worker -->|"Prepared SQL + Batch 事务"| D1["Cloudflare D1 SQLite 数据库"]
-    Client <-->|"离线优先即时读写"| IDB["IndexedDB (question_site_db)"]
-    Client <-->|"跨标签页状态广播"| BC["BroadcastChannel (qs_data_changed)"]
+    Client["浏览器 / PWA (React 19 + Vite 6 + Tailwind)"] -->|即时写入本地库| Dexie["IndexedDB (Dexie Outbox 队列)"]
+    Client -->|偏好与未完成作答恢复| LS["localStorage (主题 / 侧边栏 / 配置记忆)"]
+    Dexie -->|"增量同步 /sync/push & /sync/pull"| Proxy["Nginx 反向代理 / HTTPS"]
+    Client <-->|"多标签页实时通知"| BC["BroadcastChannel"]
+    Proxy -->|"静态版本目录原子切换"| Static["/opt/question-site/current"]
+    Proxy -->|"/api/* 转发 127.0.0.1:8787"| Hono["Hono TypeScript API (@qs/api)"]
+    Hono -->|"Drizzle ORM + better-sqlite3 WAL"| DB["SQLite (app.db)"]
+    Hono -->|"Zod 契约与 SM-2 领域共用"| Shared["@qs/shared (Schemas + SM-2)"]
 ```
 
 ### 技术栈概览
 
 | 层级 | 核心技术与设计选型 |
 | :--- | :--- |
-| **前端应用** | HTML5、Vanilla ES Modules（`js/app.js` 入口，无构建打包黑盒）、静态预编译 Tailwind CSS（`css/tailwind.css`）、全套内联 SVG 矢量图标（零 Emoji、零中点符号）、原生高分屏 Canvas 图表引擎、自托管 Inter 可变字体与本地 `pinyin-pro` 拼音搜索引擎 |
-| **离线与 PWA** | Service Worker（`sw.js`）+ Web App Manifest（`manifest.webmanifest`），支持离线安装、预缓存核心资产（字体/静态库/真题索引）与动态网络降级，实现无网环境 100% 离线冷启动与流畅刷题 |
-| **本地存储** | IndexedDB（`question_site_db` / `keyval`）离线优先存储题库、作答历史、回收站与收藏；`localStorage` 存储用户偏好、练习勾选记忆与深浅色模式状态 |
-| **后端服务** | 纯原生 Web API 驱动的 Cloudflare Worker（单文件无外部打包依赖 `worker/index.js`），运行于 Cloudflare 边缘环境或自托管 Ubuntu Node.js Wrangler 环境；基于 Web Crypto API 原生实现 HS256 JWT、PBKDF2-HMAC-SHA256 密码哈希与恒定时间比对 |
-| **持久化数据库** | Cloudflare D1 (SQLite)，严格 6 张核心表：`users`、`question_sets`、`questions`、`sync_logs`、`bank_snapshots`、`user_backups` |
+| **前端应用 (`@qs/web`)** | React 19、TypeScript、Vite 6、Tailwind CSS、Zustand 状态管理、TanStack Query、`lucide-react` 矢量图标、原生 SVG 数据可视化、自托管 `InterVar` 可变字体、本地 `pinyin-pro` 拼音简拼搜索、`mammoth` (`.docx`) 与 `pdfjs-dist` (`.pdf`) 本地解析 |
+| **共享领域层 (`@qs/shared`)** | Zod 严格入参校验契约（Question / Auth / Sync v2）与 SM-2 间隔重复算法实现 |
+| **离线与持久化** | `vite-plugin-pwa` 自动生成 Service Worker；Dexie.js 管理用户隔离 IndexedDB（题目 / 回收站 / 历史记录 / 星标错题标志 / 英语进度 / `outbox` 待传变更队列） |
+| **后端服务 (`@qs/api`)** | Node 22 + Hono + Drizzle ORM + `better-sqlite3`（WAL 日志模式与外键约束），通过 `esbuild` 打包为单文件运行时产物 `dist/server.mjs`，内置 v1 到 v2 数据库自动平滑迁移器 |
+| **持久化表结构** | v2 规范表：`v2_refresh_tokens`、`v2_user_sync_meta`、`v2_questions`、`v2_answer_history`、`v2_question_flags`、`v2_english_progress`、`v2_applied_ops`；同时保留兼容表 `users`、`question_sets`、`questions`、`sync_logs`、`bank_snapshots`、`user_backups` |
 
 ---
 
 ## 2. 核心功能矩阵
 
-### 2.1 题库导入中心（三步可视化 + 智能容错 + 预览调序）
-- **三步可视化流程**：顶部实时指示 `① 选择或粘贴 JSON` -> `② 格式体检与预览` -> `③ 导入入库与同步`。
-- **双通道输入与自动清洗**：支持本地 `.json`/`.txt` 文件拖拽选择，或直接从剪贴板粘贴；自动剥离 Markdown ```` ```json ```` 代码块围栏、AI 生成前后的引导说明文字、BOM 头与 JS 行/块注释。
-- **JSON 语法错误自动修复与行列高亮定位**：
-  - 自动修复末尾多余逗号（Trailing Comma）；
-  - 针对未闭合括号/引号或截断，精确计算错误**行号与列号**，在界面内直接高亮展示上下文代码与定位指针 `▲`，并支持一键载入内置编辑框在线纠正。
-- **单题级坏题隔离（拒绝整包连坐）**：
-  - 自动兼容顶层数组 `[...]`、`{ questions/data/items/list: [...] }`、`{ 科目: [题] }` 等多种结构；
-  - 自动归一化题型别名与答案写法（多选数组 `["A","C"]` 归一为 `"AC"`，判断题 `"正确/错误/对/错/true/false/1/0"` 归一为 `"T/F"`）；
-  - 单题缺失题干或选项越界的异常题自动隔离至「格式自动体检」明细折叠面板，所有正常题目照常预览并入库。
-- **章节与科目自然排序引擎**：内置中英文自然排序逻辑（识别 `Chapter 1..10`、`第一章..第十二章`），支持手动上下微调或一键纠正乱序章节。
+### 2.1 题库导入中心与多维题库管理
+- **多格式导入解析 (`ImportCenterModal`)**：支持 `.json`、`.txt`、Word（`.docx`）与 `.pdf` 解析导入；具备宽松 JSON 修复、错误行列定位、损坏题目单题隔离及章节自然序号识别。
+- **默认展开答案与卡片点击显隐 (`LibraryView`)**：题库页面默认展示全部标准答案与解析（可通过右上角开关一键切换全局隐藏/显示并记忆状态），点击任意题目卡片表面即可快速切换该题答案显隐。
+- **11 维智能排序与条件徽章展示 (`libraryUtils`)**：支持默认顺序、错误率从高到低/从低到高、累计错题次数、首字母拼音 A-Z / Z-A、作答次数、标准答案排序、最近编辑与 SM-2 到期优先；**错误率徽章仅在选择错误率排序时展示**，保持日常浏览界面清爽。
+- **多选批量处理与新建科目**：支持本页全选/反选/筛选全选与单题复选框多选，一键执行 **批量换科目或换章节**（可直接选择或输入全新科目与章节名称）、批量收藏、批量练题、批量导出 JSON、批量移入回收站，以及回收站批量恢复/彻底删除；同步提供 `新增科目` 与 `章节管理`（`BankManagerModal`）弹窗。
 
-### 2.2 总题库 / 错题本 / 已收藏 三合一视图与章节管理
-- **三模式分段切换**：题库页顶部配备「总题库 / 错题本 / 已收藏」分段胶囊栏，实时统计各模式下题目数量。
-- **科目 + 章节二级联动精准筛选**：
-  - 支持按科目（`#lib-filter`）、题型（`#lib-type`）、排序方式（`#lib-sort`）、具体章节（`#lib-chapter`）与拼音/关键字全息搜索；
-  - 选中某科目时精准列出该科目下各章题量，支持跨科目全局直达单章题目。
-- **题目新增与修改（防呆安全保障）**：
-  - 自动继承当前选中的科目与章节，支持「保存并继续下一题」高效录入；
-  - 防呆机制：单选模式自动互斥切换答案；强拦截「空白选项选为正确答案」与「选项内容重复」；剔除空选项后严格重排选项字母，避免答案错位。
-- **科目 / 章节管理中心**：
-  - 支持科目和章节的手动上下移位、按章节自然排号、原位重命名（保持原有浏览位置不跳动）、一键直达本章题目及软删除放入回收站。
+### 2.2 沉浸式刷题、自动切题与首页进度恢复
+- **作对自动下一题与防重入**：开启 `答对后自动下一题`（默认开启，支持在刷题顶栏或偏好页随时切换）后，答对题目会短暂展示绿色反馈并在 `650ms`（含图/表/阅读材料为 `1000ms`）后自动跳转下一题；手动切题、点击 `重做本题` 或退出练习均会自动取消待执行定时器。
+- **意外退出 / 关闭浏览器进度恢复**：刷题过程中的题目队列、当前题号与作答状态实时按用户写入 `localStorage`；若中途误关页面未结算交卷，再次打开首页（`DashboardView`）时自动弹出恢复窗口，可选择 **继续上次刷题** 或点击关闭 / `放弃并关闭` 清理暂存。
+- **富媒体与分栏阅读**：自动识别题干中的图片/净化表格占位符；存在 `psg` 长文材料时桌面端自动启用左文右题 Sticky 分栏，移动端提供全屏阅读抽屉；完整支持键盘快捷键（`1-9` / `A-I` 作答，`左/右方向键` / `Enter` 切题，`S` 收藏）。
 
-### 2.3 整章练习、自定义练习与顶栏固定刷题器
-- **整章练习（一键直练）**：首页直观呈现各科目章节列表与对应题量，单章右侧设「直练本章」按钮，点击立即开练全章；支持多章勾选记忆。
-- **自定义练习（持久化记忆 + 智能胶囊）**：
-  - 采用 `{ checked, seen }` 双集合持久化机制（`qs_setup_state_v2`），彻底解决「清空勾选后刷新页面重新被全选」的体验痛点；
-  - 提供「全选全部 / 清空全选 / 反选 / 只练单科」快捷胶囊，支持乱序随机练习与题库原序练习切换。
-- **切题顶栏恒定防抖（0 像素位移）**：
-  - 将「上一题 / 题号进度 / 重答本题 / 下一题」导航栏定位于题干正上方固定位置；配合视口内部独立滚动条，无论题干长短、选项增减或解析展开与否，操作按钮垂直 Y 坐标恒定不变，杜绝切题晃眼跳动。
-- **题卡矩阵状态色彩全息重构**：
-  - 展开「题卡」抽屉面板，题目按答题结果全彩编码呈现：
-    - 🟢 **翠绿色（Success）**：已答对题目；
-    - 🔴 **绯红色（Danger）**：已答错题目；
-    - 🔵 **深青色（Accent）**：当前正在作答的题目（带动态聚焦光环 Ring）；
-    - ⚪ **中性灰（Muted）**：尚未作答题目；
-  - 支持全键盘流操作：`左/右方向键` 自由切题，`A–H` / `1–8` 勾选选项，`S` 快捷收藏，`Enter` 提交判分。
+### 2.3 自定义练习配置与全量选择记忆
+- **双列图标化练习模式卡片 (`PracticeSetupView`)**：提供 `随机抽题`、`顺序通刷`、`SM-2 复习`、`错题攻坚`、`收藏专练` 五种模式卡片，直观展示到期复习数、待攻坚错题数与收藏数。
+- **选择状态完整记忆**：基于 `{ mode, type, limit, checked, seen }` 结构写入 `localStorage`，精准记住上一次选中的模式、题型、题数与勾选章节（取消勾选或清空全选后刷新不会回弹，新导入章节自动默认勾选）；提供 `全选`、`反选`、`清空`、单科 `仅此科` 与单章 `仅此章` / `直练` 快捷操作。
 
-### 2.4 大厂级现代化管理后台 (Enterprise Admin Console)
-管理控制台（[admin.html](file:///C:/Users/22636/.gemini/antigravity/scratch/question-site/admin.html)）进行了工业级大厂水准重构，遵循 `frontend-design` 规范与 Linear / Vercel / Datadog 交互美学，彻底解决空白卡片与死锁，实现**全用户全信息深度监控**与**服务器全量基础设施实时运维**：
+### 2.4 多维学习分析与高频错题透视
+- **全科概览 / 单科深度双视角 (`AnalyticsView`)**：视角切换状态持久化记忆。
+- **全景统计图表**：6 项核心 KPI 指标、近 30 日做题量柱状与正确率折线叠加 SVG 图、12 周打卡热力图与题型统计、**作答耗时环形图**（`<5s`、`5-15s`、`15-30s`、`30-60s`、`>60s`）、**SM-2 遗忘临界分布**、各科目强弱项诊断对比及 `耗时最久 TOP 10`。
+- **高频错题与题目洞察抽屉全量答案展示**：`高频错题 TOP 榜` 卡片内与点击展开的右侧洞察抽屉（`QuestionInsightDrawer`）均基于共享 [QuestionPreviewBlock](file:///C:/Users/22636/.gemini/antigravity/scratch/question-site/apps/web/src/components/ui/QuestionPreviewBlock.tsx) 完整渲染选项、绿色高亮正确项、参考答案、解析与历史作答时间线。
 
-- **大厂顶级设计系统 (Obsidian Dark / Snow Light)**：
-  - 采用 Obsidian Dark 深灰黑色调与 Snow Light 纯净亮色调，磨砂玻璃顶栏（Frosted Glass）、极简抽屉式侧边栏（Responsive Drawer）、微流体动效与骨架屏（Skeleton Loading）；
-  - 全局主题持久化（`localStorage('qs_admin_theme')`），高对比度数据徽章，紧凑高密度数据排版，彻底告别空白框与样式缺失。
-- **用户 360° 全景画像与深度监控 (User 360° Intelligence & Dossier)**：
-  - **核心指标全局透视**：掌控所有注册用户的完整数据资产，列表直观呈现用户角色徽章、拥有题库数、全库收录题目数、云端同步次数、版本冲突数、报错异常数、真实外网 IP 与设备 UA、最后活跃时间；
-  - **360° 用户档案全景抽屉 (`/api/admin/user-dossier`)**：点击任意用户一键展开全景档案，多维度深度剖析：
-    - **学情大数据分析**：累计刷题数、累计做对/做错题数、全局平均正确率、已收藏题目数、回收站题目数、SM-2 遗忘曲线待复习题队列深度、独立活跃天数；
-    - **全题库资产清单**：所有个人题库 ID、名称、题目量、最近更新时间；
-    - **多端设备与真实外网 IP 轨迹**：穿透真实客户端 IP，提取该用户近期所有活跃外网 IP 集合与设备 User-Agent 指纹；
-    - **云端同步与冲突流水**：最近 30 条详细同步流水日志，记录每一次增量同步的变更项、耗时、客户端指纹与冲突处理细节；
-  - **用户全量数据一键导出 (`/api/admin/user-export`)**：管理员可一键将该用户的全量题库、做题进度、配置与元数据打包下载为标准 JSON 格式，保障资产可审计与合规可逆。
-- **真实客户端 IP 全链路穿透与审计追踪**：
-  - 彻底攻克反向代理导致 IP 均显示 `127.0.0.1` 的痛点：Nginx 生产配置采用绝对源地址映射 (`proxy_set_header X-Forwarded-For $remote_addr`)，后端 Worker 实现多级 IP 过滤与真实公网 IP 提取算法（自动剔除本地回环与内网假 IP），保证所有用户注册、登录、同步及报错日志中精确锁定真实外网地理来源。
-- **实时服务器运维与基础设施全景看板 (Server DevOps & Telemetry Console)**：
-  - 独立运行的系统级守护进程 `question-site-ops.service`（Node 127.0.0.1:8789，原生 SHA-256 JWT 验签）；
-  - **硬件负载与性能监控**：双核 CPU 负载（1m/5m/15m Loadavg 实时计算核心比率）、物理内存占用（总计/已用/可用/利用率柱状图）、磁盘容量空间（根目录 `/dev/vda3`、数据目录、备份归档目录分级占用）；
-  - **核心服务与网络端口矩阵**：`Nginx`、`question-site-api`、`question-site-ops` 服务保活监控，端口矩阵（80, 443, 8080, 8787, 8789）连通性；
-  - **数据库与备份资产管理**：D1 SQLite 物理数据库文件大小（2.7MB+）动态感知，备份归档列表浏览与体积跟踪；
-  - **一键安全运维指令**：直接在网页端一键触发 `/opt/question-site/manage.sh backup` 创建热备份归档；一键触发 `/opt/question-site/manage.sh restart` 平滑重启 API 运行时；
-  - **双通道流式实时终端日志**：内置双标签终端视图，可实时拉取 Systemd API 运行日志（journalctl 40 行）与 Nginx 生产访问日志（access.log 30 行），实现问题秒级排查。
-- **智能题库体检与云端去重 (Bank Quality Inspector)**：
-  - 自动扫描云端所有题库中的**内容完全重复题**（题干规范化指纹匹配）、**答案缺失/未填题**与**空白选项异常题**；
-  - 提供**一键云端自动去重**功能，智能识别最优版本并安全剔除重复冗余数据。
-- **高级题库与题目综合管理器 (Bank Question Manager)**：
-  - **多维度检索与过滤**：支持题干与选项关键字实时搜索、多学科动态下拉筛选、题型过滤（单选/多选/判断/填空）；
-  - **题目批量操作**：支持题目跨页多选、全选反选、**批量删除**以及**所选题目批量导出为标准 JSON 格式**；
-  - **单题可视化编辑器**：可视化修改题干、学科、题型、解析，支持动态新增/移除选项并自动智能重编号；
-  - **双视图无缝切换**：支持在「可视化卡片视图」与「标准 JSON 源码视图」之间随意切换，提供带视觉反馈的一键复制源码功能。
-- **用户治理与审计追踪**：
-  - 用户列表支持搜索防抖、头像指示、设备/IP 截断、状态徽章与分页；支持管理员重置用户密码及批量删除；
-  - 系统日志模块支持按状态（全部 / 冲突日志 / 客户端报错）精准筛选排查。
+### 2.5 全局 GPU 动效系统与无障碍减动效支持
+- 在 [index.css](file:///C:/Users/22636/.gemini/antigravity/scratch/question-site/apps/web/src/styles/index.css) 定义纯 `transform` / `opacity` 合成层动画（入场 `.anim-page-in`、弹窗 `.anim-modal-in`、抽屉 `.anim-drawer-in`、通知 `.anim-toast-in`、切题 `.anim-question-in`、答案/批量栏 `.anim-slide-down`、答对 `.anim-pop-in`、答错微震 `.anim-shake`、图表生长 `.anim-bar-grow` / `.anim-bar-x` 及错峰 `.anim-stagger`）。
+- 所有入场动画结束态归零至 `transform: none`，避免破坏子容器内的 `position: sticky` 与 `position: fixed`；自动适配系统 `@media (prefers-reduced-motion: reduce)` 无障碍设置。
+- 左侧导航栏（`ShellLayout`）支持折叠/展开记忆，直接展示当前登录用户名，移动端提供顶部状态栏与底部 Dock。
 
-### 2.5 PWA 渐进式应用与 100% 离线冷启动
-- **Service Worker 全量接管（`sw.js`）**：
-  - 采用版本化缓存管理（`question-site-v2611231`），支持新版本自动平滑更新与旧缓存静默清理；
-  - **多策略分层缓存**：
-    - 静态核心资产（HTML/CSS/JS/图标/字体）：`Stale-While-Revalidate` 策略，极速秒开并后台静默更新；
-    - 静态英语真题资源（`papers/*.json`、`index-*.json`）：首次拉取后永久缓存，离线秒读；
-    - API 动态数据：`Network-First` 策略配合离线优雅降级，离线时自动指示网络脱机状态，由 IndexedDB 完全保障作答不受阻碍。
-- **Web App Manifest（`manifest.webmanifest`）**：
-  - 配置 `standalone` 显示模式，适配移动端和桌面端（Chrome / Edge / Safari）作为原生独立桌面应用安装；
-  - 提供专用深青色主题色与多尺寸高精度矢量图标，去除浏览器地址栏与杂乱边框。
+### 2.6 英语真题专项模块 (107 套历年真题)
+- [EnglishView.tsx](file:///C:/Users/22636/.gemini/antigravity/scratch/question-site/apps/web/src/features/english/EnglishView.tsx) 覆盖 `english/` 目录下的四级（CET-4）、六级（CET-6）与考研英语真题（与主题库统计完全隔离）。
+- 支持选词填空点击槽位与上下题面板联动、段落匹配字母芯片、阅读分栏字号记忆、区间格式快速录入答案及交卷判分，并通过 `v2_english_progress` 云端增量同步。
 
-### 2.6 多端并发协同与弹性版本冲突解决
-- **401 登出重试死锁彻底熔断**：
-  - 彻底重构 HTTP 请求拦截层，Token 失效（HTTP 401）时立即切断并清空所有未完成的重试队列，避免并发请求在未登录状态下陷入无限死循环；
-  - 停止后台自动轮询任务，平滑引导用户输入凭证重新登录。
-- **多端并发版本冲突（Version Conflict）排查与弹性三方合并**：
-  - 针对手机、平板、电脑多端同时打开或离线后上线导致的并发写入场景，前端数据层升级为**弹性三方自动合并算法**：
-    - **题库元数据与结构**：采用最新时间戳/增量 Union 合并，不丢失任意一端新增的题目；
-    - **作答历史与进度**：以题目全局唯一 ID 或时间戳为基准执行去重追加（Append-Only），多端做的题自动聚合保留；
-    - **收藏与错题状态**：以用户最近一次操作为准对状态进行原子级合并；
-    - 若遇到不可调和的结构性分歧，自动拉取云端版本生成本地快照备份，确保用户任何一端的数据绝对零丢失。
+### 2.7 管理后台 (Admin Console) 与运维看板
+- 独立入口 [admin.html](file:///C:/Users/22636/.gemini/antigravity/scratch/question-site/apps/web/admin.html) + `apps/web/src/admin/*`，需管理员身份访问：
+  - **系统概览与硬件运维 (`AdminOpsView`)**：查看注册用户/有效题数/活跃数、CPU Loadavg、内存与磁盘容量、`app.db` 及备份文件体积，触发热备份或服务重启，并实时查看 API / Nginx 日志。
+  - **用户资产与 360° 档案 (`AdminUsersView`)**：支持建号、搜索分页、密码重置（重置即使旧 Token 失效）、360° 学习档案抽屉、全量 JSON 数据导出及批量删除。
+  - **云端题库编辑与全局下发 (`AdminBankEditorView` / `AdminBroadcastView`)**：在线修改用户题库，或通过 JSON/纯文本/Word/PDF 解析向指定或全部用户广播下发新题目（自动指纹去重）。
 
 ---
 
-## 3. Cloudflare 网络传输与 D1 性能优化
+## 3. 细粒度增量同步与离线安全设计
 
-针对 Cloudflare Pages + Workers + D1 的计费模型与网络延迟特征，系统实施了以下深度优化：
-
-1. **Fast ETag 毫秒级 `304 Not Modified` 短路（节省 99.9% 轮询读取配额）**：
-   - 所有写路径严格递增 `question_sets.version`。
-   - `GET /api/load-question-set` 在读取单行元数据后，立即构造版本指纹 `W/"s${setId}-v${version}-h${historyAfter}"` 并比对 `If-None-Match`；
-   - 命中时直接返回 `304 Not Modified`，**彻底跳过 `SELECT content FROM questions` 全表扫描、JSON 反序列化与 SHA-256 计算**。
-2. **消除全量保存时的双倍冗余载荷（请求体积直降 50%）**：
-   - 前端在上传 `questions` 时仅传输轻量元数据 `wireState`，由 Worker 端在内存中动态补齐 `finalState.bank`，云端快照 100% 兼容的同时减半传输体积。
-3. **客户端原生 Gzip 流式压缩（大题库上传带宽节省 85%–92%）**：
-   - 载荷超过 `32KB` 时，前端自动调用 `CompressionStream('gzip')` 压缩为二进制流并附带 `Content-Encoding: gzip`；
-   - Worker 端 `readJson()` 自动通过 `DecompressionStream('gzip')` 流式解压，1.5MB 题库实测仅需约 120KB 流量。
-4. **D1 多行合并批量插入（SQL 语句数缩减 40 倍）**：
-   - Worker 端 `buildQuestionInsertStatements()` 将逐题 `INSERT` 升级为每批最多 **40 行合并插入**（单条 SQL 绑定 80 个参数，严格低于 Cloudflare D1 单条 100 参数硬上限），2,000 道题写入仅需 50 条 SQL。
-5. **增量状态同步 (`statePartial`) 与边缘分层缓存**：
-   - 日常做题、收藏/取消收藏、移除错题仅触发增量同步（`statePartial: true`），只传输新增的 `historyAppend`；
-   - 静态资产与真题库在 `_headers` 与 Nginx 均配置强缓存，`/version.json` 与 `/api/*` 强制 `no-store` 保证实时一致。
+1. **Outbox 离线操作队列 (`apps/web/src/sync/engine.ts`)**：每次录题、删题、恢复、改题、提交答题历史、收藏/隐藏错题或提交英语进度先原子写入本机 Dexie 数据库并生成唯一 `opId` 入队，随后防抖触发 `/api/sync/push`；网络中断或登录凭证过期时进度安全驻留本地等待恢复同步。
+2. **服务端幂等去重与序列游标 (`routes/sync-v2.ts`)**：`v2_applied_ops` 主键拦截重复 `opId` 重试，`syncSeq` 单调递增支持客户端通过 `/api/sync/pull?since=` 精准拉取差异更新。
+3. **Refresh Token 轮换与 401 防死锁 (`lib/api.ts`)**：支持并发请求共享单一 `refreshAccessToken()` in-flight 锁；当刷新凭证失败或返回 `401` 时立即中止同步轮询并提示重新认证，绝不丢失未上传 Outbox 变更。
 
 ---
 
-## 4. 全栈安全加固矩阵（防渗透、防注入与死锁熔断）
+## 4. 全栈安全矩阵
 
-| 安全维度 | 威胁场景 | 防护实现位置与机制 |
-| :--- | :--- | :--- |
-| **密码学与防时序枚举** | 密码哈希逐字节比对泄露时序；攻击者通过响应耗时差异枚举有效用户名；超长密码触发 PBKDF2 CPU DoS | 1. 密码采用 **PBKDF2-HMAC-SHA256（100,000 次迭代）** + 每用户独立 128-bit CSPRNG 随机盐；<br>2. 哈希比对采用恒定时间算法 `timingSafeEqualStr()`（逐字节异或累加）；<br>3. 登录接口在用户名不存在时执行等量虚拟 PBKDF2 计算，彻底抹平「用户存在 vs 不存在」的响应时间差；<br>4. 强制校验密码长度上限（`6–128` 字符），阻断超大字符串哈希算力耗尽攻击。 |
-| **流式载荷限额与防 Zip 炸弹** | 伪造 `Content-Length` 并使用 `chunked` 传输或高压缩比 Gzip 炸弹打爆 Worker 128MB 内存 | `readJson(request, maxBytes)` 使用 `readStreamWithLimit()` 逐块读取底层解压字节流，认证接口限制 `16KB`、题库接口限制 `10MB`，超限立即中断连接并返回 `400`。 |
-| **SQL 注入与 D1 参数溢出防护** | 恶意构造 SQL 元字符、`LIKE` 通配符 `%/_` 全表扫描、单次批量操作触发 D1 `too many SQL variables` 崩溃 | 1. 全站 100% 采用参数化预编译语句 `env.DB.prepare(...).bind(...)`，零 SQL 字符串拼接；<br>2. 管理端搜索对 `%` 与 `_` 进行转义（`ESCAPE '\'`）；<br>3. 批量删除用户与题集采用 `chunkArray(..., 50)` 分块执行 `IN (...)`，永不触碰 D1 的 100 参数上限。 |
-| **原型链污染防护 (Prototype Pollution)** | 写入含 `__proto__`、`constructor`、`prototype` 的属性名导致服务端 500 崩溃或属性劫持 | 前后端（`worker/index.js`、`js/utils.js`、`js/data.js`）均内置 `UNSAFE_KEYS` 黑名单与 `isSafeKey()` 校验，并使用 `Object.create(null)` 与原型隔离构建题库字典。 |
-| **XSS 与富媒体白名单净化** | 恶意题库在题干、选项、`media.html` 表格或 `data:image/svg+xml` 中注入可执行脚本 | 1. 所有题干、选项、解析、科目与章节名均经过 `escapeHTML()` 转义；<br>2. `sanitizeTableHTML()` 使用 `DOMParser` 解析后仅保留纯表格标签（`TABLE/TR/TD` 等）并**剥离一切属性**；<br>3. 图片 `media.src` 仅允许 `https://` 或光栅图片 `data:image/(png\|jpeg\|gif\|webp);base64,`，拦截可执行脚本的 `data:image/svg+xml`。 |
-| **CORS 与 HTTP 安全响应头** | 恶意站点跨域调用 API、子域名后缀欺骗、点击劫持、MIME 嗅探 | 1. `isOriginAllowed()` 严格解析 `new URL(origin)`，自适应检测自托管域名；<br>2. 全站注入 `Content-Security-Policy`、`Strict-Transport-Security (HSTS)`、`X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff`、`Referrer-Policy: no-referrer`。 |
-| **401 认证死锁熔断机制** | Token 过期后前端并发请求在拦截器中不断重试 401 接口导致页面假死 | 前端 `auth.js` 统一拦截 401 响应，触发即刻原子级清空失效凭证、中断并发队列并停止轮询，平滑拉起登录授权弹窗，坚决消除死循环。 |
+- **密码哈希与防枚举**：PBKDF2-HMAC-SHA256 + 每用户独立随机盐 + 恒定时间比对（`timingSafeEqual`），不存在账号执行等效虚拟计算抹平耗时差异。
+- **鉴权与会话控制**：Access JWT + SHA-256 Refresh Token（轮换与服务端吊销支持、`tokenVersion` 改密即全端失效）。
+- **请求体与输入防护**：全链路 Zod 结构校验、限制 JSON 最大字节数并支持 Gzip 流式压缩上传、防原型链污染键名过滤（`isSafeKey`）。
+- **SQL 与 XSS 防护**：SQLite 100% 参数化/ORM 查询；富媒体表格采用 `DOMParser` 白名单标签净化且剥离事件属性，外链图片限制安全协议。
+- **限流与安全响应头**：登录/注册/运维敏感路由独立滑动窗口限流；统一注入 CSP、HSTS、`X-Frame-Options` 等安全头与 CORS 白名单校验。
 
 ---
 
-## 5. 规范化登录与注册流程
-
-- **双模式独立切换（`#modal-auth`）**：
-  - 顶部设有「账号登录 / 注册新账号」独立切换器，杜绝误触。
-- **注册模式（多重防呆）**：
-  - **用户名规则实时提示**：`2–32` 位字母、数字、中文、下划线、点或横线（禁止包含 `@`，禁止抢注管理员保留名）。
-  - **实时密码强度指示条**：输入密码时动态评估强度（不足 6 位红色提醒 / 中等琥珀色 / 高强度翠绿色）。
-  - **确认密码二次核对**：强制二次确认，前端校验一致后方可提交，避免手误造成账号永久锁死。
-- **反浏览器密码泄露弹窗干扰**：
-  - 密码输入框采用 `type="text" autocomplete="off"` 搭配 CSS `.pw-masked { -webkit-text-security: disc; }` 视觉掩蔽与 SVG 显隐眼睛按钮，并在登录/注册成功后立即清除 DOM 值，彻底避免浏览器密码管理器对简单测试密码弹出警报干扰。
-
----
-
-## 6. 英语真题专项模块
-
-首页点击「英语专题」卡片进入，是**与主题库完全隔离**的历年真题刷题模块（独立路由 `#/english`、独立本地存储键 `qs_eng_*`、不混入主题库统计）：
-
-- **107 套真题全覆盖**：涵盖大学英语四级（CET-4）、六级（CET-6）与考研英语历年真题。
-- **分节专项交互**：
-  - **选词填空 / 完形填空**：文章内空位渲染为可点击胶囊槽位，点击弹出底部选词面板（支持 `← 上一题 / 下一题 →` 快速切题），交卷后槽位实时着色显示正误；
-  - **长篇阅读（段落匹配）**：选项渲染为紧凑的 `A–O` 段落字母芯片，文章自然段首标记高亮；
-  - **仔细阅读 / Reading Part A**：桌面端左栏文章 sticky 常驻、右栏题目独立滚动；移动端支持底部文章抽屉，字号 `12–24px` 可调并持久化记忆。
-- **答案速录与判分状态机**：支持 `26-30 CADBE` 区间格式粘贴答案（大小写宽容）；交卷后展示得分横幅与「重做本卷」按钮，再次打开时完整恢复得分横幅与重做入口。
-
----
-
-## 7. 项目目录结构
+## 5. 项目目录结构
 
 ```text
 question-site/
-├── index.html                  # 用户端单页应用主入口（含全量样式、视图模板与 PWA 挂载点）
-├── admin.html                  # 全新重构管理后台（看板/查重体检/批量操作/深色模式）
-├── config.js                   # 前端全局配置（自适应 devy.cc.cd 同源反代与 Cloudflare Worker 回退）
-├── sw.js                       # Service Worker 离线缓存、版本升级与网络降级引擎
-├── manifest.webmanifest        # PWA 可安装应用清单配置
-├── icons/                      # PWA 多尺寸矢量/位图高分辨率应用图标
-├── package.json                # 构建、校验与部署脚本配置
-├── tailwind.config.js          # Tailwind CSS 静态编译配置
-├── src/tailwind.css            # Tailwind 输入源样式
-├── css/tailwind.css            # Tailwind 静态预编译产物（生产环境直接加载）
-├── fonts/inter-var.woff2       # 自托管 Inter 可变字体
-├── english/                    # 英语真题专项静态数据
-│   ├── index-{cet4,cet6,kaoyan}.json
-│   ├── keys.json               # 107 套真题标准答案库
-│   └── papers/*.json           # 107 套分节试卷与正文数据
-├── js/
-│   ├── app.js                  # 应用装配、PWA 注册、容错初始化、版本检测
-│   ├── auth.js                 # JWT 鉴权、401 死锁熔断、会话管理与未同步保护
-│   ├── data.js                 # 数据层：IndexedDB 交互、乐观锁弹性合并、Gzip 上传、SM-2
-│   ├── quiz.js                 # 刷题引擎：顶栏恒定切题、题卡多态色彩矩阵、草稿记忆、全键盘流
-│   ├── ui.js                   # 弹窗/抽屉管理、三步导入中心、科目章节管理、题目编辑
-│   ├── utils.js                # 工具库：HTML/表格净化、自然排序、坏题隔离、编辑距离
-│   ├── chart.js                # 高分屏自适应原生 Canvas 图表引擎
-│   ├── router.js               # 视图路由切换与做题中途防丢保护
-│   ├── db.js                   # IndexedDB 异步键值存储封装
-│   ├── dom.js                  # 安全 DOM 读写辅助
-│   ├── prefs.js                # 学习目标与答题偏好持久化
-│   ├── i18n.js                 # 中英双语字典与 DOM 自动翻译引擎
-│   ├── vendor/pinyin-pro.min.js# 本地托管拼音搜索库
-│   └── views/                  # 视图模块
-│       ├── dashboard.js        # 首页仪表盘、今日待复习、高频错题
-│       ├── library.js          # 总题库/错题本/已收藏三合一、多级联动筛选
-│       ├── setup.js            # 自定义练习配置（持久化勾选记忆、单章直练）
-│       ├── analytics.js        # 学习分析报告（热力图、耗时排行、掌握度）
-│       ├── profile.js          # 个人空间（核心统计、成就墙）
-│       └── english.js          # 四六级/考研英语真题专项视图
-├── worker/
-│   ├── index.js                # 后端 API（鉴权、数据同步、管理看板统计、云备份、安全限流）
-│   ├── wrangler.json           # Cloudflare Worker 与 D1 数据库绑定配置
-│   └── migrations/             # D1 SQLite 数据库建表迁移脚本
-└── scripts/
-    ├── ci-check.mjs            # 全量 JS/MJS 文件语法检查
-    ├── check-deploy-target.mjs # 部署环境防交叉污染校验（config.js <-> wrangler.json <-> D1）
-    ├── check-dom-contract.mjs  # DOM 契约检查（data-act、id 引用、CSS 变量、inline 事件）
-    ├── check-i18n.mjs          # 国际化字典 100% 覆盖检查（零中文残留）
-    ├── validate-keys.mjs       # 英语真题答案库契约校验
-    ├── audit-data.py           # 107 套英语真题结构与编码审计
-    └── stage-pages.mjs         # Cloudflare Pages 产物打包与安全响应头 (_headers) 生成
+├── package.json                       # npm workspaces 根配置与脚本入口
+├── tsconfig.base.json                 # TypeScript 基础编译配置
+├── packages/
+│   └── shared/src/                    # 共享 Zod 契约与核心领域逻辑 (@qs/shared)
+│       ├── domain/sm2.ts              # SM-2 间隔记忆计算核心
+│       └── schemas/{question,auth,sync}.ts
+├── apps/
+│   ├── api/                           # Node + Hono + Drizzle SQLite API (@qs/api)
+│   │   ├── src/{app,config,server,types}.ts
+│   │   ├── src/db/{index,schema,migrate-v2,migrate-cli}.ts
+│   │   ├── src/middleware/{auth,cors,rate-limit}.ts
+│   │   ├── src/routes/{auth,sync-v2,admin,ops,legacy-compat}.ts
+│   │   └── tests/{auth,migration,sync-v2,legacy-compat}.test.ts
+│   └── web/                           # React 19 + Vite 6 + Tailwind SPA (@qs/web)
+│       ├── index.html                 # 用户端入口
+│       ├── admin.html                 # 管理端入口
+│       ├── src/
+│       │   ├── styles/index.css       # 全局主题 Token 与 GPU 合成层动效系统
+│       │   ├── db/index.ts            # Dexie.js 本机持久化存储架构
+│       │   ├── sync/{engine,hooks}.ts # Outbox 增量同步引擎与统计派生 Hooks
+│       │   ├── store/                 # Zustand 状态（认证 / 刷题恢复 / 同步 / 偏好）
+│       │   ├── components/            # ShellLayout 与 UI 原语（Modal/Toast/Preview 等）
+│       │   ├── features/              # 业务视图（Dashboard/Setup/Quiz/Library/Analytics/English/Profile/Auth）
+│       │   └── admin/                 # 管理控制台视图套件
+│       └── tests/                     # 单元测试与禁止符号/排错防护测试
+├── english/                           # 107 套四六级/考研真题静态数据与标准答案库 keys.json
+├── fonts/                             # 自托管 InterVar 可变字体
+└── scripts/                           # DOM / i18n / 英语答案库契约校验与资产审计脚本
 ```
 
 ---
 
-## 8. 后端 API 接口契约
+## 6. 后端 API 接口契约
 
-### 8.1 认证与账户接口
-| 方法与路径 | 鉴权 | 功能说明 |
+| 分组 | 路径挂载点 (`app.ts`) | 主要接口 |
 | :--- | :--- | :--- |
-| `POST /api/auth/signup` | 公开 | 注册新账号（用户名 `2–32` 位、密码 `6–128` 位、防抢注管理员名、IP 限流），返回 7 天有效 HS256 JWT |
-| `POST /api/auth/login` | 公开 | 账号登录（IP 与账号双层防爆破锁定、恒定时间哈希比对、防枚举等量 PBKDF2 计算），返回 JWT |
-| `GET /api/auth/me` | Bearer JWT | 获取当前用户资料、注册时间、是否管理员及云端题量统计 |
-| `POST /api/auth/change-password` | Bearer JWT | 校验原密码并更新密码（重新生成 CSPRNG 盐与 PBKDF2 哈希） |
-| `POST /api/auth/delete-account` | Bearer JWT | 校验密码后级联彻底删除账号及其题集、题目、日志、快照与备份 |
-
-### 8.2 题库同步与备份接口
-| 方法与路径 | 鉴权 | 功能说明 |
-| :--- | :--- | :--- |
-| `GET /api/load-question-set` | Bearer JWT | 加载题库与学习状态（支持 `?historyAfter=` 增量历史与 Fast ETag `304 Not Modified` 毫秒级短路） |
-| `POST /api/save-question-set` | Bearer JWT | 保存题库与状态（支持 Gzip 压缩请求体、`statePartial` 增量同步、乐观锁 `409` 检测与 D1 多行批量写入） |
-| `GET /api/user-backups` | Bearer JWT | 获取云端备份列表（或通过 `?id=N` 获取单份完整备份） |
-| `POST /api/user-backups` | Bearer JWT | 创建题库（`bank`）或作答历史（`history`）云端备份，各自动滚动保留最近 5 份 |
-| `GET /api/sync-logs` | Bearer JWT | 查询当前用户最近 50 条云端同步日志 |
-| `POST /api/client-errors` | Bearer JWT | 上报前端异常至 `sync_logs`（按用户限流） |
-
-### 8.3 管理员后台接口（`/api/admin/*`，需满足 `ADMIN_USERNAMES` 白名单）
-| 方法与路径 | 功能说明 |
-| :--- | :--- |
-| `GET /api/admin/overview-stats` | **[NEW]** 全局看板统计：实时汇聚用户总数、题库数、题目总数、24h 活跃用户数与日志总量 |
-| `GET /api/admin/users-list` | 分页获取用户列表（支持 `?page=&pageSize=&q=` 检索，包含最近活跃时间、IP、UA 与题库数） |
-| `POST /api/admin/create-user` | 管理员手动创建新用户 |
-| `POST /api/admin/delete-users` | 批量删除指定用户（分块级联清理所有关联表，禁止删除当前管理员自身） |
-| `POST /api/admin/reset-user-password` | 重置指定用户密码（运营兜底） |
-| `GET /api/admin/users-sets` | 查看指定用户的题集列表与题目数量 |
-| `GET /api/admin/set-details` | 查看指定题集的全部题目内容与版本元数据 |
-| `POST /api/admin/users-update-bank` | 修改并覆盖指定用户的题集（保留用户原有作答历史与收藏） |
-| `POST /api/admin/push-broadcast` | 向单个、多个或全体用户追加推送广播题库（带题目内容指纹去重与独立 UUID 分配） |
-| `GET /api/admin/system-logs` | 查看全站最近 100 条同步与客户端异常日志（支持按状态过滤） |
+| **认证与账户** | `/api/auth` | `POST /signup`、`POST /login`、`POST /refresh`、`POST /logout`、`GET /me`、`POST /change-password`、`POST /delete-account` |
+| **细粒度增量同步** | `/api/sync` | `POST /push`（提交 Outbox 变更操作数组）、`GET /pull`（按 `since` 游标拉取增量变动） |
+| **传统兼容层** | `/api` | `GET /load-question-set`、`POST /save-question-set`、`GET / POST /user-backups`、`GET /sync-logs`、`POST /client-errors` |
+| **管理员与运维** | `/api/admin` & `/api/admin/server-ops` | `GET /overview-stats`、`GET /users-list`、`GET /user-dossier`、`GET /user-export`、`POST /create-user`、`POST /delete-users`、`POST /reset-user-password`、`POST /push-broadcast`、`GET /users-sets`、`GET /set-details`、`POST /users-update-bank`、`GET /system-logs`、`GET /metrics`、`POST /action` |
 
 ---
 
-## 9. 自动化测试与 CI 契约检查
+## 7. 自动化测试与契约校验
 
-项目具备完备的契约检验与静态检测工具链，任何代码修改提交前必须全部通过：
+任何功能改动交付前均需运行完整检验：
 
 ```bash
-# 1. 编译并压缩静态 Tailwind CSS
-npm run build:css
-
-# 2. 全量 JavaScript / ES Module 语法检测
-node scripts/ci-check.mjs
-
-# 3. 部署目标环境一致性防呆校验（确保 config.js、Worker 与 D1 指向匹配）
-node scripts/check-deploy-target.mjs
-
-# 4. DOM 契约检查（校验 data-act、元素 id 引用、CSS 变量完整性、inline 事件调用）
-node scripts/check-dom-contract.mjs
-
-# 5. 国际化覆盖率检查（校验全站中文文本在英文模式下 100% 覆盖无残留）
-node scripts/check-i18n.mjs
-
-# 6. 英语真题答案库契约与数据完整性审计
-node scripts/validate-keys.mjs
-python scripts/audit-data.py
-```
-
----
-
-## 10. 本地开发与双模生产部署指南
-
-### 10.1 本地开发调试
-```bash
-# 1. 克隆代码并安装依赖
-git clone https://github.com/combodevy/question-site.git
-cd question-site
+# 安装全工作区依赖
 npm install
 
-# 2. 启动本地 Worker 与本地 D1 数据库（终端 1）
-cd worker
-npx wrangler dev --port 8787
+# 1. 全工作区 TypeScript 类型检查 (@qs/shared, @qs/api, @qs/web)
+npm run typecheck
 
-# 3. 启动前端静态服务（终端 2）
-# 可直接通过任意静态服务器或使用 wrangler pages dev
-npx serve . -p 8080
+# 2. 前后端 Vitest 单元测试（包含动效/排序/解析/同步/认证/迁移/UI符号规范测试）
+npm run test:web
+npm run test:api
+
+# 3. 生产包构建
+npm run build:web
+npm run build:api
+
+# 4. 传统资源与英语真题契约审计
+node scripts/check-dom-contract.mjs
+node scripts/check-i18n.mjs
+node scripts/validate-keys.mjs
 ```
 
-### 10.2 生产环境双模部署
+---
 
-#### 模式 A：独立 Linux 生产服务器部署（当前官方生产实例 `quiz.devy.cc.cd`）
-- **服务器环境**：Ubuntu 24.04 LTS，Nginx 1.24，Node.js 20+，本地持久化 D1 数据库；
-- **部署路径**：`/opt/question-site/app`
-- **运维管理命令**：
-  ```bash
-  # 查看运行状态（包含 API、Nginx、端口与资源占用）
-  /opt/question-site/manage.sh status
+## 8. 本地开发、生产部署与一键回滚
 
-  # 重启 API 守护进程 (question-site-api.service)
-  /opt/question-site/manage.sh restart
-
-  # 创建数据库与配置备份快照
-  /opt/question-site/manage.sh backup
-
-  # 还原指定历史备份
-  /opt/question-site/manage.sh restore <backup-dir>
-  ```
-- **发布流程**：
-  1. 本地完成校验并推送至 GitHub `main`；
-  2. 服务器进入 `/opt/question-site/app`，拉取最新代码并保证本地 `wrangler.json` 密钥安全；
-  3. 执行 `/opt/question-site/manage.sh restart` 即可完成零停机秒级上线。
-
-#### 模式 B：纯 Cloudflare 边缘无服务器部署（Pages + Workers）
+### 8.1 本地开发启动
 ```bash
-# 1. 部署后端 Worker
-cd worker
-npx wrangler deploy
-cd ..
+# 终端 1：启动后端 API 服务（需设置不少于 16 位的 JWT_SECRET，默认端口 8787）
+export JWT_SECRET="replace-with-local-dev-secret-at-least-16-chars"
+export DB_PATH="./local-dev.db"
+npm run dev:api
 
-# 2. 打包静态产物并部署至 Cloudflare Pages
-node scripts/stage-pages.mjs
-npx wrangler pages deploy .pages-dist --project-name question-site-front --branch main --commit-dirty=true
+# 终端 2：启动 Vite 前端开发服务器（默认 5173，自动代理 /api -> 127.0.0.1:8787）
+npm run dev:web
 ```
 
----
-
-## 11. 版本更新日志 (Changelog)
-
-### `v 2611231` (2026-11-23)
-- **管理后台（`admin.html`）全方位现代化重构升级**：
-  - **设计语言与主站对齐**：全面采用 Teal（`#0d9488`）主题、玻璃拟态顶栏、卡片布局、响应式侧边抽屉与流畅微动效；
-  - **全站深浅色模式（Dark Mode）**：完美支持一键切换与跨会话自动记忆（`localStorage('qs_admin_theme')`）；
-  - **全局数据看板（Dashboard）**：新增后端 `/api/admin/overview-stats` 路由，聚合呈现用户数、题库数、题目量、24h 活跃用户数与日志总量；
-  - **智能体检与查重去重器**：自动扫描题库完全重复题、漏答题、空白选项异常题，支持一键云端自动安全去重；
-  - **高级题库与题目综合管理**：支持题干与选项关键字检索、学科章节筛选、题型过滤、多选批量删除、选中题目批量导出为标准 JSON、单题可视化增减选项重编号编辑器、JSON 源码与卡片双视图切换。
-- **PWA 渐进式 Web 应用与 100% 离线冷启动支持**：
-  - 新增 `sw.js` 与 `manifest.webmanifest`，实现核心 HTML/CSS/JS、字体、拼音库与 107 套英语真题离线全量预缓存；
-  - 支持手机与电脑端直接添加到主屏幕/安装为独立桌面应用，断网环境下依然秒开并无障碍刷题。
-- **401 登出重试死锁彻底熔断**：
-  - 重构前端鉴权网络层拦截器，401 凭证失效时立即切断并发请求队列并终止轮询，阻断重试死锁循环，平滑唤起重新登录窗口。
-- **多端并发协同与版本冲突（Version Conflict）排查加固**：
-  - 升级三方合并算法，针对多端同时在线与离线编辑场景，自动以 Append-Only 去重合并作答历史与收藏，保障多端数据零丢失。
-- **刷题体验与题卡视觉全息重构**：
-  - 切题顶栏垂直位置锁定（0 像素跳动），优化连续切题节奏；
-  - 题卡状态色彩全新升级：翠绿表示答对、绯红表示答错、深青高亮当前聚焦题、浅灰指示未作答，答题进度一目了然。
-- **部署治理与生产自适应升级**：
-  - `config.js` 改造为自适应同源协议，自动适配 `quiz.devy.cc.cd` 生产服务器与本地反向代理，消除服务器 Git 冲突隐患。
-
-### `v 2610193` (2026-10-19)
-- **真实浏览器全链路动态测试与稳定性修复**：
-  - 刷题容器内滚与顶栏零位移锁定；
-  - 修复导入横幅「审查相似题」内联调用名不匹配；
-  - 修复答题期间后台云拉取提前解除同步抑制锁；
-  - 补齐内联矢量 Favicon，消除控制台 `404 Not Found` 报错。
-
-### `v 2610192` (2026-10-19)
-- **后端安全加固与 Cloudflare 传输/D1 优化**：
-  - 新增 `readStreamWithLimit` 与 `DecompressionStream('gzip')` 流式请求体读取，防御 Zip 炸弹；
-  - 新增 `timingSafeEqualStr` 恒定时间哈希比对与等量虚拟 PBKDF2 计算；
-  - `GET /api/load-question-set` 引入 Fast ETag 毫秒级短路；
-  - `POST /api/save-question-set` 消除双倍冗余传输，结合客户端 Gzip 压缩减负 90% 带宽；
-  - D1 批量合并插入与分块删除；
-  - 全链路原型链污染防御；
-  - 规范化双模式登录与注册流程，增加密码强度指示与二次确认。
-
-### `v 2610191` (2026-10-19)
-- **首页、练习模式与题库管理升级**：
-  - 顶栏版本规范化，全站统一内联 SVG 矢量图标；
-  - 整章练习支持单章直练与多章勾选记忆；
-  - 自定义练习采用双集合状态持久化；
-  - 题库导入中心与科目管理支持上下位移与按章节自然排号；
-  - 题库页增加二级联动全章节筛选与带记忆的连续新增题目能力。
+### 8.2 生产服务器部署架构 (`47.111.142.133`)
+- **运行服务**：`question-site-api.service`（运行 `apps/api/dist/server.mjs`，监听 `127.0.0.1:8787`），`Nginx` 托管前端静态版本目录 `/opt/question-site/current` 并反代 `/api`。
+- **原子版本发布与静态共享目录**：每次发布构建 `apps/web/dist` 至 `/opt/question-site/releases/<commit_sha>`，挂载共用静态目录（`english`、`fonts`、`media`、`403.html`、`404.html`、`version.json`），通过 `ln -sfn` + `mv -Tf` 原子切换 `/opt/question-site/current` 软链并 `systemctl reload nginx`；若服务端代码有变动则执行 `/opt/question-site/manage.sh restart`。
+- **基线溯源与秒级回滚**：每次发布前在本地、GitHub 远端与服务器同步打好基线标签（如 `backup-pre-global-animations`）并保留历史 `/opt/question-site/releases/<prev_sha>` 与数据库快照；如遇回退需求，只需将 `/opt/question-site/current` 原子切回上一版本目录或复位 `git reset --hard <tag>` 并重载服务即可。
 
 ---
 
-## 12. 开源协议 (License)
+## 9. 开源协议 (License)
 
 本项目基于 **[MIT License](./LICENSE)** 开源。您可以自由地使用、复制、修改、合并、发布和分发本项目代码。

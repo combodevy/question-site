@@ -142,7 +142,7 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({
       {/* Desktop Left Navigation Rail */}
       <aside
         data-collapsed={sidebarCollapsed ? 'true' : 'false'}
-        className={`hidden md:flex md:flex-col md:fixed md:inset-y-0 bg-surface border-r border-line z-30 transition-all duration-200 ${
+        className={`hidden md:flex md:flex-col md:fixed md:inset-y-0 bg-surface border-r border-line z-30 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
           sidebarCollapsed ? 'md:w-[72px]' : 'md:w-60 lg:w-64'
         }`}
       >
@@ -192,16 +192,16 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({
                 type="button"
                 title={sidebarCollapsed ? item.label : undefined}
                 onClick={() => onSelectTab(item.key)}
-                className={`relative w-full flex items-center gap-2 ${
+                className={`group relative w-full flex items-center gap-2 ${
                   sidebarCollapsed ? 'justify-center px-2' : 'justify-between px-3'
-                } py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                } py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
                   active
                     ? 'bg-accent-soft text-accent'
                     : 'text-ink-muted hover:text-ink hover:bg-surface-muted'
                 }`}
               >
                 <span className="flex items-center gap-2.5 min-w-0">
-                  {item.icon}
+                  <span className="inline-flex transition-transform duration-200 group-hover:scale-105">{item.icon}</span>
                   {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
                 </span>
                 {item.badge !== undefined && !sidebarCollapsed && (
@@ -316,7 +316,7 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({
 
       {/* Main Content Area */}
       <div
-        className={`flex-1 flex flex-col min-w-0 pb-20 md:pb-8 transition-all duration-200 ${
+        className={`flex-1 flex flex-col min-w-0 pb-20 md:pb-8 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
           sidebarCollapsed ? 'md:pl-[72px]' : 'md:pl-60 lg:pl-64'
         }`}
       >
@@ -348,8 +348,8 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({
               key={item.key}
               type="button"
               onClick={() => onSelectTab(item.key)}
-              className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-medium ${
-                active ? 'text-accent' : 'text-ink-muted'
+              className={`flex flex-col items-center justify-center py-1 rounded-lg text-[10px] font-medium transition-transform duration-150 active:scale-95 ${
+                active ? 'text-accent scale-[1.03]' : 'text-ink-muted'
               }`}
             >
               {item.icon}

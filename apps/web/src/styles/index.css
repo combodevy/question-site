@@ -37,11 +37,21 @@
   color-scheme: dark;
 }
 
+:root {
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 @layer base {
   body {
     font-family: 'InterVar', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
     background-color: var(--canvas);
     color: var(--text);
+    transition: background-color 0.25s ease, color 0.2s ease;
   }
 }
 
@@ -135,6 +145,206 @@
   border-color: #DC2626;
   background: rgba(220, 38, 38, 0.12);
   color: #DC2626;
+}
+
+@keyframes qsFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes qsPageIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes qsModalIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes qsDrawerIn {
+  from {
+    opacity: 0;
+    transform: translate3d(36px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes qsToastIn {
+  from {
+    opacity: 0;
+    transform: translate3d(20px, 0, 0) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes qsQuestionIn {
+  from {
+    opacity: 0;
+    transform: translate3d(14px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes qsSlideDown {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -6px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes qsPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes qsShake {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  20% {
+    transform: translate3d(-4px, 0, 0);
+  }
+  40% {
+    transform: translate3d(4px, 0, 0);
+  }
+  60% {
+    transform: translate3d(-3px, 0, 0);
+  }
+  80% {
+    transform: translate3d(2px, 0, 0);
+  }
+}
+
+@keyframes qsBarGrow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes qsBarX {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.anim-fade-in {
+  animation: qsFadeIn 180ms var(--ease-out);
+}
+
+.anim-page-in {
+  animation: qsPageIn 240ms var(--ease-spring);
+}
+
+.anim-modal-in {
+  animation: qsModalIn 220ms var(--ease-spring);
+}
+
+.anim-drawer-in {
+  animation: qsDrawerIn 260ms var(--ease-spring);
+}
+
+.anim-toast-in {
+  animation: qsToastIn 240ms var(--ease-spring);
+}
+
+.anim-question-in {
+  animation: qsQuestionIn 220ms var(--ease-spring);
+}
+
+.anim-slide-down {
+  animation: qsSlideDown 200ms var(--ease-spring);
+}
+
+.anim-pop-in {
+  animation: qsPopIn 220ms var(--ease-spring);
+}
+
+.anim-shake {
+  animation: qsShake 320ms var(--ease-out);
+}
+
+.anim-bar-grow {
+  transform-origin: bottom;
+  transform-box: fill-box;
+  animation: qsBarGrow 500ms var(--ease-spring) backwards;
+}
+
+.anim-bar-x {
+  transform-origin: left;
+  transform-box: fill-box;
+  animation: qsBarX 520ms var(--ease-spring) backwards;
+}
+
+.anim-stagger {
+  animation: qsPageIn 260ms var(--ease-spring) backwards;
+  animation-delay: calc(var(--stagger-i, 0) * 45ms);
+}
+
+.card-hover {
+  transition: transform 200ms var(--ease-spring), border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
+}
+
+@media (hover: hover) {
+  .card-hover:hover {
+    transform: translate3d(0, -2px, 0);
+    box-shadow: 0 8px 20px -12px rgba(0, 0, 0, 0.16);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @media print {

@@ -739,7 +739,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         {selectedIds.size > 0 && (
           <div
             data-testid="library-batch-bar"
-            className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-accent-soft/60 border border-accent/30"
+            className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-accent-soft/60 border border-accent/30 anim-slide-down"
           >
             <div className="text-xs font-semibold text-accent tabular-nums">
               {bi(`已选中 ${selectedIds.size} 道题目`, `${selectedIds.size} selected`)}
@@ -833,10 +833,10 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 padding="md"
                 data-testid={`lib-card-${q.id}`}
                 onClick={(e) => handleCardSurfaceClick(e, q.id)}
-                className={`space-y-3 cursor-pointer transition-all select-text ${
+                className={`space-y-3 cursor-pointer transition-all duration-200 select-text ${
                   isSelected
                     ? 'border-accent ring-1 ring-accent/35 bg-accent-soft/20'
-                    : 'hover:border-accent/40'
+                    : 'hover:border-accent/40 hover:-translate-y-[1px] hover:shadow-sm'
                 }`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1016,7 +1016,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 {isRevealed && (
                   <div
                     data-testid={`lib-answer-${q.id}`}
-                    className="p-3 rounded-xl bg-surface-muted/60 text-xs space-y-1"
+                    className="p-3 rounded-xl bg-surface-muted/60 text-xs space-y-1 anim-slide-down"
                   >
                     <div>
                       <span className="text-ink-muted">{bi('标准答案：', 'Answer: ')}</span>

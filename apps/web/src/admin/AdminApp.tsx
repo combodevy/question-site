@@ -198,18 +198,20 @@ export const AdminApp: React.FC = () => {
       </header>
 
       <main className="flex-1 md:pl-60 p-4 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto">
-        {tab === 'ops' && <AdminOpsView />}
-        {tab === 'users' && (
-          <AdminUsersView
-            onInspectBank={(uid) => {
-              setBankTargetUid(uid);
-              setTab('bank');
-            }}
-          />
-        )}
-        {tab === 'bank' && <AdminBankEditorView initialUserId={bankTargetUid} />}
-        {tab === 'broadcast' && <AdminBroadcastView />}
-        {tab === 'logs' && <AdminLogsView />}
+        <div key={tab} className="anim-page-in">
+          {tab === 'ops' && <AdminOpsView />}
+          {tab === 'users' && (
+            <AdminUsersView
+              onInspectBank={(uid) => {
+                setBankTargetUid(uid);
+                setTab('bank');
+              }}
+            />
+          )}
+          {tab === 'bank' && <AdminBankEditorView initialUserId={bankTargetUid} />}
+          {tab === 'broadcast' && <AdminBroadcastView />}
+          {tab === 'logs' && <AdminLogsView />}
+        </div>
       </main>
 
       <ToastHost />

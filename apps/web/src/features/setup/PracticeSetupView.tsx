@@ -387,7 +387,7 @@ export const PracticeSetupView: React.FC<PracticeSetupViewProps> = ({
                       setMode(m.key);
                       persistPrefs(selectedChaps, seenChaps, m.key, typeFilter, limit);
                     }}
-                    className={`group relative text-left p-3 rounded-2xl border transition-all flex items-start gap-2.5 ${
+                    className={`group relative text-left p-3 rounded-2xl border transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.985] flex items-start gap-2.5 ${
                       m.spanFull ? 'sm:col-span-2' : ''
                     } ${
                       selected
@@ -396,7 +396,7 @@ export const PracticeSetupView: React.FC<PracticeSetupViewProps> = ({
                     }`}
                   >
                     <span
-                      className={`w-9 h-9 rounded-xl inline-flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105 ${m.iconTone}`}
+                      className={`w-9 h-9 rounded-xl inline-flex items-center justify-center flex-shrink-0 transition-transform duration-200 group-hover:scale-105 ${m.iconTone}`}
                     >
                       {m.icon}
                     </span>
@@ -412,7 +412,7 @@ export const PracticeSetupView: React.FC<PracticeSetupViewProps> = ({
                       <div className="text-[11px] text-ink-muted mt-0.5 line-clamp-1">{m.hint}</div>
                     </div>
                     {selected && (
-                      <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-accent text-accent-fg flex items-center justify-center shadow-sm">
+                      <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-accent text-accent-fg flex items-center justify-center shadow-sm anim-pop-in">
                         <Check className="w-2.5 h-2.5 stroke-[3]" />
                       </span>
                     )}

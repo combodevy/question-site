@@ -418,7 +418,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
 
       {/* 6 KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <Card padding="sm">
+        <Card padding="sm" className="anim-stagger card-hover" style={{ '--stagger-i': 0 } as React.CSSProperties}>
           <div className="text-xs text-ink-muted flex items-center justify-between">
             <span>{bi('作答总次数', 'Attempts')}</span>
             <Target className="w-3.5 h-3.5 text-accent" />
@@ -429,7 +429,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
           </div>
         </Card>
 
-        <Card padding="sm">
+        <Card padding="sm" className="anim-stagger card-hover" style={{ '--stagger-i': 1 } as React.CSSProperties}>
           <div className="text-xs text-ink-muted flex items-center justify-between">
             <span>{bi('正确率', 'Accuracy')}</span>
             <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
@@ -442,7 +442,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
           </div>
         </Card>
 
-        <Card padding="sm">
+        <Card padding="sm" className="anim-stagger card-hover" style={{ '--stagger-i': 2 } as React.CSSProperties}>
           <div className="text-xs text-ink-muted flex items-center justify-between">
             <span>{bi('连续打卡', 'Streak')}</span>
             <Flame className="w-3.5 h-3.5 text-amber-500" />
@@ -453,7 +453,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
           <div className="text-[11px] text-ink-muted mt-0.5">{bi('持续保持节奏', 'Consistent habit')}</div>
         </Card>
 
-        <Card padding="sm">
+        <Card padding="sm" className="anim-stagger card-hover" style={{ '--stagger-i': 3 } as React.CSSProperties}>
           <div className="text-xs text-ink-muted flex items-center justify-between">
             <span>{bi('单题均时', 'Avg Time')}</span>
             <Clock className="w-3.5 h-3.5 text-sky-500" />
@@ -466,7 +466,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
           </div>
         </Card>
 
-        <Card padding="sm">
+        <Card padding="sm" className="anim-stagger card-hover" style={{ '--stagger-i': 4 } as React.CSSProperties}>
           <div className="text-xs text-ink-muted flex items-center justify-between">
             <span>{bi('题库覆盖率', 'Coverage')}</span>
             <Layers className="w-3.5 h-3.5 text-violet-500" />
@@ -479,7 +479,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
           </div>
         </Card>
 
-        <Card padding="sm">
+        <Card padding="sm" className="anim-stagger card-hover" style={{ '--stagger-i': 5 } as React.CSSProperties}>
           <div className="text-xs text-ink-muted flex items-center justify-between">
             <span>{bi('待巩固队列', 'Due Queue')}</span>
             <Brain className="w-3.5 h-3.5 text-rose-500" />
@@ -533,6 +533,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                         rx="3"
                         fill="var(--accent)"
                         fillOpacity="0.24"
+                        className="anim-bar-grow"
                       />
                       <rect
                         x={x}
@@ -541,6 +542,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                         height={okH}
                         rx="3"
                         fill="var(--accent)"
+                        className="anim-bar-grow"
                       />
                     </>
                   ) : (
@@ -706,7 +708,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                     </span>
                   </div>
                   <div className="h-2 w-full rounded-full bg-surface-muted overflow-hidden">
-                    <div className={`h-full rounded-full transition-all ${g.barCls}`} style={{ width: `${pct}%` }} />
+                    <div className={`h-full rounded-full transition-all duration-500 anim-bar-x ${g.barCls}`} style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               );
@@ -766,7 +768,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                   key={r.sub}
                   type="button"
                   onClick={() => setSubScope(r.sub)}
-                  className="w-full text-left p-2.5 rounded-xl border border-line bg-canvas/50 hover:border-accent/40 transition-colors space-y-1.5"
+                  className="w-full text-left p-2.5 rounded-xl border border-line bg-canvas/50 hover:border-accent/40 card-hover space-y-1.5"
                 >
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-medium text-ink truncate">{r.sub}</span>
@@ -776,7 +778,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                   </div>
                   <div className="h-2 w-full rounded-full bg-surface-muted overflow-hidden">
                     <div
-                      className={`h-full rounded-full ${r.acc >= 75 ? 'bg-emerald-500' : r.acc >= 55 ? 'bg-amber-500' : 'bg-red-500'}`}
+                      className={`h-full rounded-full transition-all duration-500 anim-bar-x ${r.acc >= 75 ? 'bg-emerald-500' : r.acc >= 55 ? 'bg-amber-500' : 'bg-red-500'}`}
                       style={{ width: `${r.acc}%` }}
                     />
                   </div>
@@ -810,7 +812,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                   </div>
                   <div className="h-1.5 w-full rounded-full bg-surface-muted overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-accent transition-all"
+                      className="h-full rounded-full bg-accent transition-all duration-500 anim-bar-x"
                       style={{ width: `${c.acc ?? 0}%` }}
                     />
                   </div>
@@ -878,7 +880,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                 key={m.q.id}
                 data-testid={`top-mistake-card-${m.q.id}`}
                 onClick={() => onInspectQuestion(m.q)}
-                className="p-3.5 rounded-xl border border-line bg-canvas/55 hover:border-accent/45 transition-colors cursor-pointer space-y-2.5"
+                className="p-3.5 rounded-xl border border-line bg-canvas/55 hover:border-accent/45 card-hover cursor-pointer space-y-2.5"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2 text-xs text-ink-muted min-w-0">

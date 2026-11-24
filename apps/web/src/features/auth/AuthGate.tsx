@@ -102,7 +102,7 @@ export const AuthGate: React.FC = () => {
         </div>
       </div>
 
-      <main className="max-w-4xl w-full mx-auto my-8 grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+      <main className="max-w-4xl w-full mx-auto my-8 grid grid-cols-1 md:grid-cols-12 gap-8 items-center anim-page-in">
         <div className="md:col-span-6 space-y-5 px-1">
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-ink leading-snug">
             {bi('安静、专注，把每道错题都变成把握。', 'Quiet focus for deliberate practice and lasting recall.')}
@@ -114,15 +114,15 @@ export const AuthGate: React.FC = () => {
             )}
           </p>
           <div className="grid grid-cols-3 gap-3 pt-1">
-            <div className="p-3 rounded-xl bg-surface border border-line">
+            <div className="p-3 rounded-xl bg-surface border border-line card-hover">
               <div className="text-xs font-semibold text-ink">{bi('SM-2 调度', 'SM-2 Queue')}</div>
               <div className="text-[11px] text-ink-muted mt-1">{bi('按日到期精准提醒', 'Daily due scheduling')}</div>
             </div>
-            <div className="p-3 rounded-xl bg-surface border border-line">
+            <div className="p-3 rounded-xl bg-surface border border-line card-hover">
               <div className="text-xs font-semibold text-ink">{bi('多端同步', 'Delta Sync')}</div>
               <div className="text-[11px] text-ink-muted mt-1">{bi('断网可刷题不丢进度', 'Outbox offline queue')}</div>
             </div>
-            <div className="p-3 rounded-xl bg-surface border border-line">
+            <div className="p-3 rounded-xl bg-surface border border-line card-hover">
               <div className="text-xs font-semibold text-ink">{bi('英语真题', 'Past Papers')}</div>
               <div className="text-[11px] text-ink-muted mt-1">{bi('选词 / 匹配 / 阅读联动', 'Synced split-pane reading')}</div>
             </div>
