@@ -10,7 +10,7 @@ worker/.wrangler/
 .netlify
 
 # Database
-db/
+/db/
 
 # Environment files
 .env
@@ -29,6 +29,7 @@ Thumbs.db
 # Build outputs
 apps/*/dist/
 packages/*/dist/
+*.tsbuildinfo
 
 # Wrangler local dev secrets
 worker/.dev.vars
