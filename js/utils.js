@@ -259,10 +259,23 @@ export const utils = {
             }
         }
 
-        const escapedText = this.escapeHTML(text);
         const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const reg = new RegExp(`(${escapedQuery})`, 'gi');
-        return escapedText.replace(reg, '<mark class="bg-yellow-200 dark:bg-yellow-700/50 rounded px-0.5 text-inherit">$1</mark>');
+        let result = '';
+        let lastIndex = 0;
+        let match;
+        while ((match = reg.exec(text)) !== null) {
+            if (match.index > lastIndex) {
+                result += this.escapeHTML(text.slice(lastIndex, match.index));
+            }
+            result += `<mark class="bg-yellow-200 dark:bg-yellow-700/50 rounded px-0.5 text-inherit">${this.escapeHTML(match[0])}</mark>`;
+            lastIndex = match.index + match[0].length;
+            if (match[0].length === 0) reg.lastIndex++;
+        }
+        if (lastIndex < text.length) {
+            result += this.escapeHTML(text.slice(lastIndex));
+        }
+        return result;
     },
 
     // 导入清洗：剥控制字符、规范 tf/mcq/multi 答案、自动推断缺失题型、改写重复/缺失 ID、

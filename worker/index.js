@@ -188,16 +188,21 @@ function normalizeQuestion(raw, defaultSub = '默认科目', defaultChap = '默�
     const id = raw.id || crypto.randomUUID();
     const d = (typeof raw.d === 'string' && raw.d) || (typeof raw.desc === 'string' && raw.desc) || (typeof raw.analysis === 'string' && raw.analysis) || (typeof raw.explanation === 'string' && raw.explanation) || '';
 
-    return {
+    const normalized = {
         id,
         type,
         q: qText,
         o: opts,
-        a: aText.toUpperCase().trim(),
+        a: type === 'fill' ? aText.trim() : aText.toUpperCase().trim(),
         sub,
         chap,
         d
     };
+    if (Array.isArray(raw.media)) normalized.media = raw.media;
+    if (typeof raw.psg === 'string' && raw.psg) normalized.psg = raw.psg;
+    if (typeof raw._editedAt === 'number' && Number.isFinite(raw._editedAt)) normalized._editedAt = raw._editedAt;
+    if (typeof raw.selfCheck === 'boolean') normalized.selfCheck = raw.selfCheck;
+    return normalized;
 }
 
 // D1 批量插入优化：每条 INSERT 合并最多 40 行（80 个绑定参数，低于 D1 单条 100 参数上限），
@@ -394,22 +399,25 @@ function checkRateLimit(key, max, windowMs) {
 }
 
 function clientIp(request) {
+    const isLoopback = (ip) => !ip || ip === "127.0.0.1" || ip === "::1" || ip === "localhost";
+    const cf = request.headers.get("cf-connecting-ip");
+    if (cf && !isLoopback(cf.trim())) return cf.trim();
+
     const realIp = request.headers.get("x-real-ip");
-    if (realIp && realIp !== "127.0.0.1" && realIp !== "::1") {
-        return realIp;
+    if (realIp && !isLoopback(realIp.trim())) {
+        return realIp.trim();
     }
+
     const xff = request.headers.get("x-forwarded-for");
     if (xff) {
         const parts = xff.split(",").map(s => s.trim()).filter(Boolean);
-        for (const p of parts) {
-            if (p !== "127.0.0.1" && p !== "::1" && p !== "localhost") {
-                return p;
+        for (let i = parts.length - 1; i >= 0; i--) {
+            if (!isLoopback(parts[i])) {
+                return parts[i];
             }
         }
     }
-    const cf = request.headers.get("cf-connecting-ip");
-    if (cf && cf !== "127.0.0.1") return cf;
-    return realIp || (xff ? xff.split(",")[0].trim() : "127.0.0.1");
+    return (realIp && realIp.trim()) || (xff ? xff.split(",")[0].trim() : "127.0.0.1");
 }
 
 // ==========================================
@@ -517,14 +525,15 @@ export default {
                     return jsonResponse({ error: "注册失败，请稍后重试" }, 500, headers);
                 }
 
+                const normalizedName = rawUsername.toLowerCase();
                 const token = await signJwt({
                     sub: userId,
-                    username: rawUsername,
-                    role: rawUsername.toLowerCase() === "admin" ? "admin" : "user",
+                    username: normalizedName,
+                    role: normalizedName === "admin" ? "admin" : "user",
                     exp: Math.floor(Date.now() / 1000) + 604800 // 7 days
                 }, env.JWT_SECRET);
 
-                return jsonResponse({ ok: true, token, user: { id: userId, username: rawUsername } }, 200, headers);
+                return jsonResponse({ ok: true, token, user: { id: userId, username: normalizedName } }, 200, headers);
             }
 
             // 2. LOGIN
@@ -752,8 +761,8 @@ export default {
                 if (!body) return badJson(headers);
                 const targetUid = typeof body.userId === "string" ? body.userId : "";
                 const newPassword = typeof body.newPassword === "string" ? body.newPassword : "";
-                if (!targetUid || newPassword.length < 6) {
-                    return jsonResponse({ error: "userId 与至少 6 位的新密码是必填的" }, 400, headers);
+                if (!targetUid || newPassword.length < 6 || newPassword.length > MAX_PASSWORD_LEN) {
+                    return jsonResponse({ error: `userId 与 6–${MAX_PASSWORD_LEN} 位的新密码是必填的` }, 400, headers);
                 }
                 if (targetUid === userId) {
                     return jsonResponse({ error: "请使用「修改密码」功能修改自己的密码" }, 400, headers);
@@ -870,6 +879,7 @@ export default {
                 const historyAppend = Array.isArray(body.historyAppend) ? body.historyAppend : null;
                 const statePartial = body.statePartial === true;
                 const partialFields = Array.isArray(body.partialFields) ? body.partialFields : [];
+                const replaceFields = Array.isArray(body.replaceFields) ? body.replaceFields : [];
 
                 if (!name) {
                     return jsonResponse({ error: "name 不能为空" }, 400, headers);
@@ -961,7 +971,7 @@ export default {
                         const keyOf = (h) => (h && typeof h.rid === 'string' && h.rid) ? 'r:' + h.rid : 'k:' + ((h && h.id) || '') + '|' + (h && h.t);
                         const seenKeys = new Set((parsedState.history || []).map(keyOf));
                         const fresh = [];
-                        for (const h of historyAppend) {
+                        for (const h of (historyAppend || [])) {
                             const k = keyOf(h);
                             if (seenKeys.has(k)) continue;
                             seenKeys.add(k);
@@ -976,12 +986,13 @@ export default {
                             if (val !== undefined) {
                                 if (field === 'lastPracticeTime') {
                                     parsedState[field] = Math.max(Number(parsedState[field]) || 0, Number(val) || 0) || null;
-                                } else if (field === 'hiddenMistakeIds' && Array.isArray(val)) {
-                                    const ex = Array.isArray(parsedState[field]) ? parsedState[field] : [];
-                                    parsedState[field] = [...new Set([...ex, ...val])];
-                                } else if (field === 'starred' && Array.isArray(val)) {
-                                    const ex = Array.isArray(parsedState[field]) ? parsedState[field] : [];
-                                    parsedState[field] = [...new Set([...ex, ...val])];
+                                } else if ((field === 'hiddenMistakeIds' || field === 'starred') && Array.isArray(val)) {
+                                    if (replaceFields.includes(field)) {
+                                        parsedState[field] = [...new Set(val)];
+                                    } else {
+                                        const ex = Array.isArray(parsedState[field]) ? parsedState[field] : [];
+                                        parsedState[field] = [...new Set([...ex, ...val])];
+                                    }
                                 } else {
                                     parsedState[field] = val;
                                 }
@@ -1004,13 +1015,43 @@ export default {
                         return jsonResponse({ error: "state is required" }, 400, headers);
                     }
 
+                    // 先对题目去重（纳入 media/psg 防误去重），再以此重建 finalState.bank，确保两处 100% 一致
+                    let uniqueQuestions = null;
+                    if (!skipQuestionsUpdate) {
+                        uniqueQuestions = [];
+                        const seenFingerprints = new Set();
+                        for (const q of questions) {
+                            if (!q || typeof q !== 'object') continue;
+                            if (!['mcq', 'multi', 'tf', 'fill'].includes(q.type)) {
+                                q.type = 'mcq';
+                            }
+                            try {
+                                const fingerprint = JSON.stringify({
+                                    q: q.q,
+                                    o: q.o,
+                                    a: q.a,
+                                    type: q.type,
+                                    sub: q.sub,
+                                    chap: q.chap,
+                                    media: q.media || null,
+                                    psg: q.psg || null
+                                });
+                                if (!seenFingerprints.has(fingerprint)) {
+                                    seenFingerprints.add(fingerprint);
+                                    uniqueQuestions.push(q);
+                                }
+                            } catch (e) {
+                                uniqueQuestions.push(q);
+                            }
+                        }
+                    }
+
                     // 传输优化：客户端在全量上传 questions 时可省略重复的 state.bank（节省 50% 请求体积），
                     // 由 Worker 从 questions（或 skipQuestionsUpdate 时的旧 state.bank）补齐，保证快照与 state 结构完整。
                     if (!statePartial && (!finalState.bank || typeof finalState.bank !== 'object')) {
-                        if (!skipQuestionsUpdate && questions.length > 0) {
+                        if (!skipQuestionsUpdate) {
                             const rebuiltBank = Object.create(null);
-                            for (const q of questions) {
-                                if (!q || typeof q !== 'object') continue;
+                            for (const q of uniqueQuestions) {
                                 const s = isSafeKey(q.sub) ? q.sub : '默认科目';
                                 const c = isSafeKey(q.chap) ? q.chap : '默认章节';
                                 if (!Object.prototype.hasOwnProperty.call(rebuiltBank, s)) rebuiltBank[s] = Object.create(null);
@@ -1035,49 +1076,32 @@ export default {
                                         }
                                     }
                                 }
-                                // 收藏与隐藏错题也做并集合并，确保多设备都不丢失
-                                if (oldSt && Array.isArray(oldSt.starred) && Array.isArray(finalState.starred)) {
+                                // 收藏与隐藏错题默认做并集合并，若客户端明确声明 replaceFields 则以客户端删除为准
+                                if (!replaceFields.includes('starred') && oldSt && Array.isArray(oldSt.starred) && Array.isArray(finalState.starred)) {
                                     finalState.starred = [...new Set([...finalState.starred, ...oldSt.starred])];
                                 }
-                                if (oldSt && Array.isArray(oldSt.hiddenMistakeIds) && Array.isArray(finalState.hiddenMistakeIds)) {
+                                if (!replaceFields.includes('hiddenMistakeIds') && oldSt && Array.isArray(oldSt.hiddenMistakeIds) && Array.isArray(finalState.hiddenMistakeIds)) {
                                     finalState.hiddenMistakeIds = [...new Set([...finalState.hiddenMistakeIds, ...oldSt.hiddenMistakeIds])];
                                 }
                             } catch (_) {}
                         }
                     }
 
-                    // Prepare batch SQL executions to replace transactions
+                    // Prepare batch SQL executions with optimistic lock CAS (WHERE id = ? AND version = ?)
                     const statements = [];
                     if (snapshotStatement) statements.push(snapshotStatement);
-                    statements.push(
-                        env.DB.prepare("UPDATE question_sets SET name = ?, state = ?, version = ? WHERE id = ?")
-                            .bind(name, JSON.stringify(finalState), nextVersion, setId)
-                    );
+                    let updateStmt = env.DB.prepare("UPDATE question_sets SET name = ?, state = ?, version = ? WHERE id = ? AND version = ?")
+                        .bind(name, JSON.stringify(finalState), nextVersion, setId, currentVersion);
+                    const updateStmtIndex = statements.length;
+                    if (typeof updateStmt.requireChanges === 'function') {
+                        updateStmt = updateStmt.requireChanges();
+                    }
+                    statements.push(updateStmt);
 
                     if (!skipQuestionsUpdate) {
                         statements.push(
                             env.DB.prepare("DELETE FROM questions WHERE question_set_id = ?").bind(setId)
                         );
-
-                        // Deduplicate questions before insertion
-                        const uniqueQuestions = [];
-                        const seenFingerprints = new Set();
-                        for (const q of questions) {
-                            if (!q || typeof q !== 'object') continue;
-                            if (!['mcq', 'multi', 'tf', 'fill'].includes(q.type)) {
-                                q.type = 'mcq';
-                            }
-                            try {
-                                const fingerprint = JSON.stringify({ q: q.q, o: q.o, a: q.a, type: q.type, sub: q.sub, chap: q.chap });
-                                if (!seenFingerprints.has(fingerprint)) {
-                                    seenFingerprints.add(fingerprint);
-                                    uniqueQuestions.push(q);
-                                }
-                            } catch (e) {
-                                uniqueQuestions.push(q);
-                            }
-                        }
-
                         statements.push(...buildQuestionInsertStatements(env.DB, setId, uniqueQuestions));
                     }
 
@@ -1089,7 +1113,27 @@ export default {
                             .bind(userId)
                     );
 
-                    await env.DB.batch(statements);
+                    try {
+                        const batchResults = await env.DB.batch(statements);
+                        if (Array.isArray(batchResults) && batchResults[updateStmtIndex]?.meta?.changes === 0) {
+                            const latestRow = await env.DB.prepare("SELECT version FROM question_sets WHERE id = ?").bind(setId).first();
+                            return jsonResponse({
+                                error: "Version Conflict",
+                                serverVersion: latestRow ? latestRow.version : currentVersion,
+                                yourVersion: clientVersion
+                            }, 409, headers);
+                        }
+                    } catch (batchErr) {
+                        if (batchErr && batchErr.code === 'VERSION_CONFLICT') {
+                            const latestRow = await env.DB.prepare("SELECT version FROM question_sets WHERE id = ?").bind(setId).first();
+                            return jsonResponse({
+                                error: "Version Conflict",
+                                serverVersion: latestRow ? latestRow.version : currentVersion,
+                                yourVersion: clientVersion
+                            }, 409, headers);
+                        }
+                        throw batchErr;
+                    }
 
                 } else {
                     // Create new set
@@ -1264,7 +1308,7 @@ export default {
                     const { results: countRows } = await countStmt.all();
                     const total = (countRows && countRows[0] && countRows[0].c) || 0;
 
-                    const adminList = (env.ADMIN_USERNAMES || "devy-admin,admin").split(",").map(s => s.trim());
+                    const adminList = (env.ADMIN_USERNAMES || "devy-admin,admin").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
 
                     const queryStr = `
                         WITH UserSets AS (
@@ -1336,18 +1380,14 @@ export default {
                         }
                         // 过滤历史反代回环 127.0.0.1 遗留脏数据
                         if (ip === "127.0.0.1" || ip === "::1" || ip === "localhost") {
-                            if (row.username === "devy" || row.username === "admin") {
-                                ip = "39.187.253.252";
-                            } else {
-                                ip = "待同步刷新";
-                            }
+                            ip = "待同步刷新";
                         }
                         return {
                             id: row.user_id,
                             user_id: row.user_id,
                             email: `${row.username}@user.local`,
                             username: row.username,
-                            is_admin: adminList.includes(row.username),
+                            is_admin: adminList.includes(String(row.username || "").toLowerCase()),
                             bank_count: row.bank_count,
                             question_count: row.question_count,
                             sync_count: row.sync_count,
@@ -1384,8 +1424,8 @@ export default {
                         return jsonResponse({ error: "User not found" }, 404, headers);
                     }
 
-                    const adminList = (env.ADMIN_USERNAMES || "devy-admin,admin").split(",").map(s => s.trim());
-                    const is_admin = adminList.includes(user.username);
+                    const adminList = (env.ADMIN_USERNAMES || "devy-admin,admin").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+                    const is_admin = adminList.includes(String(user.username || "").toLowerCase());
 
                     // Question sets
                     const { results: sets } = await env.DB.prepare(`
@@ -1417,33 +1457,102 @@ export default {
                             try {
                                 const state = JSON.parse(latestStateStr);
                                 const history = Array.isArray(state.history) ? state.history : [];
-                                const favorites = Array.isArray(state.favorites) ? state.favorites : [];
-                                const trash = Array.isArray(state.trash) ? state.trash : [];
+                                const favorites = Array.isArray(state.starred)
+                                    ? state.starred
+                                    : (Array.isArray(state.favorites) ? state.favorites : []);
+
+                                let trashCount = 0;
+                                if (Array.isArray(state.trash)) {
+                                    trashCount = state.trash.length;
+                                } else if (state.trash && typeof state.trash === "object") {
+                                    for (const subKey of Object.keys(state.trash)) {
+                                        const chaps = state.trash[subKey];
+                                        if (!chaps || typeof chaps !== "object") continue;
+                                        for (const chapKey of Object.keys(chaps)) {
+                                            if (Array.isArray(chaps[chapKey])) trashCount += chaps[chapKey].length;
+                                        }
+                                    }
+                                }
+
+                                let activeIds = null;
+                                if (state.bank && typeof state.bank === "object" && !Array.isArray(state.bank)) {
+                                    activeIds = new Set();
+                                    for (const subKey of Object.keys(state.bank)) {
+                                        const chaps = state.bank[subKey];
+                                        if (!chaps || typeof chaps !== "object") continue;
+                                        for (const chapKey of Object.keys(chaps)) {
+                                            const arr = chaps[chapKey];
+                                            if (!Array.isArray(arr)) continue;
+                                            for (const q of arr) {
+                                                if (q && typeof q.id === "string") activeIds.add(q.id);
+                                            }
+                                        }
+                                    }
+                                }
 
                                 const answered = history.length;
                                 let correct = 0;
                                 let wrong = 0;
-                                let now = Date.now();
-                                let sm2Due = 0;
-                                let daySet = new Set();
+                                const daySet = new Set();
+                                const byId = new Map();
 
-                                history.forEach(h => {
-                                    if (h.result === true || h.correct === true) correct++;
-                                    else if (h.result === false || h.correct === false) wrong++;
+                                for (const h of history) {
+                                    if (!h || typeof h !== "object") continue;
+                                    const isCorrect = (h.r === true || h.result === true || h.correct === true);
+                                    const isWrong = (h.r === false || h.result === false || h.correct === false);
+                                    if (isCorrect) correct++;
+                                    else if (isWrong) wrong++;
 
-                                    if (h.nextReview && h.nextReview <= now) sm2Due++;
-                                    if (h.time) {
-                                        const dStr = new Date(h.time).toISOString().slice(0, 10);
+                                    const ts = typeof h.t === "number" ? h.t : (typeof h.time === "number" ? h.time : null);
+                                    if (ts !== null && Number.isFinite(ts)) {
+                                        const dStr = new Date(ts + 8 * 3600000).toISOString().slice(0, 10);
                                         daySet.add(dStr);
+                                        if (typeof h.id === "string" && (isCorrect || isWrong)) {
+                                            if (!byId.has(h.id)) byId.set(h.id, []);
+                                            byId.get(h.id).push({ t: ts, r: isCorrect, rid: h.rid });
+                                        }
                                     }
-                                });
+                                }
+
+                                const utc8Now = new Date(Date.now() + 8 * 3600000);
+                                const endOfDayUtc8 = Date.UTC(
+                                    utc8Now.getUTCFullYear(),
+                                    utc8Now.getUTCMonth(),
+                                    utc8Now.getUTCDate(),
+                                    23, 59, 59, 999
+                                ) - 8 * 3600000;
+
+                                let sm2Due = 0;
+                                for (const [qid, recs] of byId) {
+                                    if (activeIds && !activeIds.has(qid)) continue;
+                                    recs.sort((a, b) => (a.t - b.t) || String(a.rid || "").localeCompare(String(b.rid || "")));
+                                    let ef = 2.5;
+                                    let interval = 0;
+                                    let rep = 0;
+                                    let lastT = null;
+                                    for (const rec of recs) {
+                                        lastT = rec.t;
+                                        if (rec.r) {
+                                            rep += 1;
+                                            interval = rep === 1 ? 1 : (rep === 2 ? 6 : Math.max(1, Math.round(interval * ef)));
+                                            if (interval > 365) interval = 365;
+                                            ef = Math.min(ef + 0.1, 2.8);
+                                        } else {
+                                            rep = 0;
+                                            interval = 0;
+                                            ef = Math.max(ef - 0.2, 1.3);
+                                        }
+                                    }
+                                    const dueAt = lastT == null ? null : lastT + interval * 86400000;
+                                    if (dueAt !== null && dueAt <= endOfDayUtc8) sm2Due++;
+                                }
 
                                 studyStats.answeredCount = answered;
                                 studyStats.correctCount = correct;
                                 studyStats.wrongCount = wrong;
                                 studyStats.accuracyPercent = answered > 0 ? Number(((correct / answered) * 100).toFixed(1)) : 0;
                                 studyStats.favoritesCount = favorites.length;
-                                studyStats.trashCount = trash.length;
+                                studyStats.trashCount = trashCount;
                                 studyStats.sm2DueCount = sm2Due;
                                 studyStats.uniqueDays = daySet.size;
                             } catch (e) {}
@@ -1478,11 +1587,7 @@ export default {
                     });
 
                     if (ipSet.size === 0) {
-                        if (user.username === "devy" || user.username === "admin") {
-                            ipSet.add("39.187.253.252 (管理终端)");
-                        } else {
-                            ipSet.add("待下次同步获取公网 IP");
-                        }
+                        ipSet.add("待下次同步获取公网 IP");
                     }
 
                     // Backups
@@ -1562,8 +1667,8 @@ export default {
                         return jsonResponse({ error: "Username and password are required" }, 400, headers);
                     }
                     // 与公开 signup 同一套校验：管理员创建的账号不该比自注册的更弱
-                    if (typeof password !== "string" || password.length < 6) {
-                        return jsonResponse({ error: "密码至少需要 6 位 (Password must be at least 6 characters)" }, 400, headers);
+                    if (typeof password !== "string" || password.length < 6 || password.length > MAX_PASSWORD_LEN) {
+                        return jsonResponse({ error: `密码长度需在 6–${MAX_PASSWORD_LEN} 位之间` }, 400, headers);
                     }
                     if (rawUsername.length < 2 || rawUsername.length > 32) {
                         return jsonResponse({ error: "用户名长度需在 2-32 位之间" }, 400, headers);
@@ -1743,7 +1848,7 @@ export default {
                                 for (const row of existingRows) {
                                     try {
                                         const q = JSON.parse(row.content);
-                                        seen.add(JSON.stringify({ q: q.q, o: q.o, a: q.a, type: q.type, sub: q.sub, chap: q.chap }));
+                                        seen.add(JSON.stringify({ q: q.q, o: q.o, a: q.a, type: q.type, sub: q.sub, chap: q.chap, media: q.media || null, psg: q.psg || null }));
                                     } catch (e) { }
                                 }
                             }
@@ -1753,7 +1858,7 @@ export default {
                                 const normalized = normalizeQuestion(t);
                                 if (!normalized) continue;
                                 const q = { ...normalized, id: crypto.randomUUID() };
-                                const fingerprint = JSON.stringify({ q: q.q, o: q.o, a: q.a, type: q.type, sub: q.sub, chap: q.chap });
+                                const fingerprint = JSON.stringify({ q: q.q, o: q.o, a: q.a, type: q.type, sub: q.sub, chap: q.chap, media: q.media || null, psg: q.psg || null });
                                 if (seen.has(fingerprint)) { skippedDuplicate++; continue; }
                                 seen.add(fingerprint);
 

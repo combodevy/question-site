@@ -52,6 +52,8 @@ export const data = {
                 _retryAfterConflictOnce: 0,
                 _conflictRetryCount: 0,
                 _loadPromise: null,
+                _replaceFields: new Set(),
+                _trashDirty: false,
                 // record() 用：保证 history 时间戳严格单调递增（增量同步以 (id|t) 去重）
                 _lastRecordTs: 0,
                 remoteVersion: 0,
@@ -141,6 +143,13 @@ export const data = {
                             if (Array.isArray(parsed)) this.starredIds = parsed.filter(x => typeof x === 'string');
                         }
                     } catch (e) { console.error("Starred parse error", e); }
+
+                    try {
+                        const uidStr = await getDBItem(this.lastUserIdKey);
+                        if (uidStr && typeof uidStr === 'string') {
+                            this._currentUserId = uidStr;
+                        }
+                    } catch (e) { }
 
                     // 恢复「有未上传修改」标记：上次会话可能改完没来得及上传就关掉了。
                     // 带着脏标记启动，2.4 守卫会拦下云端覆盖，登录后走「先推后拉」。
@@ -400,7 +409,11 @@ export const data = {
                     if (!id) return;
                     const i = this.starredIds.indexOf(id);
                     if (i === -1) this.starredIds.push(id);
-                    else this.starredIds.splice(i, 1);
+                    else {
+                        this.starredIds.splice(i, 1);
+                        if (!this._replaceFields) this._replaceFields = new Set();
+                        this._replaceFields.add('starred');
+                    }
                     this._persistStarred();
                 },
                 isStarred(id) {
@@ -544,6 +557,8 @@ export const data = {
                     this._lastSyncedCounts = null;
                     this._lastSyncedQuestionIds = null;
                     this._bankDirty = false;
+                    this._trashDirty = false;
+                    this._replaceFields = new Set();
                     this._clearUnsynced();
                     this._syncReady = false;
                     this._cloudLoading = false;
@@ -1439,6 +1454,7 @@ export const data = {
                         const historyBuffer = Array.isArray(this._historyAppendBuffer) ? this._historyAppendBuffer : [];
                         const sentHistoryCount = historyBuffer.length;
                         const useIncrementalSync = !this._bankDirty
+                            && !this._trashDirty
                             && delta.questions === 0
                             && delta.trash === 0
                             && (historyBuffer.length > 0 || (typeof this.remoteVersion === 'number' && this.remoteVersion > 0));
@@ -1507,6 +1523,7 @@ export const data = {
                                 hiddenMistakeIds: Array.isArray(this.hiddenMistakeIds) ? this.hiddenMistakeIds.slice() : [],
                                 bankName: this.bankName || ''
                             };
+                            const replaceFields = this._replaceFields ? Array.from(this._replaceFields) : [];
                             const payloadObj = useIncrementalSync ? {
                                 // ========== 增量模式：仅发送新增 history ==========
                                 name: inferredName,
@@ -1515,6 +1532,7 @@ export const data = {
                                 skipQuestionsUpdate: true,
                                 version: typeof this.remoteVersion === "number" ? this.remoteVersion : 0,
                                 partialFields: ['lastPracticeTime', 'hiddenMistakeIds', 'starred'],
+                                ...(replaceFields.length ? { replaceFields } : {}),
                                 partialValues: {
                                     lastPracticeTime: lastPracticeTime,
                                     hiddenMistakeIds: Array.isArray(this.hiddenMistakeIds) ? this.hiddenMistakeIds : [],
@@ -1532,6 +1550,7 @@ export const data = {
                                 questions: skipQuestionsUpdate ? [] : questions,
                                 state: wireState,
                                 skipQuestionsUpdate,
+                                ...(replaceFields.length ? { replaceFields } : {}),
                                 version: typeof this.remoteVersion === "number" ? this.remoteVersion : 0,
                                 historyAppend: historyBuffer.length > 0 ? historyBuffer : undefined,
                                 delta: {
@@ -1778,7 +1797,6 @@ export const data = {
                                                 this.bank = mergedBank;
                                                 this.trash = mergedTrash;
                                                 this.bumpHistoryRev();
-                                                this.bumpHistoryRev();
 
                                                 // —— 作答：远端并入本地（rid 优先去重，与 _historyKey 同一规则）——
                                                 // 建集合与查重必须用同一个键函数：此前一边用 _historyKey（'r:…'）
@@ -1868,6 +1886,10 @@ export const data = {
                             } else {
                                 this._lastSyncedCounts = counts;
                                 this._lastSyncedQuestionIds = allIds;
+                                // 先更新远端版本号再写已同步快照，避免跨标签页同步读到滞后 1 个版本的旧版本号
+                                if (typeof data.version === "number" && Number.isFinite(data.version)) {
+                                    this.remoteVersion = data.version;
+                                }
                                 // 记录「双方已达成一致的题库快照」：409 三方合并用它当 base，
                                 // 才能区分「本地离线改过」和「远端改过」，而不是靠保存瞬间快照猜。
                                 // 快照必须持久化到 IndexedDB（按账号）：内存版刷新即失，
@@ -1877,9 +1899,6 @@ export const data = {
                                     const baseUid = App.auth && typeof App.auth.getUserId === 'function' ? App.auth.getUserId() : '';
                                     setDBItem('lms_v26_synced_base', JSON.stringify({ uid: baseUid, version: this.remoteVersion, bank: this.bank })).catch(() => { });
                                 } catch (syncErr) { }
-                                if (typeof data.version === "number" && Number.isFinite(data.version)) {
-                                    this.remoteVersion = data.version;
-                                }
                                 if (window.App && App.sync && typeof App.sync.showSyncStatus === 'function') {
                                     App.sync.showSyncStatus('success', delta);
                                 }
@@ -1887,6 +1906,8 @@ export const data = {
                                 // 否则保持 _bankDirty，防止轮询加载用旧云数据覆盖更新的本地状态
                                 if (this._editSeq === editSeqAtSave) {
                                     this._bankDirty = false;
+                                    this._trashDirty = false;
+                                    if (this._replaceFields) this._replaceFields.clear();
                                     this._clearUnsynced();
                                 }
                                 // 登录时因「先推后拉」跳过的那次云端拉取，在这里补上
@@ -2126,8 +2147,7 @@ export const data = {
                                     const newEntries = incoming.filter(h => !existingTimestamps.has(this._historyKey(h)));
                                     if (newEntries.length > 0) {
                                         this.history = this.history.concat(newEntries);
-this.bumpHistoryRev();
-this.bumpHistoryRev();
+                                        this.bumpHistoryRev();
                                         this._safeSetItem(this.historyKey, JSON.stringify({
                                             history: this.history,
                                             lastPracticeTime: this.lastPracticeTime,
@@ -2171,13 +2191,11 @@ this.bumpHistoryRev();
                                 const newEntries = incoming.filter(h => !existingTimestamps.has(this._historyKey(h)));
                                 if (newEntries.length > 0) {
                                     this.history = this.history.concat(newEntries);
-this.bumpHistoryRev();
-this.bumpHistoryRev();
+                                    this.bumpHistoryRev();
                                 }
                             } else {
                                 this.history = this.sanitizeHistory(state.history);
-this.bumpHistoryRev();
-this.bumpHistoryRev();
+                                this.bumpHistoryRev();
                             }
                             // 更新 _lastHistoryTimestamp
                             if (this.history.length > 0) {
@@ -2282,6 +2300,8 @@ this.bumpHistoryRev();
                 // 持久化回收站
                 persistTrash() {
                     this._editSeq++;
+                    this._trashDirty = true;
+                    this._markUnsynced();
                     this._safeSetItem(this.trashKey, JSON.stringify(this.trash))
                         .then(() => { if (window.App && App._syncBroadcast) App._syncBroadcast(this.trashKey); });
                     if (!this._suppressCloudSync && this.saveToCloudDebounced) {
@@ -2429,6 +2449,8 @@ this.bumpHistoryRev();
                     const destroyed = arr[idx];
                     if (destroyed && destroyed.id && (this.starredIds || []).includes(destroyed.id)) {
                         this.starredIds = this.starredIds.filter(sid => sid !== destroyed.id);
+                        if (!this._replaceFields) this._replaceFields = new Set();
+                        this._replaceFields.add('starred');
                         this._persistStarred();   // 只改内存不落库，重载后收藏会复活
                     }
                     arr.splice(idx, 1);
@@ -2750,9 +2772,11 @@ this.bumpHistoryRev();
                 restoreHiddenMistakes() {
                     if (!Array.isArray(this.hiddenMistakeIds) || !this.hiddenMistakeIds.length) return;
                     this.hiddenMistakeIds = [];
+                    if (!this._replaceFields) this._replaceFields = new Set();
+                    this._replaceFields.add('hiddenMistakeIds');
                     this._errFreqCache = null;
                     this._isHistoryDirty = true;
-                    this.saveHistory();   // hiddenMistakeIds 随全量/增量同步上云（partialFields 白名单已含）
+                    this.saveHistory();   // hiddenMistakeIds 随全量/增量同步上云（replaceFields 强制覆盖）
                     if (window.App && App.router && typeof App.router.refresh === 'function') {
                         App.router.refresh();
                     }

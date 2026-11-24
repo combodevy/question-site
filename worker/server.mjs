@@ -21,7 +21,7 @@ const __dirname = path.dirname(__filename);
 function loadEnv() {
     let vars = {
         ADMIN_USERNAMES: 'devy-admin,admin',
-        JWT_SECRET: 'tfWnFgVlr5GUpKkiQqgg5UoXyBml3afxNhJBDOPvVa6Elt9A',
+        JWT_SECRET: '',
         CORS_ORIGINS: 'https://quiz.devy.cc.cd,https://question-site-front.pages.dev,http://localhost:8788,http://127.0.0.1:8788'
     };
 
@@ -71,6 +71,12 @@ function resolveDbPath() {
     return process.env.DB_PATH || standardProdPath;
 }
 
+const envVars = loadEnv();
+if (!envVars.JWT_SECRET || envVars.JWT_SECRET.trim().length < 16) {
+    console.error('[Server] FATAL: JWT_SECRET environment variable is missing or shorter than 16 characters.');
+    process.exit(1);
+}
+
 const dbPath = resolveDbPath();
 console.log(`[Server] Connecting SQLite database: ${dbPath}`);
 
@@ -91,7 +97,6 @@ db.pragma('foreign_keys = ON');
 console.log('[Server] SQLite PRAGMA journal_mode set to WAL, synchronous set to NORMAL');
 
 const d1 = createD1Database(db);
-const envVars = loadEnv();
 const env = {
     ...envVars,
     DB: d1

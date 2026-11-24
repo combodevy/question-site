@@ -7,45 +7,67 @@ import http from 'node:http';
 import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
+import { execSync, execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 
 const PORT = 8789;
 const HOST = '127.0.0.1';
 const WRANGLER_JSON = '/opt/question-site/app/worker/wrangler.json';
+const MAX_ACTION_BODY_BYTES = 64 * 1024;
+const DEFAULT_CORS_ORIGINS = [
+    'https://quiz.devy.cc.cd',
+    'http://localhost:8788',
+    'http://127.0.0.1:8788'
+];
 
-// 读取配置与 JWT 密钥
+// 读取配置与 JWT 密钥（优先读取环境变量，绝不硬编码回退密钥）
 function loadConfig() {
+    let fileVars = {};
     try {
-        const raw = fs.readFileSync(WRANGLER_JSON, 'utf8');
-        const json = JSON.parse(raw);
-        return {
-            secret: json.vars?.JWT_SECRET || 'tfWnFgVlr5GUpKkiQqgg5UoXyBml3afxNhJBDOPvVa6Elt9A',
-            admins: (json.vars?.ADMIN_USERNAMES || 'devy-admin,admin').split(',').map(s => s.trim())
-        };
-    } catch (e) {
-        return {
-            secret: 'tfWnFgVlr5GUpKkiQqgg5UoXyBml3afxNhJBDOPvVa6Elt9A',
-            admins: ['devy-admin', 'admin']
-        };
-    }
+        if (fs.existsSync(WRANGLER_JSON)) {
+            const raw = fs.readFileSync(WRANGLER_JSON, 'utf8');
+            const json = JSON.parse(raw);
+            if (json && json.vars && typeof json.vars === 'object') {
+                fileVars = json.vars;
+            }
+        }
+    } catch (e) {}
+
+    const secret = String(process.env.JWT_SECRET || fileVars.JWT_SECRET || '').trim();
+    const adminsRaw = String(process.env.ADMIN_USERNAMES || fileVars.ADMIN_USERNAMES || 'devy-admin,admin');
+    const admins = adminsRaw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    const corsRaw = String(process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || fileVars.CORS_ORIGINS || '');
+    const configuredOrigins = corsRaw.split(',').map(s => s.trim()).filter(Boolean);
+    const allowedOrigins = [...new Set([...DEFAULT_CORS_ORIGINS, ...configuredOrigins])];
+
+    return { secret, admins, allowedOrigins };
 }
 
-// 纯原生 JWT 验签
+const startupCfg = loadConfig();
+if (!startupCfg.secret || startupCfg.secret.length < 16) {
+    console.error('[Ops] FATAL: JWT_SECRET environment variable is missing or shorter than 16 characters.');
+    process.exit(1);
+}
+
+// 纯原生 JWT 验签（常量时间比对 + 小写用户名白名单）
 function verifyJwt(token, secret, admins) {
-    if (!token) return null;
+    if (!token || !secret) return null;
     const parts = token.split('.');
     if (parts.length !== 3) return null;
     const [headerB64, payloadB64, sigB64] = parts;
     const expectedSig = crypto.createHmac('sha256', secret)
         .update(`${headerB64}.${payloadB64}`)
         .digest('base64url');
-    if (expectedSig !== sigB64) return null;
+    const expectedBuf = Buffer.from(expectedSig, 'utf8');
+    const sigBuf = Buffer.from(sigB64, 'utf8');
+    if (expectedBuf.length !== sigBuf.length || !crypto.timingSafeEqual(expectedBuf, sigBuf)) {
+        return null;
+    }
     try {
         const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
         if (payload.exp && payload.exp * 1000 < Date.now()) return null;
-        const username = payload.username || payload.sub;
-        if (!admins.includes(username)) return null;
+        const username = String(payload.username || payload.sub || '').trim().toLowerCase();
+        if (!username || !admins.includes(username)) return null;
         return payload;
     } catch (e) {
         return null;
@@ -112,7 +134,14 @@ function getSystemMetrics() {
             backups = dirs.map((d, idx) => {
                 const p = path.join(bPath, d);
                 const stat = fs.statSync(p);
-                const size = idx < 6 ? safeExec(`du -sh "${p}" 2>/dev/null | cut -f1`, "约 8K") : "已归档";
+                let size = '已归档';
+                if (idx < 6) {
+                    try {
+                        size = execFileSync('du', ['-sh', p], { encoding: 'utf8', timeout: 5000 }).trim().split(/\s+/)[0] || '约 8K';
+                    } catch (_) {
+                        size = '约 8K';
+                    }
+                }
                 return { name: d, mtime: stat.mtime, size };
             });
         }
@@ -170,8 +199,12 @@ let lastMetricsTime = 0;
 const METRICS_TTL_MS = 3000;
 
 const server = http.createServer((req, res) => {
-    // 允许跨域（本地反代环境）
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    const { secret, admins, allowedOrigins } = loadConfig();
+    const reqOrigin = req.headers['origin'] || '';
+    res.setHeader('Vary', 'Origin');
+    if (reqOrigin && allowedOrigins.includes(reqOrigin)) {
+        res.setHeader('Access-Control-Allow-Origin', reqOrigin);
+    }
     res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 
@@ -181,7 +214,6 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    const { secret, admins } = loadConfig();
     const authHeader = req.headers['authorization'] || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
     const user = verifyJwt(token, secret, admins);
@@ -219,8 +251,19 @@ const server = http.createServer((req, res) => {
     // 2. 执行运维指令 (Backup / Restart)
     if (req.method === 'POST' && (pathname === '/action' || pathname.endsWith('/action'))) {
         let body = '';
-        req.on('data', chunk => { body += chunk; });
+        let tooLarge = false;
+        req.on('data', chunk => {
+            if (tooLarge) return;
+            body += chunk;
+            if (Buffer.byteLength(body, 'utf8') > MAX_ACTION_BODY_BYTES) {
+                tooLarge = true;
+                res.writeHead(413, { 'Content-Type': 'application/json; charset=utf-8' });
+                res.end(JSON.stringify({ error: 'Payload Too Large' }));
+                req.destroy();
+            }
+        });
         req.on('end', () => {
+            if (tooLarge) return;
             try {
                 const data = JSON.parse(body || '{}');
                 const action = data.action;
@@ -230,14 +273,14 @@ const server = http.createServer((req, res) => {
                 lastMetricsTime = 0;
 
                 if (action === 'backup') {
-                    const out = safeExec('/opt/question-site/manage.sh backup');
+                    const out = execFileSync('/opt/question-site/manage.sh', ['backup'], { encoding: 'utf8', timeout: 15000 }).trim();
                     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
                     res.end(JSON.stringify({ ok: true, message: '备份执行成功', output: out }));
                     return;
                 }
 
                 if (action === 'restart-api') {
-                    safeExec('/opt/question-site/manage.sh restart');
+                    execFileSync('/opt/question-site/manage.sh', ['restart'], { encoding: 'utf8', timeout: 15000 });
                     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
                     res.end(JSON.stringify({ ok: true, message: 'API 服务已触发重启' }));
                     return;

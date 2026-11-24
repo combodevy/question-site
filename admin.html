@@ -620,7 +620,7 @@
                             <div class="p-4 rounded-2xl bg-[var(--bg)]/50 border border-[var(--border)] flex items-center justify-between">
                                 <div>
                                     <div class="text-xs font-bold text-[var(--text)]">API Runtime (question-site-api)</div>
-                                    <div class="text-[11px] text-[var(--sub)] font-mono">Port: 8787 · Wrangler local workerd</div>
+                                    <div class="text-[11px] text-[var(--sub)] font-mono">Port: 8787 · Node.js Hono + SQLite (WAL)</div>
                                 </div>
                                 <span class="px-2.5 py-1 rounded-full text-xs font-bold font-mono bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" id="srv-status-api">ACTIVE</span>
                             </div>
@@ -710,8 +710,8 @@
 
                         <!-- 题库来源 -->
                         <div>
-                            <label class="block text-xs font-bold text-[var(--sub)] mb-2">上传题库文件 (.json, .txt, .docx, .pdf)</label>
-                            <input type="file" id="push-file" accept=".json,.txt,.docx,.pdf" onchange="Admin.handlePushFile(event)"
+                            <label class="block text-xs font-bold text-[var(--sub)] mb-2">上传题库 JSON 文件 (.json，如需导入 Word/PDF 请先在主站导入中心转换为 JSON)</label>
+                            <input type="file" id="push-file" accept=".json,application/json" onchange="Admin.handlePushFile(event)"
                                 class="w-full p-3 rounded-xl bg-[var(--bg)] border border-[var(--border)] text-xs file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-teal-600 file:text-white hover:file:bg-teal-700">
                         </div>
 
@@ -896,10 +896,10 @@
                     </select>
                     <select id="bank-type-filter" onchange="Admin.filterVisualQuestions()" class="px-3 py-1.5 rounded-xl bg-[var(--bg)] border border-[var(--border)] text-xs font-medium">
                         <option value="">全部题型</option>
-                        <option value="单选题">单选</option>
-                        <option value="多选题">多选</option>
-                        <option value="判断题">判断</option>
-                        <option value="填空题">填空</option>
+                        <option value="mcq">单选</option>
+                        <option value="multi">多选</option>
+                        <option value="tf">判断</option>
+                        <option value="fill">填空</option>
                     </select>
                 </div>
                 <div class="flex items-center gap-2">
@@ -1833,10 +1833,10 @@
                 }
                 options = options.map(o => String(o == null ? '' : o).trim()).filter(Boolean);
 
-                const ans = ((typeof raw.a === 'string' && raw.a) ||
-                             (typeof raw.ans === 'string' && raw.ans) ||
-                             (typeof raw.answer === 'string' && raw.answer) ||
-                             (typeof raw.correct === 'string' && raw.correct) || '').toUpperCase().trim();
+                const rawAns = (typeof raw.a === 'string' && raw.a) ||
+                               (typeof raw.ans === 'string' && raw.ans) ||
+                               (typeof raw.answer === 'string' && raw.answer) ||
+                               (typeof raw.correct === 'string' && raw.correct) || '';
 
                 let type = raw.type;
                 if (type === '单选' || type === '单选题') type = 'mcq';
@@ -1844,15 +1844,16 @@
                 else if (type === '判断' || type === '判断题') type = 'tf';
                 else if (type === '填空' || type === '填空题') type = 'fill';
                 else if (!['mcq', 'multi', 'tf', 'fill'].includes(type)) {
-                    type = (options.length === 2 && (options.includes('正确') || options.includes('对') || options.includes('True'))) ? 'tf' : (ans.length > 1 ? 'multi' : 'mcq');
+                    type = (options.length === 2 && (options.includes('正确') || options.includes('对') || options.includes('True'))) ? 'tf' : (rawAns.trim().length > 1 ? 'multi' : 'mcq');
                 }
+                const ans = type === 'fill' ? rawAns.trim() : rawAns.toUpperCase().trim();
 
                 const sub = (typeof raw.sub === 'string' && raw.sub.trim()) || (typeof raw.subject === 'string' && raw.subject.trim()) || '默认科目';
                 const chap = (typeof raw.chap === 'string' && raw.chap.trim()) || (typeof raw.chapter === 'string' && raw.chapter.trim()) || (type === 'multi' ? '多选题' : (type === 'tf' ? '判断题' : '单选题'));
                 const id = raw.id || `q${idx != null ? idx + 1 : Date.now()}`;
                 const analysis = (typeof raw.analysis === 'string' && raw.analysis) || (typeof raw.d === 'string' && raw.d) || (typeof raw.desc === 'string' && raw.desc) || (typeof raw.explanation === 'string' && raw.explanation) || '';
 
-                return {
+                const out = {
                     id,
                     type,
                     q: stem,
@@ -1867,6 +1868,11 @@
                     ans,
                     analysis
                 };
+                if (Array.isArray(raw.media)) out.media = raw.media;
+                if (typeof raw.psg === 'string' && raw.psg) out.psg = raw.psg;
+                if (typeof raw._editedAt === 'number' && Number.isFinite(raw._editedAt)) out._editedAt = raw._editedAt;
+                if (typeof raw.selfCheck === 'boolean') out.selfCheck = raw.selfCheck;
+                return out;
             },
 
             async viewBank(setId) {
@@ -2235,13 +2241,21 @@
                 }
                 const sub = document.getElementById('q-editor-sub').value.trim() || '默认科目';
                 const rawType = document.getElementById('q-editor-type').value;
-                const ans = document.getElementById('q-editor-ans').value.trim().toUpperCase();
+                const rawAns = document.getElementById('q-editor-ans').value.trim();
+                const ans = (rawType === 'fill' || rawType === '填空题') ? rawAns : rawAns.toUpperCase();
                 const analysis = document.getElementById('q-editor-analysis').value.trim();
                 const optInputs = document.querySelectorAll('.q-opt-input');
                 const options = Array.from(optInputs).map(i => i.value.trim()).filter(Boolean);
 
-                const existingId = this.editingQuestionIndex != null ? this.currentQuestions[this.editingQuestionIndex].id : null;
+                const existing = this.editingQuestionIndex != null ? this.currentQuestions[this.editingQuestionIndex] : null;
+                const existingId = existing ? existing.id : null;
                 const qObj = this.normalizeQuestion({
+                    ...(existing && typeof existing === 'object' ? {
+                        chap: existing.chap,
+                        media: existing.media,
+                        psg: existing.psg,
+                        selfCheck: existing.selfCheck
+                    } : {}),
                     id: existingId || crypto.randomUUID(),
                     stem,
                     q: stem,
@@ -2252,7 +2266,8 @@
                     ans,
                     a: ans,
                     analysis,
-                    d: analysis
+                    d: analysis,
+                    _editedAt: Date.now()
                 });
 
                 if (this.editingQuestionIndex != null) {
@@ -2470,18 +2485,6 @@
                 document.getElementById('push-text').value = JSON.stringify(sample, null, 2);
             },
 
-            // 异步脚本动态按需加载器（避免外网 CDN 阻塞首屏渲染）
-            loadScript(src) {
-                if (document.querySelector(`script[src="${src}"]`)) return Promise.resolve(true);
-                return new Promise((resolve, reject) => {
-                    const s = document.createElement('script');
-                    s.src = src;
-                    s.onload = () => resolve(true);
-                    s.onerror = () => reject(new Error(`无法加载脚本: ${src}`));
-                    document.head.appendChild(s);
-                });
-            },
-
             async handlePushFile(e) {
                 const file = e.target.files && e.target.files[0];
                 if (!file) return;
@@ -2490,40 +2493,16 @@
 
                 try {
                     const ext = file.name.split('.').pop().toLowerCase();
-                    if (ext === 'json' || ext === 'txt') {
-                        const reader = new FileReader();
-                        reader.onload = ev => { txtArea.value = ev.target.result; };
-                        reader.readAsText(file, 'utf-8');
-                    } else if (ext === 'docx') {
-                        txtArea.value = '正在按需载入 Word 解析引擎...';
-                        if (!window.mammoth) {
-                            await this.loadScript('https://cdn.bootcdn.net/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js')
-                                .catch(() => this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js'));
-                        }
-                        const ab = await file.arrayBuffer();
-                        const result = await window.mammoth.extractRawText({ arrayBuffer: ab });
-                        txtArea.value = result.value;
-                    } else if (ext === 'pdf') {
-                        txtArea.value = '正在按需载入 PDF 解析引擎...';
-                        if (!window.pdfjsLib) {
-                            await this.loadScript('https://cdn.bootcdn.net/ajax/libs/pdf.js/3.11.174/pdf.min.js')
-                                .catch(() => this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'));
-                            if (window.pdfjsLib) {
-                                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.bootcdn.net/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-                            }
-                        }
-                        const ab = await file.arrayBuffer();
-                        const pdf = await window.pdfjsLib.getDocument({ data: ab }).promise;
-                        let fullText = '';
-                        for (let i = 1; i <= pdf.numPages; i++) {
-                            const page = await pdf.getPage(i);
-                            const textContent = await page.getTextContent();
-                            fullText += textContent.items.map(s => s.str).join(' ') + '\n';
-                        }
-                        txtArea.value = fullText;
+                    if (ext !== 'json') {
+                        throw new Error('管理后台仅支持导入标准 .json 题库文件；Word / PDF / TXT 请先在主站「导入中心」解析并导出为 JSON 后再广播。');
                     }
+                    const reader = new FileReader();
+                    reader.onload = ev => { txtArea.value = ev.target.result; };
+                    reader.onerror = () => { txtArea.value = '文件读取失败'; };
+                    reader.readAsText(file, 'utf-8');
                 } catch (err) {
-                    txtArea.value = '文件解析失败: ' + err.message;
+                    txtArea.value = '';
+                    alert(err.message);
                 }
             },
 
@@ -2659,16 +2638,18 @@
 
                     qs.forEach((q, i) => {
                         const stemClean = (q.stem || q.q || '').trim();
-                        if (seenStems.has(stemClean)) {
-                            duplicates.push({ original: seenStems.get(stemClean), duplicate: i, stem: stemClean });
+                        const mediaSig = Array.isArray(q.media) && q.media.length ? JSON.stringify(q.media) : '';
+                        const dupKey = JSON.stringify([q.chap || '', stemClean, mediaSig]);
+                        if (seenStems.has(dupKey)) {
+                            duplicates.push({ original: seenStems.get(dupKey), duplicate: i, stem: stemClean });
                         } else {
-                            seenStems.set(stemClean, i);
+                            seenStems.set(dupKey, i);
                         }
 
                         const ans = (q.ans || q.a || '').trim();
                         if (!ans) missingAns.push(i);
                         const opts = (Array.isArray(q.options) && q.options.length) ? q.options : (Array.isArray(q.o) ? q.o : []);
-                        if (q.type !== 'fill' && opts.length < 2) emptyOptions.push(i);
+                        if (q.type !== 'fill' && q.type !== 'tf' && opts.length < 2) emptyOptions.push(i);
                     });
 
                     this._auditDuplicates = duplicates;
@@ -2750,8 +2731,10 @@
                 const dupIndices = [];
                 this.currentQuestions.forEach((q, i) => {
                     const stem = (q.stem || q.q || '').trim();
-                    if (seen.has(stem)) dupIndices.push(i);
-                    else seen.set(stem, i);
+                    const mediaSig = Array.isArray(q.media) && q.media.length ? JSON.stringify(q.media) : '';
+                    const dupKey = JSON.stringify([q.chap || '', stem, mediaSig]);
+                    if (seen.has(dupKey)) dupIndices.push(i);
+                    else seen.set(dupKey, i);
                 });
 
                 if (dupIndices.length > 0) {

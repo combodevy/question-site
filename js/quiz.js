@@ -672,6 +672,8 @@ export const quiz = {
                 _onQuizKey(e) {
                     if (!window.App || App.router.currentView !== 'quiz') return;
                     if (e.repeat) return;   // 长按自动重复会以 ~400ms/题 的速度刷卷并全部落历史
+                    // 弹窗、遮罩或答题卡抽屉开启时，不响应底层刷题快捷键（防止 Enter/空格/字母键误提交）
+                    if (document.querySelector('[id^="modal-"]:not(.hidden), #auth-overlay:not(.hidden), #quiz-nav-sheet:not(.hidden)')) return;
                     // 输入框（填空题答案）里的按键交给输入框自己处理
                     if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
                     if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -993,7 +995,7 @@ export const quiz = {
                         this._pendingNextTimer = null;
                     }
                     App.data._suppressCloudSync = false;
-                    if (App.data._historyAppendBuffer.length > 0 && App.data.saveToCloudDebounced) {
+                    if ((App.data._historyAppendBuffer.length > 0 || App.data._bankDirty || (typeof App.data._hasUnsyncedFlag === 'function' && App.data._hasUnsyncedFlag())) && App.data.saveToCloudDebounced) {
                         App.data.saveToCloudDebounced();
                     }
                 },

@@ -5,12 +5,16 @@
  */
 
 export function createD1Database(db) {
-    function createPreparedStatement(sql, boundArgs = []) {
+    function createPreparedStatement(sql, boundArgs = [], opts = {}) {
         return {
             _sql: sql,
             _args: boundArgs,
+            _requireChanges: Boolean(opts.requireChanges),
             bind(...args) {
-                return createPreparedStatement(sql, args);
+                return createPreparedStatement(sql, args, opts);
+            },
+            requireChanges() {
+                return createPreparedStatement(sql, boundArgs, { ...opts, requireChanges: true });
             },
             async first(colName) {
                 const stmt = db.prepare(sql);
@@ -42,7 +46,7 @@ export function createD1Database(db) {
                     return {
                         success: true,
                         meta: {
-                            changes: 1,
+                            changes: row ? 1 : 0,
                             last_row_id: row && row.id !== undefined ? row.id : 0
                         }
                     };
@@ -73,12 +77,24 @@ export function createD1Database(db) {
                         out.push({
                             success: true,
                             meta: {
-                                changes: 1,
+                                changes: row ? 1 : 0,
                                 last_row_id: row && row.id !== undefined ? row.id : 0
                             }
                         });
+                    } else if (stmt.reader) {
+                        const results = stmt.all(...s._args);
+                        out.push({
+                            success: true,
+                            results,
+                            meta: { changes: 0, last_row_id: 0 }
+                        });
                     } else {
                         const info = stmt.run(...s._args);
+                        if (s._requireChanges && info.changes === 0) {
+                            const err = new Error('Optimistic lock version conflict');
+                            err.code = 'VERSION_CONFLICT';
+                            throw err;
+                        }
                         out.push({
                             success: true,
                             meta: {

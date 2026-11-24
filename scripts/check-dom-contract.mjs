@@ -88,14 +88,53 @@ for (const id of referencedIds) {
 console.log(`[2] 元素 id：引用 ${referencedIds.size} 个，定义 ${definedIds.size} 个`);
 
 /* ---------- 3. CSS 变量 ---------- */
-const definedVars = new Set();
+// 只认真实 HTML <style> 与 src/tailwind.css 里的变量定义，防止 JS 弹窗/打印模板字符串里的定义掩盖主页面缺变量
+const extractStyleVars = (text) => {
+    const vars = new Set();
+    for (const block of text.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)) {
+        for (const m of block[1].matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)) vars.add(m[1]);
+    }
+    return vars;
+};
+const indexDefinedVars = extractStyleVars(html['index.html']);
+const adminDefinedVars = extractStyleVars(html['admin.html']);
+const definedVars = new Set([...indexDefinedVars, ...adminDefinedVars]);
+try {
+    const tw = read('src/tailwind.css');
+    for (const m of tw.matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)) {
+        indexDefinedVars.add(m[1]);
+        definedVars.add(m[1]);
+    }
+} catch (_) { }
+
 const usedVars = new Set();
-for (const s of [...Object.values(js), ...Object.values(html)]) {
-    for (const m of s.matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)) definedVars.add(m[1]);
-    for (const m of s.matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g)) usedVars.add(m[1]);
+for (const m of html['index.html'].matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g)) {
+    usedVars.add(m[1]);
+    if (!indexDefinedVars.has(m[1])) problems.push(`index.html 使用了 CSS 变量 ${m[1]} 但未在其 <style> 中定义`);
 }
-for (const v of usedVars) {
-    if (!definedVars.has(v)) problems.push(`CSS 变量 ${v} 被使用但从未定义（该条 background/color 声明会整条失效）`);
+for (const m of html['admin.html'].matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g)) {
+    usedVars.add(m[1]);
+    if (!adminDefinedVars.has(m[1])) problems.push(`admin.html 使用了 CSS 变量 ${m[1]} 但未在其 <style> 中定义`);
+}
+for (const [f, s] of Object.entries(js)) {
+    // JS 里自包含的打印文档 <style>...</style> 自检其内部使用与定义；其余 JS 引用的 var() 必须由 index.html 定义
+    let stripped = s;
+    for (const blk of s.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)) {
+        const localDef = new Set([...blk[1].matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)].map(m => m[1]));
+        for (const m of blk[1].matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g)) {
+            usedVars.add(m[1]);
+            if (!localDef.has(m[1]) && !indexDefinedVars.has(m[1])) {
+                problems.push(`${f} 的独立 <style> 使用了未定义的 CSS 变量 ${m[1]}`);
+            }
+        }
+        stripped = stripped.replace(blk[0], '');
+    }
+    for (const m of stripped.matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g)) {
+        usedVars.add(m[1]);
+        if (!indexDefinedVars.has(m[1])) {
+            problems.push(`${f} 使用了 CSS 变量 ${m[1]} 但 index.html 中未定义`);
+        }
+    }
 }
 console.log(`[3] CSS 变量：使用 ${usedVars.size} 个，定义 ${definedVars.size} 个`);
 

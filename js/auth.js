@@ -4,6 +4,7 @@ export const auth = {
                 session: null,
                 init() {
                     this.token = localStorage.getItem('qs-auth-token') || null;
+                    let expiredOnBoot = false;
                     if (this.token) {
                         const payload = this.parseJwt(this.token);
                         // 过期的 token 不再建立会话：否则界面显示「已登录」，
@@ -22,9 +23,12 @@ export const auth = {
                         } else {
                             this.token = null;
                             localStorage.removeItem('qs-auth-token');
+                            expiredOnBoot = Boolean(expired);
                         }
                     }
-                    this.applyAuthState();
+                    this._expiredOnBoot = expiredOnBoot;
+                    // token 过期冷启动不清空本机未上传数据，等用户重登同一账号后自动续传
+                    this.applyAuthState({ preserveLocalData: expiredOnBoot });
                 },
                 parseJwt(token) {
                     if (!token) return null;
@@ -58,13 +62,14 @@ export const auth = {
                         this.token = null;
                         this.session = null;
                         localStorage.removeItem('qs-auth-token');
-                        this.applyAuthState();
+                        // 令牌失效只切回未登录界面态，保留 IndexedDB 与脏标记，避免丢失离线/未上传改动
+                        this.applyAuthState({ preserveLocalData: true });
                         if (window.App && App.sync && typeof App.sync.render === 'function') App.sync.render();
                         const msg = (reason || '登录已过期') + (window.App && App.t
                             ? App.t('，请重新登录。本地数据已安全保存在本机，重新登录后将自动同步。')
                             : '，请重新登录。本地数据已安全保存在本机，重新登录后将自动同步。');
                         if (typeof showGlobalToast === 'function') {
-                            showGlobalToast(msg, 'warning', 6000);
+                            showGlobalToast(msg, 'warn');
                         } else {
                             alert(msg);
                         }
@@ -225,7 +230,7 @@ export const auth = {
                     if (window.App && App.router && typeof App.router.go === 'function') App.router.go('dashboard');
                     if (window.App && App.sync && typeof App.sync.render === 'function') App.sync.render();
                 },
-                applyAuthState() {
+                applyAuthState(options = {}) {
                     const btn = document.getElementById("auth-btn");
                     const icon = document.getElementById("auth-icon");
                     const overlay = document.getElementById("auth-overlay");
@@ -257,17 +262,29 @@ export const auth = {
                         if (window.App && App.data && typeof App.data.loadFromCloud === "function") {
                             App.data._syncReady = false;
                             const d = App.data;
-                            const hasLocalPending = d._bankDirty ||
-                                (Array.isArray(d._historyAppendBuffer) && d._historyAppendBuffer.length > 0);
-                            if (hasLocalPending) {
-                                // 先推后拉：本机存着上次会话没上传完的修改，直接 loadFromCloud
-                                // 会违反「云端不得覆盖本地新数据」的守卫。先上传本地状态
-                                //（冲突则走 409 合并），保存成功后再补一次拉取收敛双方。
-                                d._pullAfterSave = true;
-                                if (typeof d.saveToCloudDebounced === 'function') d.saveToCloudDebounced();
-                            } else {
-                                d.loadFromCloud();
-                            }
+                            const newUid = this.session.user && this.session.user.id ? String(this.session.user.id) : '';
+                            const switchedUser = Boolean(d._currentUserId && newUid && d._currentUserId !== newUid);
+                            const startSync = async () => {
+                                if (switchedUser && typeof d.clearAllForLogout === 'function') {
+                                    await d.clearAllForLogout();
+                                }
+                                const hasLocalPending = !switchedUser && (
+                                    d._bankDirty ||
+                                    d._trashDirty ||
+                                    (typeof d._hasUnsyncedFlag === 'function' && d._hasUnsyncedFlag()) ||
+                                    (Array.isArray(d._historyAppendBuffer) && d._historyAppendBuffer.length > 0)
+                                );
+                                if (hasLocalPending) {
+                                    // 先推后拉：本机存着上次会话没上传完的修改，直接 loadFromCloud
+                                    // 会违反「云端不得覆盖本地新数据」的守卫。先上传本地状态
+                                    //（冲突则走 409 合并），保存成功后再补一次拉取收敛双方。
+                                    d._pullAfterSave = true;
+                                    if (typeof d.saveToCloudDebounced === 'function') d.saveToCloudDebounced();
+                                } else {
+                                    d.loadFromCloud();
+                                }
+                            };
+                            startSync();
                         }
                         if (window.App && App.sync && typeof App.sync.startAutoPull === "function") {
                             App.sync.startAutoPull();
@@ -281,11 +298,11 @@ export const auth = {
                         if (overlay) {
                             overlay.classList.remove("hidden", "opacity-0", "pointer-events-none");
                         }
-                        if (window.App && App.data && typeof App.data.clearAllForLogout === "function") {
+                        if (!options.preserveLocalData && window.App && App.data && typeof App.data.clearAllForLogout === "function") {
                             App.data.clearAllForLogout();
                         }
-                        // 登出后立即清空界面上的旧统计，避免显示上一个账号的数据
-                        if (window.App && App.router && typeof App.router.refresh === "function") {
+                        // 登出后立即清空界面上的旧统计，避免显示上一个账号的数据（保留本地数据时跳过清理渲染）
+                        if (!options.preserveLocalData && window.App && App.router && typeof App.router.refresh === "function") {
                             App.router.refresh();
                         }
                         if (window.App && App.sync && typeof App.sync.stopAutoPull === "function") {

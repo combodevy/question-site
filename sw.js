@@ -3,7 +3,7 @@
  * @description Service Worker for offline cold-start and PWA caching
  */
 
-const CACHE_NAME = 'qs-cache-v1';
+const CACHE_NAME = 'qs-cache-v2';
 
 const STATIC_PRECACHE = [
     './',
@@ -65,11 +65,22 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 2. 页面导航请求（离线时回退到缓存的 index.html）
+    // 2. 页面导航请求（离线时回退到缓存的 index.html；管理后台离线不回退主站首页）
     if (req.mode === 'navigate') {
         event.respondWith(
-            fetch(req).catch(() => {
-                return caches.match('./index.html') || caches.match('/index.html');
+            fetch(req).catch(async () => {
+                if (url.pathname.endsWith('/admin.html') || url.pathname === '/admin') {
+                    return (await caches.match(req)) || new Response('Offline', {
+                        status: 503,
+                        headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+                    });
+                }
+                return (await caches.match('./index.html'))
+                    || (await caches.match('/index.html'))
+                    || new Response('Offline', {
+                        status: 503,
+                        headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+                    });
             })
         );
         return;
@@ -86,7 +97,7 @@ self.addEventListener('fetch', (event) => {
                 return networkResponse;
             }).catch(() => null);
 
-            return cachedResponse || (await fetchPromise);
+            return cachedResponse || (await fetchPromise) || new Response('', { status: 504 });
         })
     );
 });
