@@ -20,7 +20,7 @@ export const QuestionPreviewBlock: React.FC<QuestionPreviewBlockProps> = ({
 
   return (
     <div className="space-y-2.5">
-      <div className={`${compact ? 'text-xs sm:text-sm' : 'text-sm'} font-medium text-ink leading-relaxed`}>
+      <div className={`${compact ? 'text-xs sm:text-sm' : 'text-sm'} font-bold text-ink leading-relaxed`}>
         <MediaContent text={question.q} media={question.media} />
       </div>
 

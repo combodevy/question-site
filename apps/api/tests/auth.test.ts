@@ -165,4 +165,101 @@ describe('Auth routes & token revocation', () => {
         expect(qCnt.c).toBe(0);
         expect((await reqJson(app, '/api/auth/me', { token })).status).toBe(401);
     });
+
+    it('supports multi-account HttpOnly cookie vault: signup/login accumulation, accounts listing, switching with token rotation, remove, and scoped logout', async () => {
+        const { db, app } = createTestContext();
+        cleanups.push(() => db.close());
+
+        const mergeCookies = (prevCookie: string, setCookies: string[]) => {
+            const jar = new Map<string, string>();
+            for (const part of prevCookie.split(';')) {
+                const eq = part.indexOf('=');
+                if (eq > 0) jar.set(part.slice(0, eq).trim(), part.slice(eq + 1).trim());
+            }
+            for (const sc of setCookies) {
+                const kv = sc.split(';')[0];
+                const eq = kv.indexOf('=');
+                if (eq <= 0) continue;
+                const k = kv.slice(0, eq).trim();
+                const v = kv.slice(eq + 1).trim();
+                if (!v || sc.toLowerCase().includes('max-age=0')) jar.delete(k);
+                else jar.set(k, v);
+            }
+            return Array.from(jar.entries())
+                .map(([k, v]) => `${k}=${v}`)
+                .join('; ');
+        };
+
+        const suA = await reqJson(app, '/api/auth/signup', {
+            method: 'POST',
+            body: { username: 'user_a', password: 'Password123' },
+        });
+        expect(suA.status).toBe(200);
+        const uidA = (suA.json?.user as { id: string }).id;
+        let jar = mergeCookies('', suA.setCookies);
+        expect(jar).toContain('qs_vault=');
+
+        const suB = await reqJson(app, '/api/auth/signup', {
+            method: 'POST',
+            cookie: jar,
+            body: { username: 'user_b', password: 'Password123' },
+        });
+        expect(suB.status).toBe(200);
+        const uidB = (suB.json?.user as { id: string }).id;
+        const tokenB = suB.json?.token as string;
+        jar = mergeCookies(jar, suB.setCookies);
+
+        const list1 = await reqJson(app, '/api/auth/accounts', {
+            token: tokenB,
+            cookie: jar,
+        });
+        expect(list1.status).toBe(200);
+        const accs1 = list1.json?.accounts as Array<{ id: string; username: string; isCurrent: boolean }>;
+        expect(accs1.length).toBe(2);
+        expect(accs1.find((a) => a.id === uidB)?.isCurrent).toBe(true);
+        expect(accs1.find((a) => a.id === uidA)?.isCurrent).toBe(false);
+
+        const swToA = await reqJson(app, '/api/auth/switch', {
+            method: 'POST',
+            cookie: jar,
+            body: { userId: uidA },
+        });
+        expect(swToA.status).toBe(200);
+        const tokenA2 = swToA.json?.token as string;
+        expect((swToA.json?.user as { username: string }).username).toBe('user_a');
+        jar = mergeCookies(jar, swToA.setCookies);
+
+        const meA = await reqJson(app, '/api/auth/me', { token: tokenA2 });
+        expect(meA.status).toBe(200);
+        expect((meA.json?.user as { username: string }).username).toBe('user_a');
+
+        // Logout current account (user_a) keeps user_b in vault
+        const loA = await reqJson(app, '/api/auth/logout', {
+            method: 'POST',
+            token: tokenA2,
+            cookie: jar,
+        });
+        expect(loA.status).toBe(200);
+        jar = mergeCookies(jar, loA.setCookies);
+
+        const listAfterLogoutA = await reqJson(app, '/api/auth/accounts', { cookie: jar });
+        const accsAfter = listAfterLogoutA.json?.accounts as Array<{ id: string }>;
+        expect(accsAfter.map((a) => a.id)).toEqual([uidB]);
+
+        // Remove user_b cleanly
+        const remB = await reqJson(app, '/api/auth/remove-account', {
+            method: 'POST',
+            cookie: jar,
+            body: { userId: uidB },
+        });
+        expect(remB.status).toBe(200);
+        jar = mergeCookies(jar, remB.setCookies);
+
+        const swB = await reqJson(app, '/api/auth/switch', {
+            method: 'POST',
+            cookie: jar,
+            body: { userId: uidB },
+        });
+        expect(swB.status).toBe(401);
+    });
 });

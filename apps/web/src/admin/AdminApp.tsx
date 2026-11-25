@@ -15,6 +15,7 @@ import { resolveIsDark, useUiStore } from '@/store/useUiStore';
 import { Button } from '@/components/ui/Button';
 import { ToastHost } from '@/components/ui/ToastHost';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { BackToTop } from '@/components/ui/BackToTop';
 import { AdminOpsView } from './AdminOpsView';
 import { AdminUsersView } from './AdminUsersView';
 import { AdminBankEditorView } from './AdminBankEditorView';
@@ -214,6 +215,7 @@ export const AdminApp: React.FC = () => {
         </div>
       </main>
 
+      <BackToTop />
       <ToastHost />
       <ConfirmDialog />
     </div>

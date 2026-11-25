@@ -23,7 +23,7 @@ function evaluatePwStrength(pw: string) {
 export const AuthGate: React.FC = () => {
   const { bi, lang } = useBi();
   const { theme, setTheme, setLang, pushToast } = useUiStore();
-  const { login, signup } = useAuthStore();
+  const { login, signup, savedAccounts, switchAccount, switchingAccount } = useAuthStore();
 
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [username, setUsername] = useState('');
@@ -129,7 +129,30 @@ export const AuthGate: React.FC = () => {
           </div>
         </div>
 
-        <div className="md:col-span-6">
+        <div className="md:col-span-6 space-y-3">
+          {savedAccounts.length > 0 && (
+            <div className="bg-surface border border-line rounded-2xl p-4 shadow-sm space-y-2.5 anim-slide-down" data-testid="auth-saved-accounts">
+              <div className="text-xs font-semibold text-ink">{bi('快速切换已保存账号', 'Quick Sign-In')}</div>
+              <div className="flex flex-wrap gap-2">
+                {savedAccounts.map((acc) => (
+                  <button
+                    key={acc.id}
+                    type="button"
+                    disabled={switchingAccount}
+                    onClick={() => void switchAccount(acc.id).catch((e) => pushToast(String(e), 'error'))}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-line bg-canvas hover:border-accent hover:bg-accent-soft/40 transition-all text-xs font-medium text-ink"
+                  >
+                    <span className="w-5 h-5 rounded-md bg-accent text-accent-fg font-semibold text-[11px] flex items-center justify-center">
+                      {acc.username[0]?.toUpperCase() || '?'}
+                    </span>
+                    <span>{acc.username}</span>
+                    <span className="text-[10px] text-ink-muted tabular-nums">{acc.questionCount}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="bg-surface border border-line rounded-2xl p-6 shadow-sm">
             <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-surface-muted mb-5">
               <button

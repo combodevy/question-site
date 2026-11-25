@@ -18,6 +18,7 @@ import {
     sha256Hex,
     signJwt,
     timingSafeEqualStr,
+    verifyJwt,
 } from '../lib/crypto.js';
 import {
     checkRateLimit,
@@ -29,8 +30,102 @@ import { requireAuth } from '../middleware/auth.js';
 import type { AppEnv } from '../types.js';
 
 const REFRESH_COOKIE_NAME = 'qs_refresh';
+const VAULT_COOKIE_NAME = 'qs_vault';
+const MAX_VAULT_ACCOUNTS = 6;
 const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const JWT_TTL_SECONDS = 604800; // 7 days
+
+interface VaultEntry {
+    u: string;
+    t: string;
+}
+
+function readVault(c: Parameters<typeof getCookie>[0]): VaultEntry[] {
+    const raw = getCookie(c, VAULT_COOKIE_NAME);
+    if (!raw) return [];
+    try {
+        const decoded = Buffer.from(raw, 'base64url').toString('utf8');
+        const parsed = JSON.parse(decoded);
+        if (!Array.isArray(parsed)) return [];
+        const seen = new Set<string>();
+        const out: VaultEntry[] = [];
+        for (const item of parsed) {
+            if (
+                item &&
+                typeof item === 'object' &&
+                typeof item.u === 'string' &&
+                typeof item.t === 'string' &&
+                item.u &&
+                item.t &&
+                !seen.has(item.u)
+            ) {
+                seen.add(item.u);
+                out.push({ u: item.u, t: item.t });
+                if (out.length >= MAX_VAULT_ACCOUNTS) break;
+            }
+        }
+        return out;
+    } catch {
+        return [];
+    }
+}
+
+function writeVault(
+    c: Parameters<typeof setCookie>[0],
+    req: Request,
+    entries: VaultEntry[]
+): void {
+    if (!entries.length) {
+        deleteCookie(c, VAULT_COOKIE_NAME, { path: '/api/auth' });
+        return;
+    }
+    const encoded = Buffer.from(
+        JSON.stringify(entries.slice(0, MAX_VAULT_ACCOUNTS)),
+        'utf8'
+    ).toString('base64url');
+    setCookie(c, VAULT_COOKIE_NAME, encoded, {
+        httpOnly: true,
+        sameSite: 'Lax',
+        path: '/api/auth',
+        secure: isHttpsRequest(req),
+        maxAge: Math.floor(REFRESH_TTL_MS / 1000),
+    });
+}
+
+function upsertVault(
+    c: Parameters<typeof setCookie>[0],
+    req: Request,
+    userId: string,
+    rawToken: string
+): void {
+    const existing = readVault(c).filter((e) => e.u !== userId);
+    writeVault(c, req, [{ u: userId, t: rawToken }, ...existing].slice(0, MAX_VAULT_ACCOUNTS));
+}
+
+function removeFromVault(
+    c: Parameters<typeof setCookie>[0],
+    req: Request,
+    userId: string
+): void {
+    const remaining = readVault(c).filter((e) => e.u !== userId);
+    writeVault(c, req, remaining);
+}
+
+function setAuthCookies(
+    c: Parameters<typeof setCookie>[0],
+    req: Request,
+    userId: string,
+    refreshRaw: string
+): void {
+    setCookie(c, REFRESH_COOKIE_NAME, refreshRaw, {
+        httpOnly: true,
+        sameSite: 'Lax',
+        path: '/api/auth',
+        secure: isHttpsRequest(req),
+        maxAge: Math.floor(REFRESH_TTL_MS / 1000),
+    });
+    upsertVault(c, req, userId, refreshRaw);
+}
 
 function isHttpsRequest(req: Request): boolean {
     const proto = req.headers.get('x-forwarded-proto');
@@ -135,13 +230,7 @@ export function createAuthRouter(): Hono<AppEnv> {
         }
 
         const refreshRaw = issueRefreshToken(rawDb, userId, c.req.raw);
-        setCookie(c, REFRESH_COOKIE_NAME, refreshRaw, {
-            httpOnly: true,
-            sameSite: 'Lax',
-            path: '/api/auth',
-            secure: isHttpsRequest(c.req.raw),
-            maxAge: Math.floor(REFRESH_TTL_MS / 1000),
-        });
+        setAuthCookies(c, c.req.raw, userId, refreshRaw);
 
         const token = signJwt(
             {
@@ -224,13 +313,7 @@ export function createAuthRouter(): Hono<AppEnv> {
 
         const tv = typeof user.token_version === 'number' ? user.token_version : 1;
         const refreshRaw = issueRefreshToken(rawDb, user.id, c.req.raw);
-        setCookie(c, REFRESH_COOKIE_NAME, refreshRaw, {
-            httpOnly: true,
-            sameSite: 'Lax',
-            path: '/api/auth',
-            secure: isHttpsRequest(c.req.raw),
-            maxAge: Math.floor(REFRESH_TTL_MS / 1000),
-        });
+        setAuthCookies(c, c.req.raw, user.id, refreshRaw);
 
         const token = signJwt(
             {
@@ -276,6 +359,7 @@ export function createAuthRouter(): Hono<AppEnv> {
             | undefined;
 
         if (!row || row.revoked_at !== null || row.expires_at <= now) {
+            if (row?.user_id) removeFromVault(c, c.req.raw, row.user_id);
             deleteCookie(c, REFRESH_COOKIE_NAME, { path: '/api/auth' });
             return c.json({ error: 'Unauthorized' }, 401);
         }
@@ -288,13 +372,7 @@ export function createAuthRouter(): Hono<AppEnv> {
         });
         const nextRefreshRaw = rotateTx();
 
-        setCookie(c, REFRESH_COOKIE_NAME, nextRefreshRaw, {
-            httpOnly: true,
-            sameSite: 'Lax',
-            path: '/api/auth',
-            secure: isHttpsRequest(c.req.raw),
-            maxAge: Math.floor(REFRESH_TTL_MS / 1000),
-        });
+        setAuthCookies(c, c.req.raw, row.user_id, nextRefreshRaw);
 
         const tv = typeof row.token_version === 'number' ? row.token_version : 1;
         const token = signJwt(
@@ -311,19 +389,270 @@ export function createAuthRouter(): Hono<AppEnv> {
         return c.json({ ok: true, token, user: { id: row.user_id, username: row.username } }, 200);
     });
 
-    // 2.2 LOGOUT (revokes current refresh cookie)
+    // 2.2 LOGOUT (revokes current refresh cookie; keeps other vault accounts unless all=true)
     router.post('/logout', async (c) => {
         const rawDb = c.get('rawDb');
+        const config = c.get('config');
+        let logoutAll = false;
+        try {
+            const text = await c.req.text();
+            if (text) {
+                const parsed = JSON.parse(text) as { all?: boolean } | null;
+                logoutAll = Boolean(parsed?.all);
+            }
+        } catch {
+            // ignore non-json empty body
+        }
+
+        const now = Date.now();
         const refreshRaw = getCookie(c, REFRESH_COOKIE_NAME);
+        let targetUserId: string | null = null;
+
         if (refreshRaw) {
             const tokenHash = sha256Hex(refreshRaw);
+            const rtRow = rawDb
+                .prepare('SELECT user_id FROM v2_refresh_tokens WHERE token_hash = ?')
+                .get(tokenHash) as { user_id: string } | undefined;
+            if (rtRow) targetUserId = rtRow.user_id;
             rawDb
                 .prepare(
                     'UPDATE v2_refresh_tokens SET revoked_at = ? WHERE token_hash = ? AND revoked_at IS NULL'
                 )
-                .run(Date.now(), tokenHash);
+                .run(now, tokenHash);
         }
+
+        if (!targetUserId) {
+            const authHeader = c.req.header('authorization') || '';
+            const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+            const payload = bearer ? verifyJwt(bearer, config.jwtSecret) : null;
+            if (payload?.sub) targetUserId = payload.sub;
+        }
+
+        if (logoutAll) {
+            const vault = readVault(c);
+            for (const entry of vault) {
+                rawDb
+                    .prepare(
+                        'UPDATE v2_refresh_tokens SET revoked_at = ? WHERE token_hash = ? AND revoked_at IS NULL'
+                    )
+                    .run(now, sha256Hex(entry.t));
+            }
+            deleteCookie(c, VAULT_COOKIE_NAME, { path: '/api/auth' });
+        } else if (targetUserId) {
+            const vault = readVault(c);
+            const entry = vault.find((e) => e.u === targetUserId);
+            if (entry) {
+                rawDb
+                    .prepare(
+                        'UPDATE v2_refresh_tokens SET revoked_at = ? WHERE token_hash = ? AND revoked_at IS NULL'
+                    )
+                    .run(now, sha256Hex(entry.t));
+            }
+            removeFromVault(c, c.req.raw, targetUserId);
+        }
+
         deleteCookie(c, REFRESH_COOKIE_NAME, { path: '/api/auth' });
+        return c.json({ ok: true }, 200);
+    });
+
+    // 2.3 LIST SAVED VAULT ACCOUNTS
+    router.get('/accounts', (c) => {
+        const config = c.get('config');
+        const rawDb = c.get('rawDb');
+        const now = Date.now();
+
+        const authHeader = c.req.header('authorization') || '';
+        const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+        const bearerPayload = bearer ? verifyJwt(bearer, config.jwtSecret) : null;
+        let currentSub = bearerPayload?.sub || '';
+
+        const vault = readVault(c);
+        const refreshRaw = getCookie(c, REFRESH_COOKIE_NAME);
+        const candidates: VaultEntry[] = [...vault];
+        let modifiedVault = false;
+
+        if (refreshRaw) {
+            const rtRow = rawDb
+                .prepare(
+                    `SELECT rt.user_id, rt.revoked_at, rt.expires_at
+                     FROM v2_refresh_tokens rt
+                     WHERE rt.token_hash = ?`
+                )
+                .get(sha256Hex(refreshRaw)) as
+                | { user_id: string; revoked_at: number | null; expires_at: number }
+                | undefined;
+            if (rtRow && rtRow.revoked_at === null && rtRow.expires_at > now) {
+                if (!currentSub) currentSub = rtRow.user_id;
+                if (!candidates.some((x) => x.u === rtRow.user_id)) {
+                    candidates.unshift({ u: rtRow.user_id, t: refreshRaw });
+                    modifiedVault = true;
+                }
+            }
+        }
+
+        const validVault: VaultEntry[] = [];
+        const accounts: Array<{
+            id: string;
+            username: string;
+            isAdmin: boolean;
+            questionCount: number;
+            isCurrent: boolean;
+        }> = [];
+
+        const lookupStmt = rawDb.prepare(
+            `SELECT rt.user_id, rt.expires_at, rt.revoked_at, u.username
+             FROM v2_refresh_tokens rt
+             JOIN users u ON u.id = rt.user_id
+             WHERE rt.token_hash = ?`
+        );
+        const countStmt = rawDb.prepare(
+            'SELECT COUNT(*) AS c FROM v2_questions WHERE user_id = ? AND deleted_at IS NULL AND purged = 0'
+        );
+
+        for (const item of candidates) {
+            const row = lookupStmt.get(sha256Hex(item.t)) as
+                | { user_id: string; expires_at: number; revoked_at: number | null; username: string }
+                | undefined;
+            if (!row || row.revoked_at !== null || row.expires_at <= now || row.user_id !== item.u) {
+                modifiedVault = true;
+                continue;
+            }
+            validVault.push(item);
+            const qCount = countStmt.get(row.user_id) as { c: number } | undefined;
+            accounts.push({
+                id: row.user_id,
+                username: row.username,
+                isAdmin: config.adminUsernames.includes(row.username.toLowerCase()),
+                questionCount: qCount?.c || 0,
+                isCurrent: row.user_id === currentSub,
+            });
+        }
+
+        if (modifiedVault) {
+            writeVault(c, c.req.raw, validVault);
+        }
+
+        return c.json({ ok: true, accounts }, 200);
+    });
+
+    // 2.4 SWITCH ACTIVE ACCOUNT FROM VAULT
+    router.post('/switch', async (c) => {
+        const config = c.get('config');
+        const rawDb = c.get('rawDb');
+        const body = await readJsonBody<{ userId?: unknown }>(c.req.raw, MAX_AUTH_BYTES);
+        const targetUserId = typeof body?.userId === 'string' ? body.userId.trim() : '';
+        if (!targetUserId) {
+            return c.json({ error: '缺少目标账号参数' }, 400);
+        }
+
+        const vault = readVault(c);
+        const refreshRaw = getCookie(c, REFRESH_COOKIE_NAME);
+        let rawToken = vault.find((e) => e.u === targetUserId)?.t || '';
+
+        if (!rawToken && refreshRaw) {
+            const rt = rawDb
+                .prepare('SELECT user_id FROM v2_refresh_tokens WHERE token_hash = ?')
+                .get(sha256Hex(refreshRaw)) as { user_id: string } | undefined;
+            if (rt?.user_id === targetUserId) rawToken = refreshRaw;
+        }
+
+        if (!rawToken) {
+            return c.json({ error: '该账号会话尚未保存或已过期，请重新登录' }, 401);
+        }
+
+        const now = Date.now();
+        const row = rawDb
+            .prepare(
+                `SELECT rt.id AS rt_id, rt.user_id, rt.expires_at, rt.revoked_at, u.username, u.token_version
+                 FROM v2_refresh_tokens rt
+                 JOIN users u ON u.id = rt.user_id
+                 WHERE rt.token_hash = ?`
+            )
+            .get(sha256Hex(rawToken)) as
+            | {
+                  rt_id: string;
+                  user_id: string;
+                  expires_at: number;
+                  revoked_at: number | null;
+                  username: string;
+                  token_version: number;
+              }
+            | undefined;
+
+        if (!row || row.revoked_at !== null || row.expires_at <= now || row.user_id !== targetUserId) {
+            removeFromVault(c, c.req.raw, targetUserId);
+            return c.json({ error: '该账号凭证已失效，请重新登录' }, 401);
+        }
+
+        const nextRefreshRaw = rawDb.transaction(() => {
+            rawDb
+                .prepare('UPDATE v2_refresh_tokens SET revoked_at = ? WHERE id = ?')
+                .run(now, row.rt_id);
+            return issueRefreshToken(rawDb, row.user_id, c.req.raw);
+        })();
+
+        setAuthCookies(c, c.req.raw, row.user_id, nextRefreshRaw);
+
+        const tv = typeof row.token_version === 'number' ? row.token_version : 1;
+        const isAdmin = config.adminUsernames.includes(row.username.toLowerCase());
+        const token = signJwt(
+            {
+                sub: row.user_id,
+                username: row.username,
+                role: isAdmin ? 'admin' : 'user',
+                tv,
+                exp: Math.floor(now / 1000) + JWT_TTL_SECONDS,
+            },
+            config.jwtSecret
+        );
+
+        return c.json(
+            {
+                ok: true,
+                token,
+                user: { id: row.user_id, username: row.username, isAdmin },
+            },
+            200
+        );
+    });
+
+    // 2.5 REMOVE A SAVED ACCOUNT FROM VAULT
+    router.post('/remove-account', async (c) => {
+        const rawDb = c.get('rawDb');
+        const body = await readJsonBody<{ userId?: unknown }>(c.req.raw, MAX_AUTH_BYTES);
+        const targetUserId = typeof body?.userId === 'string' ? body.userId.trim() : '';
+        if (!targetUserId) {
+            return c.json({ error: '缺少目标账号参数' }, 400);
+        }
+
+        const now = Date.now();
+        const vault = readVault(c);
+        const targetEntry = vault.find((e) => e.u === targetUserId);
+        if (targetEntry) {
+            rawDb
+                .prepare(
+                    'UPDATE v2_refresh_tokens SET revoked_at = ? WHERE token_hash = ? AND revoked_at IS NULL'
+                )
+                .run(now, sha256Hex(targetEntry.t));
+        }
+
+        const refreshRaw = getCookie(c, REFRESH_COOKIE_NAME);
+        if (refreshRaw) {
+            const refreshHash = sha256Hex(refreshRaw);
+            const rt = rawDb
+                .prepare('SELECT user_id FROM v2_refresh_tokens WHERE token_hash = ?')
+                .get(refreshHash) as { user_id: string } | undefined;
+            if (rt?.user_id === targetUserId) {
+                rawDb
+                    .prepare(
+                        'UPDATE v2_refresh_tokens SET revoked_at = ? WHERE token_hash = ? AND revoked_at IS NULL'
+                    )
+                    .run(now, refreshHash);
+                deleteCookie(c, REFRESH_COOKIE_NAME, { path: '/api/auth' });
+            }
+        }
+
+        removeFromVault(c, c.req.raw, targetUserId);
         return c.json({ ok: true }, 200);
     });
 
@@ -417,13 +746,7 @@ export function createAuthRouter(): Hono<AppEnv> {
         })();
 
         const freshRefresh = issueRefreshToken(rawDb, authUser.id, c.req.raw);
-        setCookie(c, REFRESH_COOKIE_NAME, freshRefresh, {
-            httpOnly: true,
-            sameSite: 'Lax',
-            path: '/api/auth',
-            secure: isHttpsRequest(c.req.raw),
-            maxAge: Math.floor(REFRESH_TTL_MS / 1000),
-        });
+        setAuthCookies(c, c.req.raw, authUser.id, freshRefresh);
 
         const freshToken = signJwt(
             {
@@ -482,6 +805,7 @@ export function createAuthRouter(): Hono<AppEnv> {
             rawDb.prepare('DELETE FROM users WHERE id = ?').run(delUser.id);
         })();
 
+        removeFromVault(c, c.req.raw, delUser.id);
         deleteCookie(c, REFRESH_COOKIE_NAME, { path: '/api/auth' });
         return c.json({ ok: true }, 200);
     });

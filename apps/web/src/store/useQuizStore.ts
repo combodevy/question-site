@@ -108,6 +108,7 @@ interface QuizStoreState {
   retryCurrentQuestion: () => void;
   finishSession: () => void;
   exitSession: () => void;
+  detachSession: () => void;
   retryWrong: () => boolean;
 }
 
@@ -225,6 +226,17 @@ export const useQuizStore = create<QuizStoreState>((set, get) => ({
 
   exitSession: () => {
     clearUnfinishedQuizSnapshot(get().userId);
+    set({
+      active: false,
+      queue: [],
+      idx: 0,
+      answers: {},
+      drafts: {},
+      finished: false,
+    });
+  },
+
+  detachSession: () => {
     set({
       active: false,
       queue: [],

@@ -197,7 +197,7 @@ export const AdminUsersView: React.FC<{ onInspectBank?: (userId: string) => void
             </thead>
             <tbody className="divide-y divide-line">
               {users.map((u) => (
-                <tr key={u.id} className="hover:bg-surface-muted/30">
+                <tr key={u.id} className="hover:bg-surface-muted/30 transition-colors duration-150">
                   <td className="p-3">
                     {!u.is_admin && (
                       <input

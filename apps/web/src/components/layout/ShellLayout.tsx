@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   AlertTriangle,
+  ArrowLeftRight,
   BarChart3,
   BookOpenCheck,
   Cloud,
@@ -25,6 +26,8 @@ import { getSyncEngine } from '@/sync/engine';
 import { useBi } from '@/i18n/useBi';
 import { ReauthModal } from '@/features/auth/AuthGate';
 import { Button } from '@/components/ui/Button';
+import { BackToTop } from '@/components/ui/BackToTop';
+import { AccountSwitcherModal } from '@/components/layout/AccountSwitcherModal';
 
 export type NavTab = 'dashboard' | 'setup' | 'library' | 'analytics' | 'english' | 'profile';
 
@@ -48,6 +51,7 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({
   const sync = useSyncStore();
   const { theme, setTheme, setLang, sidebarCollapsed, toggleSidebarCollapsed } = useUiStore();
   const [reauthOpen, setReauthOpen] = useState(false);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
 
   const navItems: Array<{
     key: NavTab;
@@ -132,6 +136,7 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({
           </div>
         )}
         <main className="flex-1 w-full max-w-5xl mx-auto px-3 sm:px-6 py-4 sm:py-6">{children}</main>
+        <BackToTop />
         <ReauthModal open={reauthOpen} onClose={() => setReauthOpen(false)} />
       </div>
     );
@@ -148,29 +153,37 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({
       >
         <div
           className={`border-b border-line flex ${
-            sidebarCollapsed ? 'flex-col items-center gap-2 py-4 px-2' : 'items-center justify-between gap-2 px-4 py-4'
+            sidebarCollapsed ? 'flex-col items-center gap-2 py-4 px-2' : 'items-center justify-between gap-2 px-3 py-3.5'
           }`}
         >
-          <div className={`flex items-center gap-2.5 min-w-0 ${sidebarCollapsed ? 'justify-center' : ''}`}>
-            <div
-              title={user?.username || '—'}
-              className="w-8 h-8 rounded-xl bg-accent text-accent-fg flex items-center justify-center shadow-sm flex-shrink-0 font-semibold text-sm"
-            >
+          <button
+            type="button"
+            data-testid="sidebar-account-btn"
+            onClick={() => setSwitcherOpen(true)}
+            title={bi('切换或添加账号', 'Switch account')}
+            className={`group flex items-center gap-2.5 min-w-0 rounded-xl p-1.5 hover:bg-surface-muted transition-colors ${
+              sidebarCollapsed ? 'justify-center' : 'flex-1 text-left'
+            }`}
+          >
+            <div className="w-8 h-8 rounded-xl bg-accent text-accent-fg flex items-center justify-center shadow-sm flex-shrink-0 font-semibold text-sm transition-transform duration-200 group-hover:scale-105">
               {user?.username ? user.username[0].toUpperCase() : <BookOpenCheck className="w-4 h-4" />}
             </div>
             {!sidebarCollapsed && (
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-ink truncate" data-testid="sidebar-username">
-                  {user?.username || '—'}
-                </div>
-                {user?.isAdmin && (
-                  <div className="text-[10px] text-accent font-medium truncate">
-                    {bi('管理员', 'Admin')}
+              <>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-ink truncate" data-testid="sidebar-username">
+                    {user?.username || '—'}
                   </div>
-                )}
-              </div>
+                  {user?.isAdmin && (
+                    <div className="text-[10px] text-accent font-medium truncate">
+                      {bi('管理员', 'Admin')}
+                    </div>
+                  )}
+                </div>
+                <ArrowLeftRight className="w-3.5 h-3.5 text-ink-muted opacity-60 group-hover:opacity-100 group-hover:text-accent transition-all flex-shrink-0" />
+              </>
             )}
-          </div>
+          </button>
           <button
             type="button"
             data-testid="sidebar-collapse-btn"
@@ -289,12 +302,18 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({
 
       {/* Mobile Top Header */}
       <header className="md:hidden sticky top-0 z-30 bg-surface/95 backdrop-blur border-b border-line px-4 py-3 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
+        <button
+          type="button"
+          onClick={() => setSwitcherOpen(true)}
+          className="flex items-center gap-2 min-w-0 rounded-lg px-1 py-0.5 hover:bg-surface-muted transition-colors"
+          title={bi('切换或添加账号', 'Switch account')}
+        >
           <div className="w-7 h-7 rounded-lg bg-accent text-accent-fg flex items-center justify-center font-semibold text-xs">
             {user?.username ? user.username[0].toUpperCase() : <BookOpenCheck className="w-4 h-4" />}
           </div>
           <span className="text-sm font-semibold text-ink truncate">{user?.username || '—'}</span>
-        </div>
+          <ArrowLeftRight className="w-3 h-3 text-ink-muted flex-shrink-0" />
+        </button>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -359,6 +378,8 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({
         })}
       </nav>
 
+      <BackToTop />
+      <AccountSwitcherModal open={switcherOpen} onClose={() => setSwitcherOpen(false)} />
       <ReauthModal open={reauthOpen} onClose={() => setReauthOpen(false)} />
     </div>
   );

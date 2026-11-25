@@ -480,14 +480,9 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           <span className="w-9 h-9 rounded-xl bg-accent-soft text-accent inline-flex items-center justify-center">
             <LibraryIcon className="w-4 h-4" />
           </span>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-ink">
-              {bi('题库管理', 'Question Library')}
-            </h1>
-            <p className="text-xs sm:text-sm text-ink-muted mt-0.5">
-              {bi('点击题目卡片切换答案显隐，支持多维排序与批量跨科整理', 'Click cards to toggle answers; sort cleanly or batch organize')}
-            </p>
-          </div>
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-ink">
+            {bi('题库管理', 'Question Library')}
+          </h1>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -731,7 +726,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             </div>
 
             <div className="text-[11px] text-ink-muted tabular-nums">
-              {bi(`共 ${filteredList.length} 题 | 点题面即可切换答案`, `${filteredList.length} items | Click card to toggle answer`)}
+              {bi(`共 ${filteredList.length} 题`, `${filteredList.length} items`)}
             </div>
           </div>
         )}
@@ -987,7 +982,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                   </div>
                 </div>
 
-                <div className="text-sm text-ink leading-relaxed">
+                <div className="text-sm font-bold text-ink leading-relaxed">
                   <MediaContent text={q.q} media={q.media} highlightQuery={query} />
                 </div>
 

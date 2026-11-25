@@ -125,7 +125,6 @@ export const BankManagerModal: React.FC<BankManagerModalProps> = ({
       open={open}
       onClose={onClose}
       title={bi('科目与章节管理', 'Subjects & Chapters')}
-      subtitle={bi('支持新增科目/章节、重命名、清理及自然数字序号排序', 'Create, rename, organize, and naturally sort subjects and chapters')}
       size="lg"
     >
       {stats.subjectTree.length === 0 ? (

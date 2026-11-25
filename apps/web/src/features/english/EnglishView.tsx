@@ -636,7 +636,7 @@ export const EnglishView: React.FC<{ data: LiveStudySnapshot }> = ({ data }) => 
                 return (
                   <Card key={q.no} padding="md" className="space-y-3">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="text-sm font-medium text-ink whitespace-pre-line leading-relaxed">
+                      <div className="text-sm font-bold text-ink whitespace-pre-line leading-relaxed">
                         {q.stem}
                       </div>
                       <Badge tone="neutral">Q{q.no}</Badge>
@@ -781,12 +781,6 @@ export const EnglishView: React.FC<{ data: LiveStudySnapshot }> = ({ data }) => 
           <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-ink">
             {bi('英语历年真题', 'English Past Papers')}
           </h1>
-          <p className="text-xs sm:text-sm text-ink-muted mt-0.5">
-            {bi(
-              '独立整卷作答，已打通云端进度同步（不混入主刷题库统计）',
-              'Dedicated CET-4, CET-6 & Graduate workspace with cloud progress sync',
-            )}
-          </p>
         </div>
 
         <div className="flex items-center gap-4 text-xs text-ink-muted tabular-nums">

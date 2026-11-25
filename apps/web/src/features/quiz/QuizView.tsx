@@ -385,7 +385,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
             <div className="divide-y divide-line">
               {wrongItems.map(({ item, state }) => (
                 <div key={item.id} className="py-3 first:pt-0 last:pb-0 space-y-1">
-                  <div className="text-sm font-medium text-ink">
+                  <div className="text-sm font-bold text-ink">
                     <MediaContent text={item.q} media={item.media} />
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-xs">
@@ -541,7 +541,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
               <span className="text-xs text-ink-muted truncate">{q.sub} / {q.chap}</span>
             </div>
 
-            <div className="text-base sm:text-[17px] font-medium text-ink leading-relaxed">
+            <div className="text-base sm:text-[17px] font-bold text-ink leading-relaxed">
               <MediaContent text={q.q} media={q.media} />
             </div>
           </Card>

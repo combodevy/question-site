@@ -352,14 +352,9 @@ export const PracticeSetupView: React.FC<PracticeSetupViewProps> = ({
           <span className="w-9 h-9 rounded-xl bg-accent-soft text-accent inline-flex items-center justify-center">
             <SlidersHorizontal className="w-4 h-4" />
           </span>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-ink">
-              {bi('刷题配置', 'Configure Session')}
-            </h1>
-            <p className="text-xs sm:text-sm text-ink-muted mt-0.5">
-              {bi('勾选条件自动记忆，下次打开自动延续上次配置', 'Your mode, filters, and chapter scope are remembered automatically')}
-            </p>
-          </div>
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-ink">
+            {bi('刷题配置', 'Configure Session')}
+          </h1>
         </div>
       </div>
 
@@ -371,7 +366,6 @@ export const PracticeSetupView: React.FC<PracticeSetupViewProps> = ({
                 <Sparkles className="w-3.5 h-3.5 text-accent" />
                 {bi('选择练习模式', 'Practice Mode')}
               </label>
-              <span className="text-[11px] text-ink-muted">{bi('点击切换卡片', 'Pick one')}</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5" data-testid="setup-mode-grid">
@@ -490,18 +484,11 @@ export const PracticeSetupView: React.FC<PracticeSetupViewProps> = ({
 
         <Card className="lg:col-span-7 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-start gap-2">
-              <span className="w-7 h-7 rounded-lg bg-accent-soft text-accent inline-flex items-center justify-center mt-0.5">
+            <div className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-lg bg-accent-soft text-accent inline-flex items-center justify-center">
                 <BookOpen className="w-3.5 h-3.5" />
               </span>
-              <div>
-                <h3 className="text-sm font-semibold text-ink">{bi('科目与章节范围', 'Subjects & Chapters')}</h3>
-                <p className="text-[11px] text-ink-muted">
-                  {isChapterScoped
-                    ? bi('勾选状态会自动保存；可点击“仅此科/仅此章”或右侧“直练”', 'Selections auto-save; use Focus or Go for instant drill')
-                    : bi('当前模式按复习/错题/收藏队列自动筛选', 'Scoped by the selected study mode')}
-                </p>
-              </div>
+              <h3 className="text-sm font-semibold text-ink">{bi('科目与章节范围', 'Subjects & Chapters')}</h3>
             </div>
             <div className="flex items-center gap-1.5">
               <Button

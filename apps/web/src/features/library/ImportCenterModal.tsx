@@ -481,7 +481,7 @@ export const ImportCenterModal: React.FC<ImportCenterModalProps> = ({
                     <span className="font-mono">#{idx + 1} / {q.type}</span>
                     <span className="truncate">{q.sub} / {q.chap}</span>
                   </div>
-                  <div className="text-ink font-medium line-clamp-2">{q.q}</div>
+                  <div className="text-ink font-bold line-clamp-2">{q.q}</div>
                 </div>
               ))}
               {previewQs.length > 40 && (

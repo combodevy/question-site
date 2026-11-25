@@ -82,6 +82,9 @@ const NO_REFRESH_PATHS = new Set([
   '/api/auth/signup',
   '/api/auth/refresh',
   '/api/auth/logout',
+  '/api/auth/accounts',
+  '/api/auth/switch',
+  '/api/auth/remove-account',
 ]);
 
 export interface ApiFetchOptions extends Omit<RequestInit, 'body'> {
@@ -156,7 +159,15 @@ export interface AuthUserSummary {
 export interface AuthLoginResponse {
   ok: true;
   token: string;
-  user: { id: string; username: string };
+  user: { id: string; username: string; isAdmin?: boolean };
+}
+
+export interface SavedAccountItem {
+  id: string;
+  username: string;
+  isAdmin: boolean;
+  questionCount: number;
+  isCurrent: boolean;
 }
 
 export interface AuthMeResponse {
@@ -276,10 +287,31 @@ export const authApi = {
       return null;
     }
   },
-  logout: () =>
-    apiFetch<{ ok: true }>('/api/auth/logout', { method: 'POST', skipAuth: true }).catch(() => ({
+  logout: (all = false) =>
+    apiFetch<{ ok: true }>('/api/auth/logout', {
+      method: 'POST',
+      body: all ? { all: true } : undefined,
+      skipAuth: true,
+    }).catch(() => ({
       ok: true as const,
     })),
+  accounts: () =>
+    apiFetch<{ ok: true; accounts: SavedAccountItem[] }>('/api/auth/accounts').catch(() => ({
+      ok: true as const,
+      accounts: [] as SavedAccountItem[],
+    })),
+  switchAccount: (userId: string) =>
+    apiFetch<AuthLoginResponse>('/api/auth/switch', {
+      method: 'POST',
+      body: { userId },
+      skipAuth: true,
+    }),
+  removeAccount: (userId: string) =>
+    apiFetch<{ ok: true }>('/api/auth/remove-account', {
+      method: 'POST',
+      body: { userId },
+      skipAuth: true,
+    }),
   me: () => apiFetch<AuthMeResponse>('/api/auth/me'),
   changePassword: (oldPassword: string, newPassword: string) =>
     apiFetch<{ ok: true; token: string }>('/api/auth/change-password', {

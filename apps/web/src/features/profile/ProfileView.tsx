@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   AlertTriangle,
   Archive,
+  ArrowLeftRight,
   Download,
   KeyRound,
   LogOut,
@@ -24,6 +25,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { AccountSwitcherModal } from '@/components/layout/AccountSwitcherModal';
 
 export const ProfileView: React.FC<{ data: LiveStudySnapshot; stats: StudyStats }> = ({
   data,
@@ -52,6 +54,7 @@ export const ProfileView: React.FC<{ data: LiveStudySnapshot; stats: StudyStats 
   const [loadingCloud, setLoadingCloud] = useState(false);
 
   const [pwOpen, setPwOpen] = useState(false);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
   const [oldPw, setOldPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [newPw2, setNewPw2] = useState('');
@@ -260,14 +263,11 @@ export const ProfileView: React.FC<{ data: LiveStudySnapshot; stats: StudyStats 
         <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-ink">
           {bi('账户、同步与云端备份', 'Profile, Sync & Backups')}
         </h1>
-        <p className="text-xs sm:text-sm text-ink-muted mt-0.5">
-          {bi('管理账号安全、增量同步日志与云端历史快照', 'Manage security, incremental sync, and snapshots')}
-        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Account Card */}
-        <Card className="lg:col-span-6 space-y-4">
+        <Card className="lg:col-span-6 space-y-4 card-hover">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-11 h-11 rounded-2xl bg-accent-soft text-accent font-semibold text-lg flex items-center justify-center">
@@ -294,6 +294,10 @@ export const ProfileView: React.FC<{ data: LiveStudySnapshot; stats: StudyStats 
           </div>
 
           <div className="flex flex-wrap gap-2 pt-2 border-t border-line">
+            <Button size="sm" variant="primary" onClick={() => setSwitcherOpen(true)} data-testid="profile-switch-account-btn">
+              <ArrowLeftRight className="w-3.5 h-3.5" />
+              {bi('切换账号', 'Switch Account')}
+            </Button>
             <Button size="sm" variant="outline" onClick={() => setPwOpen(true)}>
               <KeyRound className="w-3.5 h-3.5" />
               {bi('修改密码', 'Change Password')}
@@ -432,12 +436,7 @@ export const ProfileView: React.FC<{ data: LiveStudySnapshot; stats: StudyStats 
             </div>
 
             <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-canvas border border-line">
-              <div>
-                <div className="text-xs font-medium text-ink">{bi('答对后自动下一题', 'Auto-next on correct')}</div>
-                <div className="text-[11px] text-ink-muted">
-                  {bi('作答正确时短暂显示反馈并自动跳转下一题', 'Automatically advance shortly after a correct answer')}
-                </div>
-              </div>
+              <div className="text-xs font-medium text-ink">{bi('答对后自动下一题', 'Auto-next on correct')}</div>
               <button
                 type="button"
                 role="switch"
@@ -541,10 +540,7 @@ export const ProfileView: React.FC<{ data: LiveStudySnapshot; stats: StudyStats 
 
         <Card className="lg:col-span-7 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h3 className="text-sm font-semibold text-ink">{bi('云端快照备份', 'Cloud Backups')}</h3>
-              <p className="text-[11px] text-ink-muted">{bi('每类云端保留最近 5 份，支持一键覆盖恢复', 'Up to 5 snapshots per type')}</p>
-            </div>
+            <h3 className="text-sm font-semibold text-ink">{bi('云端快照备份', 'Cloud Backups')}</h3>
             <div className="flex items-center gap-1.5">
               <Button size="sm" variant="outline" onClick={() => void handleCreateBackup('bank')}>
                 <Archive className="w-3.5 h-3.5" />
@@ -652,6 +648,8 @@ export const ProfileView: React.FC<{ data: LiveStudySnapshot; stats: StudyStats 
           </div>
         </form>
       </Modal>
+
+      <AccountSwitcherModal open={switcherOpen} onClose={() => setSwitcherOpen(false)} />
     </div>
   );
 };

@@ -5,9 +5,11 @@ import {
   onSessionExpired,
   setStoredToken,
   type AuthUserSummary,
+  type SavedAccountItem,
 } from '@/lib/api';
 import { deleteUserDb } from '@/db';
-import { startSyncEngine, stopSyncEngine } from '@/sync/engine';
+import { getSyncEngine, startSyncEngine, stopSyncEngine } from '@/sync/engine';
+import { useQuizStore } from '@/store/useQuizStore';
 
 export type AuthStatus = 'booting' | 'authenticated' | 'unauthenticated';
 
@@ -15,11 +17,16 @@ interface AuthState {
   status: AuthStatus;
   user: AuthUserSummary | null;
   sessionExpired: boolean;
+  savedAccounts: SavedAccountItem[];
+  switchingAccount: boolean;
   bootstrap: () => Promise<void>;
   login: (username: string, password: string) => Promise<void>;
   signup: (username: string, password: string) => Promise<void>;
-  logout: (clearLocalDb?: boolean) => Promise<void>;
+  logout: (clearLocalDb?: boolean, logoutAll?: boolean) => Promise<void>;
   refreshMe: () => Promise<void>;
+  fetchSavedAccounts: () => Promise<SavedAccountItem[]>;
+  switchAccount: (targetUserId: string) => Promise<void>;
+  removeSavedAccount: (targetUserId: string) => Promise<void>;
 }
 
 function parseJwtSub(token: string): { id: string; username: string; isAdmin: boolean } | null {
@@ -39,6 +46,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   status: 'booting',
   user: null,
   sessionExpired: false,
+  savedAccounts: [],
+  switchingAccount: false,
 
   bootstrap: async () => {
     const token = getStoredToken();
@@ -58,6 +67,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } catch {
         // Offline or expired (onSessionExpired sets sessionExpired=true if refresh failed)
       }
+      void get().fetchSavedAccounts();
       return;
     }
 
@@ -74,15 +84,46 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         });
         startSyncEngine(claims.id);
         void get().refreshMe();
+        void get().fetchSavedAccounts();
         return;
       }
     }
 
     set({ status: 'unauthenticated', user: null, sessionExpired: false });
+    void get().fetchSavedAccounts();
   },
 
   login: async (username, password) => {
     const res = await authApi.login(username, password);
+    try {
+      await getSyncEngine()?.syncNow({ quiet: true });
+    } catch {
+      // ignore flush error before switch
+    }
+    useQuizStore.getState().detachSession();
+    stopSyncEngine();
+    setStoredToken(res.token);
+    const claims = parseJwtSub(res.token);
+    const nextUser: AuthUserSummary = {
+      id: res.user.id,
+      username: res.user.username,
+      isAdmin: claims?.isAdmin ?? Boolean(res.user.isAdmin),
+    };
+    set({ status: 'authenticated', user: nextUser, sessionExpired: false });
+    startSyncEngine(res.user.id);
+    void get().refreshMe();
+    void get().fetchSavedAccounts();
+  },
+
+  signup: async (username, password) => {
+    const res = await authApi.signup(username, password);
+    try {
+      await getSyncEngine()?.syncNow({ quiet: true });
+    } catch {
+      // ignore flush error before switch
+    }
+    useQuizStore.getState().detachSession();
+    stopSyncEngine();
     setStoredToken(res.token);
     const claims = parseJwtSub(res.token);
     const nextUser: AuthUserSummary = {
@@ -93,30 +134,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ status: 'authenticated', user: nextUser, sessionExpired: false });
     startSyncEngine(res.user.id);
     void get().refreshMe();
+    void get().fetchSavedAccounts();
   },
 
-  signup: async (username, password) => {
-    const res = await authApi.signup(username, password);
-    setStoredToken(res.token);
-    const nextUser: AuthUserSummary = {
-      id: res.user.id,
-      username: res.user.username,
-      isAdmin: false,
-    };
-    set({ status: 'authenticated', user: nextUser, sessionExpired: false });
-    startSyncEngine(res.user.id);
-    void get().refreshMe();
-  },
-
-  logout: async (clearLocalDb = true) => {
+  logout: async (clearLocalDb = true, logoutAll = false) => {
     const uid = get().user?.id;
+    useQuizStore.getState().detachSession();
     stopSyncEngine();
     setStoredToken(null);
-    await authApi.logout();
+    await authApi.logout(logoutAll);
     if (clearLocalDb && uid) {
       await deleteUserDb(uid).catch(() => undefined);
     }
     set({ status: 'unauthenticated', user: null, sessionExpired: false });
+    void get().fetchSavedAccounts();
   },
 
   refreshMe: async () => {
@@ -126,6 +157,55 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch {
       // ignore
     }
+  },
+
+  fetchSavedAccounts: async () => {
+    try {
+      const res = await authApi.accounts();
+      const list = Array.isArray(res.accounts) ? res.accounts : [];
+      set({ savedAccounts: list });
+      return list;
+    } catch {
+      return get().savedAccounts;
+    }
+  },
+
+  switchAccount: async (targetUserId) => {
+    set({ switchingAccount: true });
+    try {
+      try {
+        await getSyncEngine()?.syncNow({ quiet: true });
+      } catch {
+        // ignore pre-switch flush failure
+      }
+      const res = await authApi.switchAccount(targetUserId);
+      useQuizStore.getState().detachSession();
+      stopSyncEngine();
+      setStoredToken(res.token);
+      const claims = parseJwtSub(res.token);
+      const nextUser: AuthUserSummary = {
+        id: res.user.id,
+        username: res.user.username,
+        isAdmin: claims?.isAdmin ?? Boolean(res.user.isAdmin),
+      };
+      set({ status: 'authenticated', user: nextUser, sessionExpired: false });
+      startSyncEngine(res.user.id);
+      void get().refreshMe();
+      await get().fetchSavedAccounts();
+    } finally {
+      set({ switchingAccount: false });
+    }
+  },
+
+  removeSavedAccount: async (targetUserId) => {
+    await authApi.removeAccount(targetUserId);
+    if (get().user?.id === targetUserId) {
+      useQuizStore.getState().detachSession();
+      stopSyncEngine();
+      setStoredToken(null);
+      set({ status: 'unauthenticated', user: null, sessionExpired: false });
+    }
+    await get().fetchSavedAccounts();
   },
 }));
 

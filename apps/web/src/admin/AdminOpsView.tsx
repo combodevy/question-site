@@ -127,8 +127,8 @@ export const AdminOpsView: React.FC = () => {
           { label: '全站有效题数', val: stats?.questions ?? '—' },
           { label: '同步 / 错误日志', val: stats?.logs ?? '—' },
           { label: '24h 活跃用户', val: stats?.activeToday ?? '—' },
-        ].map((k) => (
-          <Card key={k.label} padding="sm">
+        ].map((k, idx) => (
+          <Card key={k.label} padding="sm" className="anim-stagger card-hover" style={{ '--stagger-i': idx } as React.CSSProperties}>
             <div className="text-xs text-ink-muted">{k.label}</div>
             <div className="text-2xl font-semibold text-ink tabular-nums mt-1.5">{k.val}</div>
           </Card>

@@ -34,6 +34,8 @@ interface AnalyticsViewProps {
   onInspectQuestion: (q: LocalQuestion) => void;
 }
 
+type TrendRange = '7d' | '30d' | '1y';
+
 export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
   data,
   stats,
@@ -51,6 +53,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
       return 'all';
     }
   });
+  const [trendRange, setTrendRange] = useState<TrendRange>('7d');
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   const subjects = useMemo(() => stats.subjectTree.map((s) => s.sub), [stats.subjectTree]);
@@ -108,8 +111,37 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
     };
   }, [scopedHistory, scopedQuestions.length]);
 
-  // 30-day series
-  const daily30 = useMemo(() => {
+  // 7d / 30d / 1y trend series
+  const trendSeries = useMemo(() => {
+    if (trendRange === '1y') {
+      const map = new Map<string, { total: number; correct: number }>();
+      for (const h of scopedHistory) {
+        const dt = new Date(h.t);
+        const mk = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+        const b = map.get(mk) || { total: 0, correct: 0 };
+        b.total++;
+        if (h.r) b.correct++;
+        map.set(mk, b);
+      }
+      const arr: Array<{ key: string; label: string; total: number; correct: number; acc: number }> = [];
+      const base = new Date();
+      base.setDate(1);
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
+        const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const v = map.get(mk) || { total: 0, correct: 0 };
+        arr.push({
+          key: mk,
+          label: `${String(d.getFullYear()).slice(2)}/${d.getMonth() + 1}`,
+          total: v.total,
+          correct: v.correct,
+          acc: v.total ? Math.round((v.correct / v.total) * 100) : 0,
+        });
+      }
+      return arr;
+    }
+
+    const daysCount = trendRange === '7d' ? 7 : 30;
     const map = new Map<string, { total: number; correct: number }>();
     for (const h of scopedHistory) {
       const k = localDayKey(h.t);
@@ -119,7 +151,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
       map.set(k, b);
     }
     const arr: Array<{ key: string; label: string; total: number; correct: number; acc: number }> = [];
-    for (let i = 29; i >= 0; i--) {
+    for (let i = daysCount - 1; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const k = localDayKey(d);
@@ -133,7 +165,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
       });
     }
     return arr;
-  }, [scopedHistory]);
+  }, [scopedHistory, trendRange]);
 
   // 84-day (12-week) heatmap
   const heatmap84 = useMemo(() => {
@@ -344,13 +376,15 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
     );
   }
 
-  const maxBar = Math.max(1, ...daily30.map((d) => d.total));
+  const maxBar = Math.max(1, ...trendSeries.map((d) => d.total));
+  const barStep = 600 / Math.max(1, trendSeries.length);
+  const barW = trendRange === '7d' ? 42 : trendRange === '1y' ? 28 : 13;
 
-  // Polyline points for 30-day accuracy trend (over days with attempts)
-  const accLinePoints = daily30
+  // Polyline points for accuracy trend (over buckets with attempts)
+  const accLinePoints = trendSeries
     .map((d, i) => {
       if (d.total === 0) return null;
-      const x = i * 20 + 6.5;
+      const x = i * barStep + barStep / 2;
       const y = 130 - Math.round((d.acc / 100) * 112);
       return `${x},${y}`;
     })
@@ -368,14 +402,9 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
           <span className="w-9 h-9 rounded-xl bg-accent-soft text-accent inline-flex items-center justify-center">
             <BarChart3 className="w-4 h-4" />
           </span>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-ink">
-              {bi('学习分析', 'Learning Analytics')}
-            </h1>
-            <p className="text-xs sm:text-sm text-ink-muted mt-0.5">
-              {bi('全维作答节律、用时分布、遗忘曲线与高频错题精析', 'Study cadence, duration profile, retention horizon, and mistake breakdown')}
-            </p>
-          </div>
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-ink">
+            {bi('学习分析', 'Learning Analytics')}
+          </h1>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -450,7 +479,6 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
           <div className="text-2xl font-semibold text-ink tabular-nums mt-2">
             {stats.streakDays} {bi('天', 'd')}
           </div>
-          <div className="text-[11px] text-ink-muted mt-0.5">{bi('持续保持节奏', 'Consistent habit')}</div>
         </Card>
 
         <Card padding="sm" className="anim-stagger card-hover" style={{ '--stagger-i': 3 } as React.CSSProperties}>
@@ -493,28 +521,63 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
         </Card>
       </div>
 
-      {/* 30-day SVG Bar + Accuracy Trend & 12-week Heatmap */}
+      {/* Trend SVG Bar + Accuracy Curve (7d / 30d / 1y) & 12-week Heatmap */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         <Card className="lg:col-span-7 space-y-3">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h3 className="text-sm font-semibold text-ink">{bi('近 30 日做题量与正确率曲线', '30-Day Activity & Accuracy Trend')}</h3>
-              <p className="text-[11px] text-ink-muted">
-                {hoveredIdx !== null
-                  ? `${daily30[hoveredIdx].label} | ${daily30[hoveredIdx].total} ${bi('题', 'Q')} | ${daily30[hoveredIdx].acc}%`
-                  : bi('柱状为每日做题量，折线为当日正确率变化', 'Bars show volume; overlaid line tracks daily accuracy')}
-              </p>
+              <h3 className="text-sm font-semibold text-ink">
+                {trendRange === '7d'
+                  ? bi('近 7 日做题量与正确率曲线', '7-Day Activity & Accuracy')
+                  : trendRange === '30d'
+                  ? bi('近 1 月做题量与正确率曲线', '30-Day Activity & Accuracy')
+                  : bi('近 1 年做题量与正确率曲线', '1-Year Activity & Accuracy')}
+              </h3>
+              {hoveredIdx !== null && trendSeries[hoveredIdx] && (
+                <p className="text-[11px] text-accent font-medium tabular-nums">
+                  {trendSeries[hoveredIdx].label} | {trendSeries[hoveredIdx].total} {bi('题', 'Q')} | {trendSeries[hoveredIdx].acc}%
+                </p>
+              )}
+            </div>
+
+            <div className="inline-flex p-0.5 rounded-xl bg-surface-muted border border-line text-xs">
+              {(
+                [
+                  { k: '7d', label: bi('近 7 日', '7D') },
+                  { k: '30d', label: bi('近 1 月', '1M') },
+                  { k: '1y', label: bi('近 1 年', '1Y') },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.k}
+                  type="button"
+                  data-testid={`analytics-range-${opt.k}`}
+                  onClick={() => {
+                    setTrendRange(opt.k);
+                    setHoveredIdx(null);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
+                    trendRange === opt.k ? 'bg-surface text-ink shadow-sm' : 'text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
 
-          <svg viewBox="0 0 600 150" className="w-full h-40 overflow-visible">
+          <svg key={trendRange} viewBox="0 0 600 156" className="w-full h-44 overflow-visible">
             <line x1="0" y1="130" x2="600" y2="130" stroke="var(--border)" strokeWidth="1" />
-            {daily30.map((d, i) => {
-              const barW = 13;
-              const gap = 7;
-              const x = i * (barW + gap);
+            {trendSeries.map((d, i) => {
+              const x = i * barStep + (barStep - barW) / 2;
+              const centerX = i * barStep + barStep / 2;
               const totalH = Math.round((d.total / maxBar) * 114);
               const okH = d.total > 0 ? Math.round((d.correct / d.total) * totalH) : 0;
+              const showLabel =
+                trendRange === '7d' ||
+                trendRange === '1y' ||
+                i % 5 === 0 ||
+                i === trendSeries.length - 1;
               return (
                 <g
                   key={d.key}
@@ -522,7 +585,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                   onMouseLeave={() => setHoveredIdx(null)}
                   className="cursor-pointer"
                 >
-                  <rect x={x} y={16} width={barW} height={114} fill="transparent" />
+                  <rect x={i * barStep} y={14} width={barStep} height={120} fill="transparent" />
                   {d.total > 0 ? (
                     <>
                       <rect
@@ -548,6 +611,17 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                   ) : (
                     <rect x={x} y={128} width={barW} height={2} rx="1" fill="var(--border)" />
                   )}
+                  {showLabel && (
+                    <text
+                      x={centerX}
+                      y={148}
+                      textAnchor="middle"
+                      fontSize="10"
+                      fill="var(--text-muted)"
+                    >
+                      {d.label}
+                    </text>
+                  )}
                 </g>
               );
             })}
@@ -562,16 +636,16 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                 className="pointer-events-none"
               />
             )}
-            {daily30.map((d, i) => {
+            {trendSeries.map((d, i) => {
               if (d.total === 0) return null;
-              const x = i * 20 + 6.5;
+              const x = i * barStep + barStep / 2;
               const y = 130 - Math.round((d.acc / 100) * 112);
               return (
                 <circle
                   key={`pt-${d.key}`}
                   cx={x}
                   cy={y}
-                  r={hoveredIdx === i ? 4 : 2.5}
+                  r={hoveredIdx === i ? 4.5 : 3}
                   fill="#f59e0b"
                   className="pointer-events-none"
                 />
@@ -581,10 +655,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
         </Card>
 
         <Card className="lg:col-span-5 space-y-4">
-          <div>
-            <h3 className="text-sm font-semibold text-ink">{bi('12 周学习热力与题型表现', '12-Week Consistency & Types')}</h3>
-            <p className="text-[11px] text-ink-muted">{bi('每日刷题活跃度与四类题型正确率', 'Daily heatmap and per-type accuracy')}</p>
-          </div>
+          <h3 className="text-sm font-semibold text-ink">{bi('12 周学习热力与题型表现', '12-Week Consistency & Types')}</h3>
 
           <div className="grid grid-cols-12 gap-1.5">
             {heatmap84.map((c) => {
@@ -623,10 +694,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             <span className="w-7 h-7 rounded-lg bg-sky-500/15 text-sky-600 dark:text-sky-400 inline-flex items-center justify-center">
               <Hourglass className="w-3.5 h-3.5" />
             </span>
-            <div>
-              <h3 className="text-sm font-semibold text-ink">{bi('作答耗时分布', 'Response Time Distribution')}</h3>
-              <p className="text-[11px] text-ink-muted">{bi('识别秒杀熟练题与久思卡壳题', 'Spot quick recalls vs. slow struggles')}</p>
-            </div>
+            <h3 className="text-sm font-semibold text-ink">{bi('作答耗时分布', 'Response Time Distribution')}</h3>
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-5">
@@ -688,10 +756,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             <span className="w-7 h-7 rounded-lg bg-violet-500/15 text-violet-600 dark:text-violet-400 inline-flex items-center justify-center">
               <Brain className="w-3.5 h-3.5" />
             </span>
-            <div>
-              <h3 className="text-sm font-semibold text-ink">{bi('SM-2 遗忘临界分布', 'SM-2 Retention Horizon')}</h3>
-              <p className="text-[11px] text-ink-muted">{bi('已练题目按记忆到期区间分布，评估长期留存状态', 'Scheduled review dates grouped by urgency')}</p>
-            </div>
+            <h3 className="text-sm font-semibold text-ink">{bi('SM-2 遗忘临界分布', 'SM-2 Retention Horizon')}</h3>
           </div>
 
           <div className="space-y-2.5">
@@ -721,16 +786,11 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
       {subScope === 'all' ? (
         subjectComparison.rows.length > 0 && (
           <Card className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="w-7 h-7 rounded-lg bg-accent-soft text-accent inline-flex items-center justify-center">
-                  <BookOpen className="w-3.5 h-3.5" />
-                </span>
-                <div>
-                  <h3 className="text-sm font-semibold text-ink">{bi('各科目正确率与诊断对比', 'Subject Accuracy & Diagnosis')}</h3>
-                  <p className="text-[11px] text-ink-muted">{bi('点击任意科目条可切换为该科目的单科深度分析', 'Click any subject to inspect chapter breakdown')}</p>
-                </div>
-              </div>
+            <div className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-lg bg-accent-soft text-accent inline-flex items-center justify-center">
+                <BookOpen className="w-3.5 h-3.5" />
+              </span>
+              <h3 className="text-sm font-semibold text-ink">{bi('各科目正确率与诊断对比', 'Subject Accuracy & Diagnosis')}</h3>
             </div>
 
             {(subjectComparison.best || subjectComparison.weakest) && (
@@ -789,14 +849,9 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
         )
       ) : (
         <Card className="space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <h3 className="text-sm font-semibold text-ink">
-                {bi(`${subScope} 章节掌握透视`, `${subScope} Chapter Breakdown`)}
-              </h3>
-              <p className="text-[11px] text-ink-muted">{bi('按自然章节顺序展示正确率与作答量', 'Accuracy and attempts per chapter')}</p>
-            </div>
-          </div>
+          <h3 className="text-sm font-semibold text-ink">
+            {bi(`${subScope} 章节掌握透视`, `${subScope} Chapter Breakdown`)}
+          </h3>
           <div className="space-y-2">
             {chapterBreakdown.map((c) => (
               <div
@@ -844,12 +899,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             <span className="w-7 h-7 rounded-lg bg-red-500/15 text-red-600 dark:text-red-400 inline-flex items-center justify-center">
               <CheckCircle2 className="w-3.5 h-3.5" />
             </span>
-            <div>
-              <h3 className="text-sm font-semibold text-ink">{bi('高频错题 TOP 榜', 'Most Frequently Missed')}</h3>
-              <p className="text-[11px] text-ink-muted">
-                {bi('完整展示题目选项、参考答案与解析，点击条目或按钮查看作答轨迹', 'Full options & answers shown inline; click to inspect history')}
-              </p>
-            </div>
+            <h3 className="text-sm font-semibold text-ink">{bi('高频错题 TOP 榜', 'Most Frequently Missed')}</h3>
           </div>
           {topMistakes.length > 0 && (
             <Button
@@ -917,10 +967,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             <span className="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 inline-flex items-center justify-center">
               <Clock className="w-3.5 h-3.5" />
             </span>
-            <div>
-              <h3 className="text-sm font-semibold text-ink">{bi('耗时最久 TOP 10', 'Slowest Questions TOP 10')}</h3>
-              <p className="text-[11px] text-ink-muted">{bi('点击任意题目查看完整作答记录与参考答案', 'Click to view full options and attempt log')}</p>
-            </div>
+            <h3 className="text-sm font-semibold text-ink">{bi('耗时最久 TOP 10', 'Slowest Questions TOP 10')}</h3>
           </div>
 
           <div className="divide-y divide-line">
@@ -934,7 +981,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                   <div className="text-xs text-ink-muted truncate">
                     #{idx + 1} | {s.q.sub} / {s.q.chap}
                   </div>
-                  <div className="text-sm text-ink truncate mt-0.5">{s.q.q}</div>
+                  <div className="text-sm font-bold text-ink truncate mt-0.5">{s.q.q}</div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Badge tone="warning">{s.avgSec}s</Badge>

@@ -229,7 +229,7 @@ class ErrorBoundary extends React.Component<
 }
 
 export const App: React.FC = () => {
-  const { status, bootstrap } = useAuthStore();
+  const { status, user, bootstrap } = useAuthStore();
 
   useEffect(() => {
     void bootstrap();
@@ -243,7 +243,7 @@ export const App: React.FC = () => {
             正在载入在线刷题平台…
           </div>
         ) : status === 'authenticated' ? (
-          <AuthenticatedApp />
+          <AuthenticatedApp key={user?.id || 'auth'} />
         ) : (
           <AuthGate />
         )}
