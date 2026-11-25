@@ -94,6 +94,7 @@ export default defineConfig({
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//, /^\/admin\.html/, /^\/admin$/, /^\/english\//, /^\/fonts\//, /^\/media\//],
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globIgnores: ['**/admin.html', '**/assets/admin-*.js'],
       },
     }),
   ],
