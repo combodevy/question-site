@@ -195,4 +195,71 @@ describe('Normalized v2 incremental sync protocol (/api/sync/push & /api/sync/pu
             true
         );
     });
+
+    it('roundtrips Q&A questions with long multiline answers (>500 chars) and multi-blank fill questions', async () => {
+        const { db, app } = createTestContext();
+        cleanups.push(() => db.close());
+
+        const su = await reqJson(app, '/api/auth/signup', {
+            method: 'POST',
+            body: { username: 'qa_syncer', password: 'Password123' },
+        });
+        const token = su.json?.token as string;
+        const longQaAnswer = (
+            'MCP (Model Context Protocol) 是一种开放协议：\n' + '1. 标准化模型与外部工具、数据源之间的上下文交互；\n'.repeat(25)
+        ).trim();
+        expect(longQaAnswer.length).toBeGreaterThan(600);
+
+        const pushRes = await reqJson(app, '/api/sync/push', {
+            method: 'POST',
+            token,
+            body: {
+                mutations: [
+                    {
+                        opId: 'op-qa-1',
+                        op: 'upsert_question',
+                        question: {
+                            id: 'qa-1',
+                            type: 'qa',
+                            q: '简述一下 MCP 协议的核心作用。',
+                            o: [],
+                            a: longQaAnswer,
+                            sub: 'AI 工程',
+                            chap: '第一章',
+                            d: '关注 Client/Server/Host 架构与 Tools/Resources/Prompts 原语。',
+                        },
+                    },
+                    {
+                        opId: 'op-fill-multi-1',
+                        op: 'upsert_question',
+                        question: {
+                            id: 'fill-multi-1',
+                            type: 'fill',
+                            q: '网页安全传输协议缩写是 __，默认端口为 __。',
+                            o: [],
+                            a: 'HTTPS|超文本传输安全协议;;443|四四三',
+                            sub: '计算机网络',
+                            chap: '应用层',
+                            d: 'HTTPS 默认端口 443，HTTP 默认 80。',
+                        },
+                    },
+                ],
+            },
+        });
+        expect(pushRes.status).toBe(200);
+        expect((pushRes.json?.results as Array<{ status: string }>).map((r) => r.status)).toEqual([
+            'applied',
+            'applied',
+        ]);
+
+        const pullRes = await reqJson(app, '/api/sync/pull?cursor=0', { token });
+        expect(pullRes.status).toBe(200);
+        const qs = pullRes.json?.questions as Array<{ id: string; type: string; a: string }>;
+        const qa = qs.find((q) => q.id === 'qa-1');
+        const fill = qs.find((q) => q.id === 'fill-multi-1');
+        expect(qa?.type).toBe('qa');
+        expect(qa?.a).toBe(longQaAnswer);
+        expect(fill?.type).toBe('fill');
+        expect(fill?.a).toBe('HTTPS|超文本传输安全协议;;443|四四三');
+    });
 });

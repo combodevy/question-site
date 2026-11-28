@@ -186,12 +186,13 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
 
   // Question Type Breakdown
   const byType = useMemo(() => {
-    const types = ['mcq', 'multi', 'tf', 'fill'] as const;
+    const types = ['mcq', 'multi', 'tf', 'fill', 'qa'] as const;
     const labels: Record<string, string> = {
       mcq: bi('单选题', 'Single'),
       multi: bi('多选题', 'Multi'),
       tf: bi('判断题', 'T/F'),
       fill: bi('填空题', 'Fill'),
+      qa: bi('问答题', 'Q&A'),
     };
     return types.map((tp) => {
       const recs = scopedHistory.filter((h) => qMap.get(h.id)?.type === tp);
@@ -673,7 +674,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             })}
           </div>
 
-          <div className="grid grid-cols-4 gap-2 pt-2 border-t border-line">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2 border-t border-line">
             {byType.map((t) => (
               <div key={t.type} className="text-center p-2 rounded-xl bg-canvas border border-line">
                 <div className="text-[11px] text-ink-muted">{t.label}</div>

@@ -18,7 +18,7 @@ export function isSafeKey(k: unknown): k is string {
     );
 }
 
-export const QuestionTypeSchema = z.enum(['mcq', 'multi', 'tf', 'fill']);
+export const QuestionTypeSchema = z.enum(['mcq', 'multi', 'tf', 'fill', 'qa']);
 export type QuestionType = z.infer<typeof QuestionTypeSchema>;
 
 export const MediaImgSchema = z.object({
@@ -43,7 +43,7 @@ export const QuestionSchema = z.object({
     type: QuestionTypeSchema,
     q: z.string().max(20000),
     o: z.array(z.string()).default([]),
-    a: z.string().max(500),
+    a: z.string().max(20000),
     sub: z.string().min(1).max(200),
     chap: z.string().min(1).max(200),
     d: z.string().default(''),
@@ -92,12 +92,34 @@ export function normalizeQuestion(
         '';
 
     let type: QuestionType;
-    const rawType = r.type;
+    const rawType = typeof r.type === 'string' ? r.type.trim().toLowerCase() : r.type;
     if (rawType === '单选' || rawType === '单选题') type = 'mcq';
     else if (rawType === '多选' || rawType === '多选题') type = 'multi';
     else if (rawType === '判断' || rawType === '判断题') type = 'tf';
     else if (rawType === '填空' || rawType === '填空题') type = 'fill';
-    else if (rawType === 'mcq' || rawType === 'multi' || rawType === 'tf' || rawType === 'fill') {
+    else if (
+        rawType === 'qa' ||
+        rawType === 'essay' ||
+        rawType === 'short' ||
+        rawType === 'shortanswer' ||
+        rawType === 'subjective' ||
+        rawType === '问答' ||
+        rawType === '问答题' ||
+        rawType === '简答' ||
+        rawType === '简答题' ||
+        rawType === '主观' ||
+        rawType === '主观题' ||
+        rawType === '论述' ||
+        rawType === '论述题'
+    ) {
+        type = 'qa';
+    } else if (
+        rawType === 'mcq' ||
+        rawType === 'multi' ||
+        rawType === 'tf' ||
+        rawType === 'fill' ||
+        rawType === 'qa'
+    ) {
         type = rawType;
     } else {
         type =
@@ -116,7 +138,15 @@ export function normalizeQuestion(
     const rawChap =
         (typeof r.chap === 'string' && r.chap.trim()) ||
         (typeof r.chapter === 'string' && r.chapter.trim()) ||
-        (type === 'multi' ? '多选题' : type === 'tf' ? '判断题' : '单选题');
+        (type === 'multi'
+            ? '多选题'
+            : type === 'tf'
+              ? '判断题'
+              : type === 'fill'
+                ? '填空题'
+                : type === 'qa'
+                  ? '问答题'
+                  : '单选题');
 
     const sub = isSafeKey(rawSub) ? rawSub : '默认科目';
     const chap = isSafeKey(rawChap) ? rawChap : defaultChap;
@@ -133,7 +163,7 @@ export function normalizeQuestion(
         type,
         q: qText,
         o: cleanOpts,
-        a: type === 'fill' ? aText.trim() : aText.toUpperCase().trim(),
+        a: type === 'fill' || type === 'qa' ? aText.trim() : aText.toUpperCase().trim(),
         sub,
         chap,
         d,

@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import type { Question, QuestionType } from '@qs/shared';
+import {
+  countStemBlanks,
+  parseFillBlanks,
+  serializeFillBlanks,
+  type Question,
+  type QuestionType,
+} from '@qs/shared';
 import type { LocalQuestion } from '@/db';
 import { getSyncEngine } from '@/sync/engine';
 import { useUiStore } from '@/store/useUiStore';
@@ -37,7 +43,8 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
   const [options, setOptions] = useState<string[]>(['', '', '', '']);
   const [ansSet, setAnsSet] = useState<Set<string>>(new Set());
   const [tfAns, setTfAns] = useState<'T' | 'F' | ''>('');
-  const [fillAns, setFillAns] = useState('');
+  const [fillBlanks, setFillBlanks] = useState<string[]>(['']);
+  const [qaAns, setQaAns] = useState('');
   const [explanation, setExplanation] = useState('');
   const [psg, setPsg] = useState('');
   const [err, setErr] = useState('');
@@ -54,7 +61,8 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
       setOptions(['', '', '', '']);
       setAnsSet(new Set());
       setTfAns('');
-      setFillAns('');
+      setFillBlanks(['']);
+      setQaAns('');
       setExplanation('');
       setPsg('');
       return;
@@ -66,7 +74,13 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
     setOptions(q.o.length ? [...q.o] : ['', '', '', '']);
     setAnsSet(new Set(q.type === 'mcq' || q.type === 'multi' ? q.a.toUpperCase().split('') : []));
     setTfAns(q.type === 'tf' ? (q.a.toUpperCase() === 'F' ? 'F' : 'T') : '');
-    setFillAns(q.type === 'fill' ? q.a : '');
+    if (q.type === 'fill') {
+      const parsed = parseFillBlanks(q.a);
+      setFillBlanks(parsed.length ? parsed.map((b) => b.join('|')) : ['']);
+    } else {
+      setFillBlanks(['']);
+    }
+    setQaAns(q.type === 'qa' ? q.a : '');
     setExplanation(q.d || '');
     setPsg(q.psg || '');
   };
@@ -118,15 +132,28 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
       }
       finalAns = tfAns;
     } else if (type === 'fill') {
-      const parts = fillAns
-        .split('|')
-        .map((x) => x.trim())
-        .filter(Boolean);
-      if (!parts.length) {
-        setErr(bi('请填写填空题的标准答案（多个答案可用 | 分隔）。', 'Fill-in answer is required.'));
+      const cleanedBlanks = fillBlanks.map((b) => b.trim()).filter(Boolean);
+      const serialized = serializeFillBlanks(cleanedBlanks);
+      if (!serialized) {
+        setErr(bi('请至少填写一个空位的标准答案（同义词用 | 分隔）。', 'At least one fill-in answer is required.'));
         return;
       }
-      finalAns = parts.join('|');
+      if (serialized.length > 2000) {
+        setErr(bi('填空题答案总长度不能超过 2000 字符。', 'Answer exceeds 2000 chars.'));
+        return;
+      }
+      finalAns = serialized;
+    } else if (type === 'qa') {
+      const cleanQa = qaAns.trim();
+      if (!cleanQa) {
+        setErr(bi('请填写问答题的参考答案。', 'Reference answer is required.'));
+        return;
+      }
+      if (cleanQa.length > 20000) {
+        setErr(bi('参考答案不能超过 20000 字符。', 'Answer exceeds 20000 chars.'));
+        return;
+      }
+      finalAns = cleanQa;
     } else {
       const packed: Array<{ text: string; checked: boolean }> = [];
       options.forEach((raw, idx) => {
@@ -183,7 +210,8 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
         setOptions(['', '', '', '']);
         setAnsSet(new Set());
         setTfAns('');
-        setFillAns('');
+        setFillBlanks(['']);
+        setQaAns('');
         setExplanation('');
       } else {
         onClose();
@@ -285,6 +313,7 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
               <option value="multi">{bi('多选题 (multi)', 'Multiple Choice')}</option>
               <option value="tf">{bi('判断题 (tf)', 'True / False')}</option>
               <option value="fill">{bi('填空题 (fill)', 'Fill in Blank')}</option>
+              <option value="qa">{bi('问答题 (qa)', 'Q&A / Subjective')}</option>
             </select>
           </div>
         </div>
@@ -393,15 +422,89 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
         )}
 
         {type === 'fill' && (
+          <div className="space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="text-xs font-medium text-ink-muted">
+                {bi('填空标准答案（每空可填多个同义词，用 | 分隔）', 'Blank Answers (separate synonyms with |)')}
+              </label>
+              <div className="flex items-center gap-1.5">
+                {countStemBlanks(stem) > fillBlanks.length && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      const need = Math.min(12, countStemBlanks(stem));
+                      setFillBlanks((prev) => {
+                        const next = [...prev];
+                        while (next.length < need) next.push('');
+                        return next;
+                      });
+                    }}
+                  >
+                    {bi(`按题干扩展至 ${Math.min(12, countStemBlanks(stem))} 空`, `Match ${Math.min(12, countStemBlanks(stem))} blanks`)}
+                  </Button>
+                )}
+                {fillBlanks.length < 12 && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    data-testid="add-fill-blank-btn"
+                    onClick={() => setFillBlanks((prev) => [...prev, ''])}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    {bi('添加空位', 'Add Blank')}
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {fillBlanks.map((blankVal, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <span className="px-2 h-9 rounded-lg bg-surface-muted border border-line text-xs font-mono font-semibold text-ink-muted inline-flex items-center flex-shrink-0">
+                    {bi(`第 ${idx + 1} 空`, `#${idx + 1}`)}
+                  </span>
+                  <input
+                    value={blankVal}
+                    onChange={(e) => {
+                      const copy = [...fillBlanks];
+                      copy[idx] = e.target.value;
+                      setFillBlanks(copy);
+                    }}
+                    data-testid={`fill-editor-blank-${idx}`}
+                    placeholder={idx === 0 ? 'TCP|传输控制协议' : bi(`第 ${idx + 1} 空标准答案…`, `Blank #${idx + 1} answer…`)}
+                    className="flex-1 h-9 px-3 rounded-xl bg-canvas border border-line text-sm text-ink outline-none focus:border-accent"
+                  />
+                  {fillBlanks.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setFillBlanks((prev) => prev.filter((_, i) => i !== idx))}
+                      className="p-1.5 text-ink-muted hover:text-red-500"
+                      aria-label="Remove blank"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {type === 'qa' && (
           <div>
             <label className="block text-xs font-medium text-ink-muted mb-1">
-              {bi('标准答案（多个同义答案用 | 分隔）', 'Answer (separate alternatives with |)')}
+              {bi('参考答案（支持多行文本）', 'Reference Answer (multiline supported)')}
             </label>
-            <input
-              value={fillAns}
-              onChange={(e) => setFillAns(e.target.value)}
-              placeholder="TCP|传输控制协议"
-              className="w-full h-9 px-3 rounded-xl bg-canvas border border-line text-sm text-ink outline-none focus:border-accent"
+            <textarea
+              rows={5}
+              value={qaAns}
+              onChange={(e) => setQaAns(e.target.value)}
+              data-testid="qa-answer-input"
+              placeholder={bi('输入问答题的完整参考答案或得分要点，方便直接在题库背诵查看…', 'Enter full model answer or key grading points…')}
+              className="w-full p-3 rounded-xl bg-canvas border border-line text-sm text-ink outline-none focus:border-accent resize-y leading-relaxed"
             />
           </div>
         )}

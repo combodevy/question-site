@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpDown,
   CheckSquare,
+  ChevronDown,
   Download,
   Edit3,
   Eye,
@@ -11,6 +12,7 @@ import {
   FolderPlus,
   History,
   Library as LibraryIcon,
+  MoreHorizontal,
   Play,
   Plus,
   RotateCcw,
@@ -19,8 +21,9 @@ import {
   Star,
   Trash2,
   Upload,
+  X,
 } from 'lucide-react';
-import type { Question, QuestionType } from '@qs/shared';
+import { parseFillBlanks, type Question, type QuestionType } from '@qs/shared';
 import type { LocalQuestion } from '@/db';
 import type { LiveStudySnapshot, StudyStats } from '@/sync/hooks';
 import { getSyncEngine } from '@/sync/engine';
@@ -57,7 +60,8 @@ interface LibraryViewProps {
   onOpenPrintExport: () => void;
 }
 
-const PAGE_SIZE = 40;
+const INITIAL_BATCH = 30;
+const BATCH_STEP = 30;
 
 interface StoredLibraryPrefs {
   tab?: LibraryTab;
@@ -116,22 +120,24 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const [subFilter, setSubFilter] = useState(jumpFilter?.sub || initialPrefs.sub || 'all');
   const [chapFilter, setChapFilter] = useState(jumpFilter?.chap || initialPrefs.chap || 'all');
   const [typeFilter, setTypeFilter] = useState<'all' | QuestionType>(
-    initialPrefs.type && ['all', 'mcq', 'multi', 'tf', 'fill'].includes(initialPrefs.type)
+    initialPrefs.type && ['all', 'mcq', 'multi', 'tf', 'fill', 'qa'].includes(initialPrefs.type)
       ? initialPrefs.type
       : 'all',
   );
   const [sortBy, setSortBy] = useState<LibrarySortKey>(
     initialPrefs.sort && VALID_SORTS.includes(initialPrefs.sort) ? initialPrefs.sort : 'default',
   );
-  // Default is open/showing answers as requested
   const [showAllAnswers, setShowAllAnswers] = useState<boolean>(
     typeof initialPrefs.showAllAnswers === 'boolean' ? initialPrefs.showAllAnswers : true,
   );
-  // Tracks per-card overrides relative to showAllAnswers
   const [cardAnswerOverrides, setCardAnswerOverrides] = useState<Map<string, boolean>>(new Map());
 
   const [query, setQuery] = useState('');
-  const [page, setPage] = useState(1);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_BATCH);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement | null>(null);
 
   // Multi-select & Batch move modal
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -141,15 +147,39 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const [keepOriginalChap, setKeepOriginalChap] = useState(false);
   const [batchBusy, setBatchBusy] = useState(false);
 
+  // Close More dropdown on outside click or Escape
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMoreOpen(false);
+    };
+    window.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [moreOpen]);
+
   // Sync external jumps from BankManagerModal
   useEffect(() => {
     if (!jumpFilter) return;
     setTab('all');
     setSubFilter(jumpFilter.sub || 'all');
     setChapFilter(jumpFilter.chap || 'all');
-    setPage(1);
+    setVisibleCount(INITIAL_BATCH);
     setSelectedIds(new Set());
   }, [jumpFilter?.nonce, jumpFilter]);
+
+  // Reset rendered window whenever active filter criteria change
+  useEffect(() => {
+    setVisibleCount(INITIAL_BATCH);
+  }, [tab, subFilter, chapFilter, typeFilter, query, sortBy]);
 
   // Persist library preferences whenever filter/sort/showAllAnswers changes
   useEffect(() => {
@@ -170,7 +200,6 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
   const subjects = useMemo(() => stats.subjectTree.map((s) => s.sub), [stats.subjectTree]);
 
-  // Guard against stale saved sub/chap filter when that subject no longer exists
   useEffect(() => {
     if (stats.subjectTree.length === 0) return;
     if (subFilter !== 'all' && !subjects.includes(subFilter)) {
@@ -212,7 +241,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       if (chapFilter !== 'all' && item.chap !== chapFilter) return false;
       if (typeFilter !== 'all' && item.type !== typeFilter) return false;
       if (qLower) {
-        const hay = `${item.q}\n${item.o.join('\n')}\n${item.d}\n${item.sub}\n${item.chap}`;
+        const hay = `${item.q}\n${item.o.join('\n')}\n${item.a}\n${item.d}\n${item.sub}\n${item.chap}`;
         if (!matchesSearchQuery(hay, qLower)) return false;
       }
       return true;
@@ -220,14 +249,30 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     return sortQuestions(matched, sortBy, perfMap);
   }, [baseList, subFilter, chapFilter, typeFilter, query, sortBy, perfMap]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredList.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const pageItems = useMemo(
-    () => filteredList.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
-    [filteredList, safePage],
+  const visibleItems = useMemo(
+    () => filteredList.slice(0, visibleCount),
+    [filteredList, visibleCount],
   );
 
-  // Drop stale selections whenever active base set changes
+  // Infinite scroll observer on bottom sentinel
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || visibleCount >= filteredList.length) return;
+    if (typeof IntersectionObserver === 'undefined') return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setVisibleCount((prev) => Math.min(filteredList.length, prev + BATCH_STEP));
+        }
+      },
+      { rootMargin: '280px 0px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [visibleCount, filteredList.length]);
+
+  // Drop stale selections whenever filtered set changes
   useEffect(() => {
     const validSet = new Set(filteredList.map((q) => q.id));
     setSelectedIds((prev) => {
@@ -278,31 +323,32 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     });
   };
 
-  const selectPage = () => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      const allPageSelected = pageItems.length > 0 && pageItems.every((q) => next.has(q.id));
-      for (const q of pageItems) {
-        if (allPageSelected) next.delete(q.id);
-        else next.add(q.id);
-      }
-      return next;
-    });
+  const toggleSelectAllFiltered = () => {
+    if (filteredList.length === 0) return;
+    const allSelected = selectedIds.size === filteredList.length;
+    setSelectedIds(allSelected ? new Set() : new Set(filteredList.map((q) => q.id)));
   };
 
-  const selectAllFiltered = () => {
-    setSelectedIds(new Set(filteredList.map((q) => q.id)));
-  };
-
-  const invertPageSelection = () => {
+  const invertVisibleSelection = () => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      for (const q of pageItems) {
+      for (const q of visibleItems) {
         if (next.has(q.id)) next.delete(q.id);
         else next.add(q.id);
       }
       return next;
     });
+  };
+
+  const hasActiveFilter =
+    subFilter !== 'all' || chapFilter !== 'all' || typeFilter !== 'all' || query.trim() !== '';
+
+  const resetFilters = () => {
+    setQuery('');
+    setSubFilter('all');
+    setChapFilter('all');
+    setTypeFilter('all');
+    setVisibleCount(INITIAL_BATCH);
   };
 
   const selectedQuestions = useMemo(
@@ -470,12 +516,16 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     multi: bi('多选', 'Multi'),
     tf: bi('判断', 'T/F'),
     fill: bi('填空', 'Fill'),
+    qa: bi('问答', 'Q&A'),
   };
 
+  const allFilteredSelected =
+    filteredList.length > 0 && selectedIds.size === filteredList.length;
+
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="space-y-4">
+      {/* Clean 3-Action Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <span className="w-9 h-9 rounded-xl bg-accent-soft text-accent inline-flex items-center justify-center">
             <LibraryIcon className="w-4 h-4" />
@@ -483,21 +533,67 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-ink">
             {bi('题库管理', 'Question Library')}
           </h1>
+          <span className="px-2 py-0.5 rounded-full bg-surface-muted border border-line text-xs font-medium text-ink-muted tabular-nums">
+            {bi(`${data.questions.length} 题`, `${data.questions.length}`)}
+          </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => void handleCreateNewSubject()} data-testid="lib-new-subject-btn">
-            <FolderPlus className="w-3.5 h-3.5" />
-            {bi('新增科目', 'New Subject')}
-          </Button>
-          <Button variant="outline" size="sm" onClick={onOpenBankManager}>
-            <FolderCog className="w-3.5 h-3.5" />
-            {bi('章节管理', 'Structure')}
-          </Button>
-          <Button variant="outline" size="sm" onClick={onOpenPrintExport}>
-            <Download className="w-3.5 h-3.5" />
-            {bi('导出 / 打印', 'Export')}
-          </Button>
+        <div className="flex items-center gap-2">
+          <div className="relative" ref={moreMenuRef}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMoreOpen((v) => !v)}
+              data-testid="lib-more-menu-btn"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+              <span>{bi('更多', 'More')}</span>
+              <ChevronDown className={`w-3.5 h-3.5 text-ink-muted transition-transform duration-150 ${moreOpen ? 'rotate-180' : ''}`} />
+            </Button>
+
+            {moreOpen && (
+              <div
+                data-testid="lib-more-menu"
+                className="absolute right-0 mt-1.5 w-44 rounded-xl bg-surface border border-line shadow-lg py-1 z-30 anim-dropdown-in"
+              >
+                <button
+                  type="button"
+                  data-testid="lib-new-subject-btn"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    void handleCreateNewSubject();
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs font-medium text-ink hover:bg-surface-muted flex items-center gap-2 transition-colors"
+                >
+                  <FolderPlus className="w-3.5 h-3.5 text-accent" />
+                  {bi('新增科目', 'New Subject')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    onOpenBankManager();
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs font-medium text-ink hover:bg-surface-muted flex items-center gap-2 transition-colors"
+                >
+                  <FolderCog className="w-3.5 h-3.5 text-ink-muted" />
+                  {bi('章节管理', 'Structure')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    onOpenPrintExport();
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs font-medium text-ink hover:bg-surface-muted flex items-center gap-2 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5 text-ink-muted" />
+                  {bi('导出 / 打印', 'Export & Print')}
+                </button>
+              </div>
+            )}
+          </div>
+
           <Button variant="outline" size="sm" onClick={onOpenImport}>
             <Upload className="w-3.5 h-3.5" />
             {bi('导入', 'Import')}
@@ -519,9 +615,9 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         </div>
       </div>
 
-      {/* Tabs + Global Answer Toggle + Quick Action */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex p-1 rounded-xl bg-surface-muted border border-line">
+      {/* Tabs & Secondary View Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5">
+        <div className="inline-flex p-1 rounded-xl bg-surface-muted/80 border border-line">
           {(
             [
               { key: 'all', label: bi('全部', 'All'), count: data.questions.length },
@@ -535,10 +631,9 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               type="button"
               onClick={() => {
                 setTab(t.key);
-                setPage(1);
                 setSelectedIds(new Set());
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors inline-flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all inline-flex items-center gap-1.5 ${
                 tab === t.key ? 'bg-surface text-ink shadow-sm' : 'text-ink-muted hover:text-ink'
               }`}
             >
@@ -557,7 +652,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             className={showAllAnswers ? 'border-accent/40 text-accent bg-accent-soft/40' : ''}
           >
             {showAllAnswers ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-            {showAllAnswers ? bi('全部隐藏答案', 'Hide All Answers') : bi('全部显示答案', 'Show All Answers')}
+            {showAllAnswers ? bi('隐藏答案', 'Hide Answers') : bi('显示答案', 'Show Answers')}
           </Button>
 
           {tab === 'mistakes' && hiddenMistakeCount > 0 && (
@@ -570,7 +665,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               }}
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              {bi(`恢复已隐藏 (${hiddenMistakeCount})`, `Restore Hidden (${hiddenMistakeCount})`)}
+              {bi(`恢复已隐藏 (${hiddenMistakeCount})`, `Restore (${hiddenMistakeCount})`)}
             </Button>
           )}
           {tab === 'trash' && data.trashQuestions.length > 0 && (
@@ -592,149 +687,181 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               }
             >
               <Play className="w-3.5 h-3.5" />
-              {bi(`练习筛选结果 (${filteredList.length})`, `Practice (${filteredList.length})`)}
+              {bi(`练习筛选 (${filteredList.length})`, `Practice (${filteredList.length})`)}
             </Button>
           )}
         </div>
       </div>
 
-      {/* Filters + Sorting Bar */}
-      <Card padding="sm" className="space-y-2.5">
-        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-          <div className="sm:col-span-4 relative">
-            <Search className="w-4 h-4 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2" />
+      {/* Unified Big-Tech Filter & Selection Bar */}
+      <div className="rounded-2xl border border-line bg-surface shadow-sm overflow-hidden">
+        <div className="p-3 flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="w-4 h-4 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setPage(1);
-              }}
-              placeholder={bi('搜索题干、选项或拼音简拼…', 'Search stems, options, or pinyin…')}
-              className="w-full h-9 pl-9 pr-3 rounded-xl bg-canvas border border-line text-sm text-ink outline-none focus:border-accent"
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={bi('搜索题干、选项、答案或拼音简拼…', 'Search stems, options, answers, or pinyin…')}
+              className="w-full h-9 pl-9 pr-8 rounded-xl bg-canvas border border-line text-sm text-ink outline-none focus:border-accent transition-colors"
             />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink"
+                aria-label="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
-          <select
-            value={subFilter}
-            onChange={(e) => {
-              setSubFilter(e.target.value);
-              setChapFilter('all');
-              setPage(1);
-            }}
-            className="sm:col-span-2 h-9 px-2.5 rounded-xl bg-canvas border border-line text-xs text-ink outline-none"
-          >
-            <option value="all">{bi('全部科目', 'All Subjects')}</option>
-            {subjects.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-          <select
-            value={chapFilter}
-            onChange={(e) => {
-              setChapFilter(e.target.value);
-              setPage(1);
-            }}
-            className="sm:col-span-2 h-9 px-2.5 rounded-xl bg-canvas border border-line text-xs text-ink outline-none"
-          >
-            <option value="all">{bi('全部章节', 'All Chapters')}</option>
-            {chapters.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-          <select
-            value={typeFilter}
-            onChange={(e) => {
-              setTypeFilter(e.target.value as 'all' | QuestionType);
-              setPage(1);
-            }}
-            className="sm:col-span-2 h-9 px-2.5 rounded-xl bg-canvas border border-line text-xs text-ink outline-none"
-          >
-            <option value="all">{bi('全部题型', 'All Types')}</option>
-            <option value="mcq">{bi('单选题', 'MCQ')}</option>
-            <option value="multi">{bi('多选题', 'Multi')}</option>
-            <option value="tf">{bi('判断题', 'T/F')}</option>
-            <option value="fill">{bi('填空题', 'Fill')}</option>
-          </select>
-          <div className="sm:col-span-2 relative flex items-center">
-            <ArrowUpDown className="w-3.5 h-3.5 text-ink-muted absolute left-2.5 pointer-events-none" />
+
+          <div className="flex flex-wrap items-center gap-2">
             <select
-              data-testid="library-sort-select"
-              value={sortBy}
+              value={subFilter}
               onChange={(e) => {
-                setSortBy(e.target.value as LibrarySortKey);
-                setPage(1);
+                setSubFilter(e.target.value);
+                setChapFilter('all');
               }}
-              className="w-full h-9 pl-8 pr-2 rounded-xl bg-canvas border border-line text-xs text-ink outline-none focus:border-accent"
+              className={`h-9 px-2.5 rounded-xl border text-xs outline-none transition-colors ${
+                subFilter !== 'all'
+                  ? 'border-accent/60 bg-accent-soft/40 text-accent font-medium'
+                  : 'border-line bg-canvas text-ink'
+              }`}
             >
-              <option value="default">{bi('排序：默认顺序', 'Sort: Default')}</option>
-              <option value="err_rate_desc">{bi('错误率：从高到低', 'Error Rate: High-Low')}</option>
-              <option value="err_rate_asc">{bi('错误率：从低到高', 'Error Rate: Low-High')}</option>
-              <option value="err_count_desc">{bi('错题次数最多', 'Most Mistakes')}</option>
-              <option value="alpha_asc">{bi('首字母 A 到 Z', 'Alpha A-Z')}</option>
-              <option value="alpha_desc">{bi('首字母 Z 到 A', 'Alpha Z-A')}</option>
-              <option value="attempts_desc">{bi('作答次数从多到少', 'Attempts: High-Low')}</option>
-              <option value="attempts_asc">{bi('作答次数从少到多', 'Attempts: Low-High')}</option>
-              <option value="ans_asc">{bi('按标准答案排序', 'By Answer')}</option>
-              <option value="updated_desc">{bi('最近编辑优先', 'Recently Edited')}</option>
-              <option value="sm2_due">{bi('SM-2 到期优先', 'SM-2 Due Soonest')}</option>
+              <option value="all">{bi('全部科目', 'All Subjects')}</option>
+              {subjects.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
             </select>
+
+            <select
+              value={chapFilter}
+              onChange={(e) => setChapFilter(e.target.value)}
+              className={`h-9 px-2.5 rounded-xl border text-xs outline-none transition-colors max-w-[180px] ${
+                chapFilter !== 'all'
+                  ? 'border-accent/60 bg-accent-soft/40 text-accent font-medium'
+                  : 'border-line bg-canvas text-ink'
+              }`}
+            >
+              <option value="all">{bi('全部章节', 'All Chapters')}</option>
+              {chapters.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value as 'all' | QuestionType)}
+              className={`h-9 px-2.5 rounded-xl border text-xs outline-none transition-colors ${
+                typeFilter !== 'all'
+                  ? 'border-accent/60 bg-accent-soft/40 text-accent font-medium'
+                  : 'border-line bg-canvas text-ink'
+              }`}
+            >
+              <option value="all">{bi('全部题型', 'All Types')}</option>
+              <option value="mcq">{bi('单选题', 'MCQ')}</option>
+              <option value="multi">{bi('多选题', 'Multi')}</option>
+              <option value="tf">{bi('判断题', 'T/F')}</option>
+              <option value="fill">{bi('填空题', 'Fill')}</option>
+              <option value="qa">{bi('问答题', 'Q&A')}</option>
+            </select>
+
+            <div className="relative flex items-center">
+              <ArrowUpDown className="w-3.5 h-3.5 text-ink-muted absolute left-2.5 pointer-events-none" />
+              <select
+                data-testid="library-sort-select"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as LibrarySortKey)}
+                className="h-9 pl-8 pr-2.5 rounded-xl bg-canvas border border-line text-xs text-ink outline-none focus:border-accent"
+              >
+                <option value="default">{bi('默认排序', 'Sort: Default')}</option>
+                <option value="err_rate_desc">{bi('错误率：高到低', 'Error Rate: High-Low')}</option>
+                <option value="err_rate_asc">{bi('错误率：低到高', 'Error Rate: Low-High')}</option>
+                <option value="err_count_desc">{bi('错题次数最多', 'Most Mistakes')}</option>
+                <option value="alpha_asc">{bi('首字母 A 到 Z', 'Alpha A-Z')}</option>
+                <option value="alpha_desc">{bi('首字母 Z 到 A', 'Alpha Z-A')}</option>
+                <option value="attempts_desc">{bi('作答次数多到少', 'Attempts: High-Low')}</option>
+                <option value="attempts_asc">{bi('作答次数少到多', 'Attempts: Low-High')}</option>
+                <option value="ans_asc">{bi('按答案排序', 'By Answer')}</option>
+                <option value="updated_desc">{bi('最近编辑', 'Recently Edited')}</option>
+                <option value="sm2_due">{bi('SM-2 到期优先', 'SM-2 Due Soonest')}</option>
+              </select>
+            </div>
+
+            {hasActiveFilter && (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="h-9 px-2.5 rounded-xl text-xs font-medium text-ink-muted hover:text-ink hover:bg-surface-muted transition-colors inline-flex items-center gap-1"
+              >
+                <X className="w-3.5 h-3.5" />
+                {bi('重置', 'Reset')}
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Multi-select quick controls + active batch action strip */}
+        {/* Slim Selection & Status Footer */}
         {filteredList.length > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-line/70 text-xs">
-            <div className="flex flex-wrap items-center gap-1.5">
+          <div className="px-3 py-2 bg-surface-muted/40 border-t border-line/70 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={selectPage}
-                className="px-2.5 py-1 rounded-lg border border-line bg-canvas text-ink-muted hover:text-ink inline-flex items-center gap-1 transition-colors"
+                onClick={toggleSelectAllFiltered}
+                data-testid="lib-select-all-btn"
+                className={`px-2.5 py-1 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 transition-colors ${
+                  allFilteredSelected
+                    ? 'border-accent bg-accent-soft text-accent'
+                    : 'border-line bg-surface text-ink-muted hover:text-ink'
+                }`}
               >
-                <CheckSquare className="w-3.5 h-3.5 text-accent" />
-                {bi('全选本页', 'Select Page')}
+                {allFilteredSelected ? (
+                  <CheckSquare className="w-3.5 h-3.5 text-accent" />
+                ) : (
+                  <Square className="w-3.5 h-3.5" />
+                )}
+                {bi(`全选 (${filteredList.length})`, `Select All (${filteredList.length})`)}
               </button>
+
               <button
                 type="button"
-                onClick={invertPageSelection}
-                className="px-2.5 py-1 rounded-lg border border-line bg-canvas text-ink-muted hover:text-ink transition-colors"
+                onClick={invertVisibleSelection}
+                className="px-2.5 py-1 rounded-lg border border-line bg-surface text-ink-muted hover:text-ink transition-colors"
               >
-                {bi('反选本页', 'Invert')}
+                {bi('反选', 'Invert')}
               </button>
-              {filteredList.length > pageItems.length && (
-                <button
-                  type="button"
-                  onClick={selectAllFiltered}
-                  className="px-2.5 py-1 rounded-lg border border-line bg-canvas text-ink-muted hover:text-ink transition-colors"
-                >
-                  {bi(`全选筛选 (${filteredList.length})`, `Select All (${filteredList.length})`)}
-                </button>
-              )}
+
               {selectedIds.size > 0 && (
                 <button
                   type="button"
                   onClick={() => setSelectedIds(new Set())}
-                  className="px-2.5 py-1 rounded-lg border border-line bg-canvas text-ink-muted hover:text-ink inline-flex items-center gap-1"
+                  className="px-2.5 py-1 rounded-lg text-ink-muted hover:text-ink inline-flex items-center gap-1 transition-colors"
                 >
-                  <Square className="w-3.5 h-3.5" />
+                  <X className="w-3.5 h-3.5" />
                   {bi(`取消已选 (${selectedIds.size})`, `Clear (${selectedIds.size})`)}
                 </button>
               )}
             </div>
 
-            <div className="text-[11px] text-ink-muted tabular-nums">
-              {bi(`共 ${filteredList.length} 题`, `${filteredList.length} items`)}
+            <div className="text-[11px] text-ink-muted tabular-nums" data-testid="lib-count-status">
+              {visibleItems.length < filteredList.length
+                ? bi(`已加载 ${visibleItems.length} / ${filteredList.length} 题`, `Loaded ${visibleItems.length} / ${filteredList.length}`)
+                : bi(`共 ${filteredList.length} 题`, `${filteredList.length} items`)}
             </div>
           </div>
         )}
 
+        {/* Contextual Batch Action Bar */}
         {selectedIds.size > 0 && (
           <div
             data-testid="library-batch-bar"
-            className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-accent-soft/60 border border-accent/30 anim-slide-down"
+            className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 bg-accent-soft/60 border-t border-accent/25 anim-slide-down"
           >
             <div className="text-xs font-semibold text-accent tabular-nums">
               {bi(`已选中 ${selectedIds.size} 道题目`, `${selectedIds.size} selected`)}
@@ -746,11 +873,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                     <FolderInput className="w-3.5 h-3.5" />
                     {bi('批量换科目/章节', 'Move Subject/Chapter')}
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void handleBatchStar(true)}
-                  >
+                  <Button size="sm" variant="outline" onClick={() => void handleBatchStar(true)}>
                     <Star className="w-3.5 h-3.5 text-amber-500" />
                     {bi('批量收藏', 'Star')}
                   </Button>
@@ -768,11 +891,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                     <Play className="w-3.5 h-3.5" />
                     {bi('练习所选', 'Practice')}
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => exportBankJson(selectedQuestions)}
-                  >
+                  <Button size="sm" variant="outline" onClick={() => exportBankJson(selectedQuestions)}>
                     <Download className="w-3.5 h-3.5" />
                     {bi('导出 JSON', 'Export')}
                   </Button>
@@ -801,10 +920,10 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             </div>
           </div>
         )}
-      </Card>
+      </div>
 
-      {/* Questions List */}
-      {pageItems.length === 0 ? (
+      {/* Questions List (Infinite Scroll) */}
+      {visibleItems.length === 0 ? (
         <EmptyState
           icon={<Search className="w-5 h-5" />}
           title={bi('当前条件无匹配题目', 'No matching questions')}
@@ -815,12 +934,13 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           }
         />
       ) : (
-        <div className="space-y-3">
-          {pageItems.map((q) => {
+        <div className="space-y-3" data-testid="lib-question-list">
+          {visibleItems.map((q) => {
             const isStar = Boolean(data.flagsMap.get(q.id)?.starred);
             const isRevealed = isCardRevealed(q.id);
             const isSelected = selectedIds.has(q.id);
             const perf = perfMap.get(q.id);
+            const fillBlanks = q.type === 'fill' ? parseFillBlanks(q.a) : [];
 
             return (
               <Card
@@ -982,25 +1102,28 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                   </div>
                 </div>
 
-                <div className="text-sm font-bold text-ink leading-relaxed">
+                {/* Question Stem */}
+                <div className="text-[15px] font-bold text-ink leading-relaxed">
                   <MediaContent text={q.q} media={q.media} highlightQuery={query} />
                 </div>
 
+                {/* High-contrast Options */}
                 {(q.type === 'mcq' || q.type === 'multi') && q.o.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[13px]">
                     {q.o.map((opt, idx) => {
                       const letter = String.fromCharCode(65 + idx);
                       const ok = isRevealed && q.a.toUpperCase().includes(letter);
                       return (
                         <div
                           key={letter}
-                          className={`px-2.5 py-1.5 rounded-lg border ${
+                          data-testid={`lib-opt-${q.id}-${letter}`}
+                          className={`px-3 py-2 rounded-xl border transition-colors ${
                             ok
-                              ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium'
-                              : 'border-line bg-canvas/50 text-ink-muted'
+                              ? 'border-emerald-500/45 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 font-semibold'
+                              : 'border-line bg-canvas/70 text-ink font-medium'
                           }`}
                         >
-                          <span className="font-mono font-semibold mr-1.5">{letter}.</span>
+                          <span className="font-mono font-bold mr-1.5">{letter}.</span>
                           <HighlightedText text={opt} query={query} />
                         </div>
                       );
@@ -1008,57 +1131,93 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                   </div>
                 )}
 
+                {/* Answer & Explanation Block */}
                 {isRevealed && (
                   <div
                     data-testid={`lib-answer-${q.id}`}
-                    className="p-3 rounded-xl bg-surface-muted/60 text-xs space-y-1 anim-slide-down"
+                    className="p-3.5 rounded-xl bg-surface-muted/65 border border-line/70 space-y-2 anim-slide-down"
                   >
-                    <div>
-                      <span className="text-ink-muted">{bi('标准答案：', 'Answer: ')}</span>
-                      <span className="font-semibold text-accent">
-                        {q.type === 'tf'
-                          ? q.a === 'T'
-                            ? bi('√ 正确', 'True')
-                            : bi('× 错误', 'False')
-                          : q.a}
-                      </span>
-                    </div>
-                    {q.d && <div className="text-ink-muted leading-relaxed">{q.d}</div>}
+                    {q.type === 'qa' ? (
+                      <div className="space-y-1">
+                        <div className="text-xs font-semibold text-accent">
+                          {bi('参考答案', 'Reference Answer')}
+                        </div>
+                        <div className="text-[14.5px] font-medium text-ink leading-relaxed whitespace-pre-wrap">
+                          {q.a}
+                        </div>
+                      </div>
+                    ) : q.type === 'fill' && fillBlanks.length > 1 ? (
+                      <div className="space-y-1.5">
+                        <div className="text-sm font-medium text-ink-muted">
+                          {bi('标准答案：', 'Answer: ')}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {fillBlanks.map((alts, bIdx) => (
+                            <span
+                              key={bIdx}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface border border-line text-sm"
+                            >
+                              <span className="text-xs text-ink-muted font-mono">
+                                {bi(`第 ${bIdx + 1} 空`, `#${bIdx + 1}`)}
+                              </span>
+                              <span className="font-bold text-accent">{alts.join(' / ')}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap items-baseline gap-1.5">
+                        <span className="text-sm font-medium text-ink-muted">
+                          {bi('标准答案：', 'Answer: ')}
+                        </span>
+                        <span className="text-[15.5px] font-bold text-accent">
+                          {q.type === 'tf'
+                            ? q.a === 'T'
+                              ? bi('√ 正确', 'True')
+                              : bi('× 错误', 'False')
+                            : q.type === 'fill'
+                              ? (fillBlanks[0] ? fillBlanks[0].join(' / ') : q.a)
+                              : q.a}
+                        </span>
+                      </div>
+                    )}
+                    {q.d && (
+                      <div className="text-sm text-ink-muted leading-relaxed whitespace-pre-wrap pt-0.5">
+                        {q.d}
+                      </div>
+                    )}
                   </div>
                 )}
               </Card>
             );
           })}
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-xs text-ink-muted tabular-nums">
-                {bi(`第 ${safePage} / ${totalPages} 页（共 ${filteredList.length} 题）`, `Page ${safePage}/${totalPages} (${filteredList.length} items)`)}
-              </span>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={safePage <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  {bi('上一页', 'Prev')}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={safePage >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                >
-                  {bi('下一页', 'Next')}
-                </Button>
-              </div>
-            </div>
-          )}
+          {/* Infinite Scroll Sentinel */}
+          <div ref={sentinelRef} data-testid="lib-infinite-sentinel" className="pt-2 flex justify-center">
+            {visibleCount < filteredList.length ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setVisibleCount((prev) => Math.min(filteredList.length, prev + BATCH_STEP))}
+                data-testid="lib-load-more-btn"
+              >
+                {bi(
+                  `已显示 ${visibleItems.length} / ${filteredList.length} 题，继续下滑或点击加载更多`,
+                  `Showing ${visibleItems.length} / ${filteredList.length} — scroll or click to load more`,
+                )}
+              </Button>
+            ) : (
+              filteredList.length > INITIAL_BATCH && (
+                <span className="text-xs text-ink-muted tabular-nums py-2" data-testid="lib-all-loaded">
+                  {bi(`已全部加载（共 ${filteredList.length} 题）`, `All ${filteredList.length} items loaded`)}
+                </span>
+              )
+            )}
+          </div>
         </div>
       )}
 
-      {/* Batch Move Modal (Supports existing or brand-new subject & chapter) */}
+      {/* Batch Move Modal */}
       <Modal
         open={moveOpen}
         onClose={() => setMoveOpen(false)}

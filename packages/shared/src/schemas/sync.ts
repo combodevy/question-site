@@ -16,7 +16,7 @@ const UpsertQuestionDataSchema = z.object({
     type: QuestionTypeSchema,
     q: z.string().max(20000),
     o: z.array(z.string()).default([]),
-    a: z.string().max(500),
+    a: z.string().max(20000),
     sub: z.string().min(1).max(200),
     chap: z.string().min(1).max(200),
     d: z.string().default(''),

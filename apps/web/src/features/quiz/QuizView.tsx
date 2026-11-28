@@ -15,7 +15,12 @@ import {
   XCircle,
   Zap,
 } from 'lucide-react';
-import type { HistoryEntry } from '@qs/shared';
+import {
+  formatFillAnswerDisplay,
+  gradeFillBlanks,
+  parseFillBlanks,
+  type HistoryEntry,
+} from '@qs/shared';
 import type { LocalQuestion } from '@/db';
 import type { LiveStudySnapshot } from '@/sync/hooks';
 import { useQuizStore } from '@/store/useQuizStore';
@@ -37,11 +42,33 @@ interface QuizViewProps {
 
 const MAX_QUESTION_MS = 300_000;
 
-function normalizeFillAnswer(s: string): string {
-  return String(s || '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '');
+function parseFillDraftValues(raw: string | undefined, blankCount: number): string[] {
+  const count = Math.max(1, blankCount);
+  if (count === 1) return [raw || ''];
+  if (raw && raw.startsWith('[')) {
+    try {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        return Array.from({ length: count }, (_, i) => String(arr[i] ?? ''));
+      }
+    } catch {
+      // fall through
+    }
+  }
+  const parts = raw ? raw.split(';;') : [];
+  return Array.from({ length: count }, (_, i) => parts[i] ?? '');
+}
+
+function serializeFillDraftValues(vals: string[], blankCount: number): string {
+  return blankCount <= 1 ? vals[0] || '' : JSON.stringify(vals);
+}
+
+function formatUserFillDisplay(userAns: string | undefined, blankCount: number): string {
+  if (!userAns) return '';
+  if (blankCount <= 1) return userAns;
+  return parseFillDraftValues(userAns, blankCount)
+    .map((v, i) => `(${i + 1}) ${v}`)
+    .join('   ');
 }
 
 export const QuizView: React.FC<QuizViewProps> = ({
@@ -75,8 +102,10 @@ export const QuizView: React.FC<QuizViewProps> = ({
   const [psgFontSize, setPsgFontSize] = useState(15);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [multiDraft, setMultiDraft] = useState<Set<string>>(new Set());
+  const [qaRevealed, setQaRevealed] = useState(false);
   const [autoAdvancing, setAutoAdvancing] = useState(false);
   const autoNextTimerRef = useRef<number | null>(null);
+  const fillInputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   const clearAutoNext = useCallback(() => {
     if (autoNextTimerRef.current !== null) {
@@ -104,6 +133,8 @@ export const QuizView: React.FC<QuizViewProps> = ({
   // Sync multiDraft whenever question index changes
   useEffect(() => {
     clearAutoNext();
+    setQaRevealed(false);
+    fillInputRefs.current = [];
     if (!q) return;
     if (saved?.answered && q.type === 'multi') {
       setMultiDraft(new Set(saved.userAns.split('').filter(Boolean)));
@@ -216,14 +247,20 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
   const submitFill = () => {
     if (!q || isAnswered || autoAdvancing || q.type !== 'fill') return;
-    const val = (drafts[q.id] || '').trim();
-    if (!val) {
-      pushToast(bi('请填写答案后再提交', 'Enter an answer first'), 'warning');
+    const expectedBlanks = parseFillBlanks(q.a);
+    const blankCount = Math.max(1, expectedBlanks.length);
+    const inputs = parseFillDraftValues(drafts[q.id], blankCount).map((s) => s.trim());
+    if (inputs.some((v) => !v)) {
+      pushToast(
+        blankCount > 1
+          ? bi('请填写全部空位后再提交', 'Fill in all blanks before submitting')
+          : bi('请填写答案后再提交', 'Enter an answer first'),
+        'warning',
+      );
       return;
     }
-    const normInput = normalizeFillAnswer(val);
-    const acceptable = q.a.split('|').map(normalizeFillAnswer).filter(Boolean);
-    commitAnswer(val, acceptable.includes(normInput));
+    const { allOk } = gradeFillBlanks(inputs, q.a);
+    commitAnswer(serializeFillDraftValues(inputs, blankCount), allOk);
   };
 
   const handleSelfOverride = (markCorrect: boolean) => {
@@ -251,6 +288,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
   const handleRetryCurrent = () => {
     clearAutoNext();
     setMultiDraft(new Set());
+    setQaRevealed(false);
     retryCurrentQuestion();
   };
 
@@ -391,11 +429,17 @@ export const QuizView: React.FC<QuizViewProps> = ({
                   <div className="flex flex-wrap items-center gap-3 text-xs">
                     <span className="text-red-600 dark:text-red-400">
                       {bi('你的作答：', 'Yours: ')}
-                      <b>{state?.userAns}</b>
+                      <b>
+                        {item.type === 'fill'
+                          ? formatUserFillDisplay(state?.userAns, parseFillBlanks(item.a).length)
+                          : state?.userAns}
+                      </b>
                     </span>
                     <span className="text-emerald-600 dark:text-emerald-400">
                       {bi('正确答案：', 'Answer: ')}
-                      <b>{item.a}</b>
+                      <b className="whitespace-pre-wrap">
+                        {item.type === 'fill' ? formatFillAnswerDisplay(item.a) : item.a}
+                      </b>
                     </span>
                   </div>
                   {item.d && <p className="text-xs text-ink-muted leading-relaxed">{item.d}</p>}
@@ -417,7 +461,16 @@ export const QuizView: React.FC<QuizViewProps> = ({
     multi: bi('多选题', 'Multiple Choice'),
     tf: bi('判断题', 'True / False'),
     fill: bi('填空题', 'Fill in Blank'),
+    qa: bi('问答题', 'Q&A'),
   };
+  const fillBlanks = q.type === 'fill' ? parseFillBlanks(q.a) : [];
+  const fillBlankCount = Math.max(1, fillBlanks.length);
+  const fillValues = q.type === 'fill'
+    ? parseFillDraftValues(isAnswered ? saved?.userAns : drafts[q.id], fillBlankCount)
+    : [];
+  const fillGrade = q.type === 'fill' && isAnswered
+    ? gradeFillBlanks(fillValues, q.a)
+    : null;
 
   return (
     <div className="space-y-5">
@@ -633,39 +686,149 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
           {q.type === 'fill' && (
             <Card className="space-y-3">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  disabled={isAnswered}
-                  value={isAnswered ? saved?.userAns || '' : drafts[q.id] || ''}
-                  onChange={(e) => setDraft(q.id, e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !isAnswered) {
-                      e.preventDefault();
-                      submitFill();
+              <div className="space-y-2.5">
+                {Array.from({ length: fillBlankCount }, (_, blankIdx) => {
+                  const val = fillValues[blankIdx] || '';
+                  const blankOk = fillGrade?.results[blankIdx];
+                  let inputStateCls = 'border-line bg-canvas text-ink focus:border-accent';
+                  if (isAnswered) {
+                    if (saved?.ok || blankOk) {
+                      inputStateCls =
+                        'border-emerald-500/60 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200';
+                    } else {
+                      inputStateCls = 'border-red-500/60 bg-red-500/10 text-red-800 dark:text-red-200';
                     }
-                  }}
-                  placeholder={bi('在此输入填空答案…', 'Type your answer…')}
-                  className="flex-1 h-10 px-3.5 rounded-xl bg-canvas border border-line text-sm text-ink outline-none focus:border-accent disabled:opacity-75"
-                />
+                  }
+                  return (
+                    <div key={blankIdx} className="flex items-center gap-2">
+                      {fillBlankCount > 1 && (
+                        <span className="px-2.5 h-10 rounded-xl bg-surface-muted border border-line text-xs font-mono font-semibold text-ink-muted inline-flex items-center flex-shrink-0">
+                          {bi(`第 ${blankIdx + 1} 空`, `#${blankIdx + 1}`)}
+                        </span>
+                      )}
+                      <input
+                        ref={(el) => {
+                          fillInputRefs.current[blankIdx] = el;
+                        }}
+                        type="text"
+                        disabled={isAnswered}
+                        data-testid={`fill-blank-input-${blankIdx}`}
+                        value={val}
+                        onChange={(e) => {
+                          const next = [...fillValues];
+                          next[blankIdx] = e.target.value;
+                          setDraft(q.id, serializeFillDraftValues(next, fillBlankCount));
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !isAnswered) {
+                            e.preventDefault();
+                            if (blankIdx < fillBlankCount - 1) {
+                              fillInputRefs.current[blankIdx + 1]?.focus();
+                            } else {
+                              submitFill();
+                            }
+                          }
+                        }}
+                        placeholder={
+                          fillBlankCount > 1
+                            ? bi(`输入第 ${blankIdx + 1} 空答案…`, `Type blank #${blankIdx + 1}…`)
+                            : bi('在此输入填空答案…', 'Type your answer…')
+                        }
+                        className={`flex-1 h-10 px-3.5 rounded-xl border text-sm outline-none transition-colors disabled:opacity-90 ${inputStateCls}`}
+                      />
+                    </div>
+                  );
+                })}
                 {!isAnswered && (
-                  <Button variant="primary" onClick={submitFill}>
-                    {bi('提交', 'Submit')}
-                  </Button>
+                  <div className="flex justify-end pt-1">
+                    <Button variant="primary" onClick={submitFill} data-testid="fill-submit-btn">
+                      {bi('提交答案', 'Submit')}
+                    </Button>
+                  </div>
                 )}
               </div>
               {isAnswered && (
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-2 border-t border-line/70">
                   <span className="text-ink-muted">
                     {bi('参考答案：', 'Accepted: ')}
-                    <b className="text-emerald-600 dark:text-emerald-400">
-                      {q.a.split('|').join(' / ')}
+                    <b className="text-emerald-600 dark:text-emerald-400 text-sm">
+                      {formatFillAnswerDisplay(q.a)}
                     </b>
                   </span>
                   {!saved?.ok && (
                     <Button size="sm" variant="outline" onClick={() => handleSelfOverride(true)}>
                       {bi('语义一致，算我答对', 'Override: Mark Correct')}
                     </Button>
+                  )}
+                </div>
+              )}
+            </Card>
+          )}
+
+          {q.type === 'qa' && (
+            <Card className="space-y-4">
+              {!isAnswered && (
+                <div>
+                  <label className="block text-xs font-medium text-ink-muted mb-1.5">
+                    {bi('你的思路或回答要点（可选）', 'Your draft / notes (optional)')}
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={drafts[q.id] || ''}
+                    onChange={(e) => setDraft(q.id, e.target.value)}
+                    data-testid="qa-draft-input"
+                    placeholder={bi('可先默写或列出要点，再核对参考答案…', 'Jot down key points before revealing the model answer…')}
+                    className="w-full p-3 rounded-xl bg-canvas border border-line text-sm text-ink outline-none focus:border-accent resize-y leading-relaxed"
+                  />
+                </div>
+              )}
+
+              {!isAnswered && !qaRevealed ? (
+                <div className="flex justify-end">
+                  <Button variant="primary" onClick={() => setQaRevealed(true)} data-testid="qa-reveal-btn">
+                    {bi('查看参考答案', 'Reveal Reference Answer')}
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3 anim-slide-down">
+                  <div className="p-3.5 rounded-xl bg-surface-muted/70 border border-line space-y-1.5">
+                    <div className="text-xs font-semibold text-accent">{bi('参考答案', 'Reference Answer')}</div>
+                    <div className="text-[15px] font-medium text-ink leading-relaxed whitespace-pre-wrap">
+                      {q.a}
+                    </div>
+                  </div>
+
+                  {!isAnswered && (
+                    <div className="flex flex-wrap items-center justify-end gap-2.5 pt-1">
+                      <Button
+                        variant="outline"
+                        data-testid="qa-self-wrong"
+                        onClick={() =>
+                          commitAnswer(
+                            (drafts[q.id] || '').trim() || bi('未掌握', 'Need review'),
+                            false,
+                            true,
+                          )
+                        }
+                      >
+                        <XCircle className="w-4 h-4 text-red-500" />
+                        {bi('未掌握，记入错题', 'Need Review')}
+                      </Button>
+                      <Button
+                        variant="primary"
+                        data-testid="qa-self-correct"
+                        onClick={() =>
+                          commitAnswer(
+                            (drafts[q.id] || '').trim() || bi('已掌握', 'Mastered'),
+                            true,
+                            true,
+                          )
+                        }
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        {bi('已掌握，算我答对', 'Mastered')}
+                      </Button>
+                    </div>
                   )}
                 </div>
               )}
@@ -696,7 +859,16 @@ export const QuizView: React.FC<QuizViewProps> = ({
                     <>
                       <XCircle className="w-4 h-4 text-red-500" />
                       <span className="text-red-700 dark:text-red-300">
-                        {bi(`回答有误 | 正确答案：${q.a}`, `Incorrect | Correct: ${q.a}`)}
+                        {q.type === 'qa'
+                          ? bi('已标记为未掌握，已加入错题本', 'Marked for review')
+                          : bi(
+                              `回答有误 | 正确答案：${
+                                q.type === 'fill' ? formatFillAnswerDisplay(q.a) : q.a
+                              }`,
+                              `Incorrect | Correct: ${
+                                q.type === 'fill' ? formatFillAnswerDisplay(q.a) : q.a
+                              }`,
+                            )}
                       </span>
                     </>
                   )}

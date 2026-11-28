@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   Archive,
   ArrowLeftRight,
+  Cloud,
   Download,
   KeyRound,
   LogOut,
@@ -258,31 +259,48 @@ export const ProfileView: React.FC<{ data: LiveStudySnapshot; stats: StudyStats 
   };
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-ink">
-          {bi('账户、同步与云端备份', 'Profile, Sync & Backups')}
+          {bi('账户与设置', 'Account & Settings')}
         </h1>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Account Card */}
-        <Card className="lg:col-span-6 space-y-4 card-hover">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-11 h-11 rounded-2xl bg-accent-soft text-accent font-semibold text-lg flex items-center justify-center">
-                {(user?.username?.[0] || '?').toUpperCase()}
+      {/* Account Banner */}
+      <Card className="p-5 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="w-14 h-14 rounded-2xl bg-accent-soft text-accent font-bold text-xl flex items-center justify-center flex-shrink-0">
+              {(user?.username?.[0] || '?').toUpperCase()}
+            </div>
+            <div className="min-w-0 space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-lg font-semibold text-ink truncate">{user?.username}</span>
+                {user?.isAdmin && <Badge tone="accent">{bi('管理员', 'Admin')}</Badge>}
               </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-base font-semibold text-ink truncate">{user?.username}</span>
-                  {user?.isAdmin && <Badge tone="accent">{bi('管理员', 'Admin')}</Badge>}
-                </div>
-                <div className="text-xs text-ink-muted font-mono truncate">
-                  ID: {user?.id?.slice(0, 12)}…
-                </div>
+              <div className="text-xs text-ink-muted tabular-nums">
+                {bi(
+                  `共 ${stats.totalQuestions} 道题目 / ${stats.subjectTree.length} 个科目`,
+                  `${stats.totalQuestions} questions / ${stats.subjectTree.length} subjects`,
+                )}
               </div>
             </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => setSwitcherOpen(true)}
+              data-testid="profile-switch-account-btn"
+            >
+              <ArrowLeftRight className="w-3.5 h-3.5" />
+              {bi('切换账号', 'Switch Account')}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setPwOpen(true)}>
+              <KeyRound className="w-3.5 h-3.5" />
+              {bi('修改密码', 'Change Password')}
+            </Button>
             {user?.isAdmin && (
               <a href="/admin.html">
                 <Button size="sm" variant="outline">
@@ -291,25 +309,10 @@ export const ProfileView: React.FC<{ data: LiveStudySnapshot; stats: StudyStats 
                 </Button>
               </a>
             )}
-          </div>
-
-          <div className="flex flex-wrap gap-2 pt-2 border-t border-line">
-            <Button size="sm" variant="primary" onClick={() => setSwitcherOpen(true)} data-testid="profile-switch-account-btn">
-              <ArrowLeftRight className="w-3.5 h-3.5" />
-              {bi('切换账号', 'Switch Account')}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setPwOpen(true)}>
-              <KeyRound className="w-3.5 h-3.5" />
-              {bi('修改密码', 'Change Password')}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => exportBankJson(data.questions)}>
-              <Download className="w-3.5 h-3.5" />
-              {bi('导出题库 JSON', 'Export JSON')}
-            </Button>
             <Button
               size="sm"
               variant="ghost"
-              className="text-red-500"
+              className="text-red-500 hover:bg-red-500/10"
               onClick={async () => {
                 const ok = await confirm({
                   title: bi('退出登录', 'Sign Out'),
@@ -322,12 +325,161 @@ export const ProfileView: React.FC<{ data: LiveStudySnapshot; stats: StudyStats 
               {bi('退出登录', 'Sign Out')}
             </Button>
           </div>
-        </Card>
+        </div>
+      </Card>
 
-        {/* Sync Status Card */}
-        <Card className="lg:col-span-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-ink">{bi('细粒度增量同步 (v2)', 'Delta Sync Engine')}</h3>
+      {/* Preferences (Clean Settings Rows) */}
+      <Card className="p-5 sm:p-6">
+        <div className="flex items-center gap-2.5 pb-4 border-b border-line">
+          <span className="w-8 h-8 rounded-lg bg-accent-soft text-accent inline-flex items-center justify-center">
+            <SlidersHorizontal className="w-4 h-4" />
+          </span>
+          <h2 className="text-base font-semibold text-ink">{bi('显示与刷题偏好', 'Preferences')}</h2>
+        </div>
+
+        <div className="divide-y divide-line">
+          <div className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-ink">
+              <Palette className="w-4 h-4 text-ink-muted" />
+              <span>{bi('外观主题', 'Appearance')}</span>
+            </div>
+            <div className="inline-flex p-1 rounded-xl bg-surface-muted border border-line">
+              {(
+                [
+                  { k: 'light', label: bi('浅色纸感', 'Light') },
+                  { k: 'dark', label: bi('深邃夜间', 'Dark') },
+                  { k: 'system', label: bi('跟随系统', 'System') },
+                ] as Array<{ k: ThemeMode; label: string }>
+              ).map((m) => (
+                <button
+                  key={m.k}
+                  type="button"
+                  onClick={() => setTheme(m.k)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    theme === m.k
+                      ? 'bg-surface text-ink shadow-sm'
+                      : 'text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="text-sm font-medium text-ink">{bi('界面语言', 'Language')}</div>
+            <div className="inline-flex p-1 rounded-xl bg-surface-muted border border-line">
+              {(
+                [
+                  { k: 'zh', label: '简体中文' },
+                  { k: 'en', label: 'English' },
+                ] as const
+              ).map((l) => (
+                <button
+                  key={l.k}
+                  type="button"
+                  onClick={() => setLang(l.k)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    lang === l.k
+                      ? 'bg-surface text-ink shadow-sm'
+                      : 'text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="py-4 flex items-center justify-between gap-3">
+            <div className="text-sm font-medium text-ink">{bi('答对后自动下一题', 'Auto-next on correct')}</div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={autoNextOnCorrect}
+              data-testid="pref-auto-next"
+              onClick={() => setAutoNextOnCorrect(!autoNextOnCorrect)}
+              className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
+                autoNextOnCorrect ? 'bg-accent' : 'bg-surface-muted border border-line'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                  autoNextOnCorrect ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+
+          <div className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="text-sm font-medium text-ink">{bi('每日刷题目标', 'Daily Question Goal')}</div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <input
+                type="number"
+                min={0}
+                max={5000}
+                value={dailyGoal}
+                onChange={(e) => setDailyGoal(Number(e.target.value || 0))}
+                className="w-20 h-8 px-2.5 rounded-lg border border-line bg-canvas text-xs text-ink tabular-nums outline-none focus:border-accent"
+              />
+              {([0, 20, 50, 100] as const).map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setDailyGoal(preset)}
+                  className={`px-2.5 h-8 rounded-lg border text-xs font-medium transition-colors ${
+                    dailyGoal === preset
+                      ? 'border-accent bg-accent-soft text-accent'
+                      : 'border-line bg-canvas text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  {preset === 0 ? bi('关', 'Off') : `${preset}`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="text-sm font-medium text-ink">{bi('默认每次练习题数', 'Default Question Limit')}</div>
+            <div className="inline-flex p-1 rounded-xl bg-surface-muted border border-line">
+              {(
+                [
+                  { k: '10', label: '10' },
+                  { k: '20', label: '20' },
+                  { k: '50', label: '50' },
+                  { k: 'all', label: bi('全部', 'All') },
+                ] as Array<{ k: DefaultLimitPref; label: string }>
+              ).map((opt) => (
+                <button
+                  key={opt.k}
+                  type="button"
+                  onClick={() => setDefaultLimit(opt.k)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    defaultLimit === opt.k
+                      ? 'bg-surface text-ink shadow-sm'
+                      : 'text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Cloud Data & Snapshots */}
+      <Card className="p-5 sm:p-6 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-line">
+          <div className="flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-lg bg-accent-soft text-accent inline-flex items-center justify-center">
+              <Cloud className="w-4 h-4" />
+            </span>
+            <h2 className="text-base font-semibold text-ink">{bi('云端数据与备份', 'Cloud Data & Snapshots')}</h2>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
               variant="secondary"
@@ -340,274 +492,113 @@ export const ProfileView: React.FC<{ data: LiveStudySnapshot; stats: StudyStats 
               <RefreshCw className={`w-3.5 h-3.5 ${sync.status === 'syncing' ? 'animate-spin' : ''}`} />
               {bi('立即同步', 'Sync Now')}
             </Button>
+            <Button size="sm" variant="outline" onClick={() => exportBankJson(data.questions)}>
+              <Download className="w-3.5 h-3.5" />
+              {bi('导出 JSON', 'Export JSON')}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => void handleCreateBackup('bank')}>
+              <Archive className="w-3.5 h-3.5" />
+              {bi('备份题库', 'Backup Bank')}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => void handleCreateBackup('history')}>
+              <Archive className="w-3.5 h-3.5" />
+              {bi('备份记录', 'Backup History')}
+            </Button>
           </div>
+        </div>
 
-          <div className="grid grid-cols-3 gap-2 text-xs">
-            <div className="p-2.5 rounded-xl bg-canvas border border-line">
-              <div className="text-ink-muted">{bi('游标 Cursor', 'Cursor')}</div>
-              <div className="text-base font-mono font-semibold text-ink tabular-nums mt-0.5">
-                #{sync.cursor}
-              </div>
-            </div>
-            <div className="p-2.5 rounded-xl bg-canvas border border-line">
-              <div className="text-ink-muted">{bi('版本号', 'Version')}</div>
-              <div className="text-base font-mono font-semibold text-ink tabular-nums mt-0.5">
-                v{sync.version}
-              </div>
-            </div>
-            <div className="p-2.5 rounded-xl bg-canvas border border-line">
-              <div className="text-ink-muted">{bi('待传队列', 'Outbox')}</div>
-              <div className="text-base font-mono font-semibold text-ink tabular-nums mt-0.5">
-                {sync.pendingCount}
-              </div>
-            </div>
+        {sync.lastError && (
+          <div className="px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/25 text-xs text-red-600 dark:text-red-400">
+            {sync.lastError}
           </div>
+        )}
 
-          {sync.lastError && (
-            <div className="text-xs text-red-600 dark:text-red-400">{sync.lastError}</div>
-          )}
-        </Card>
-      </div>
-
-      {/* Preferences & Backups */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        <Card className="lg:col-span-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <span className="w-7 h-7 rounded-lg bg-accent-soft text-accent inline-flex items-center justify-center">
-              <Palette className="w-4 h-4" />
-            </span>
-            <h3 className="text-sm font-semibold text-ink">{bi('显示与刷题偏好', 'Preferences')}</h3>
+        {loadingCloud ? (
+          <div className="text-xs text-ink-muted py-6 text-center">{bi('加载中…', 'Loading…')}</div>
+        ) : backups.length === 0 ? (
+          <div className="text-xs text-ink-muted py-6 text-center rounded-xl border border-dashed border-line">
+            {bi('暂无云端备份快照', 'No cloud backups yet')}
           </div>
-          <div>
-            <label className="block text-xs text-ink-muted mb-1.5">{bi('外观主题', 'Appearance')}</label>
-            <div className="grid grid-cols-3 gap-1.5">
-              {(
-                [
-                  { k: 'light', label: bi('浅色纸感', 'Light') },
-                  { k: 'dark', label: bi('深邃夜间', 'Dark') },
-                  { k: 'system', label: bi('跟随系统', 'System') },
-                ] as Array<{ k: ThemeMode; label: string }>
-              ).map((m) => (
-                <button
-                  key={m.k}
-                  type="button"
-                  onClick={() => setTheme(m.k)}
-                  className={`py-2 rounded-xl border text-xs font-medium transition-colors ${
-                    theme === m.k
-                      ? 'border-accent bg-accent-soft text-accent'
-                      : 'border-line bg-canvas text-ink-muted hover:text-ink'
-                  }`}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs text-ink-muted mb-1.5">{bi('界面语言', 'Language')}</label>
-            <div className="grid grid-cols-2 gap-1.5">
-              {(
-                [
-                  { k: 'zh', label: '简体中文' },
-                  { k: 'en', label: 'English' },
-                ] as const
-              ).map((l) => (
-                <button
-                  key={l.k}
-                  type="button"
-                  onClick={() => setLang(l.k)}
-                  className={`py-2 rounded-xl border text-xs font-medium transition-colors ${
-                    lang === l.k
-                      ? 'border-accent bg-accent-soft text-accent'
-                      : 'border-line bg-canvas text-ink-muted hover:text-ink'
-                  }`}
-                >
-                  {l.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-line space-y-3">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
-              <SlidersHorizontal className="w-3.5 h-3.5 text-accent" />
-              {bi('刷题行为与目标设置', 'Practice Preferences')}
-            </div>
-
-            <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-canvas border border-line">
-              <div className="text-xs font-medium text-ink">{bi('答对后自动下一题', 'Auto-next on correct')}</div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={autoNextOnCorrect}
-                data-testid="pref-auto-next"
-                onClick={() => setAutoNextOnCorrect(!autoNextOnCorrect)}
-                className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${
-                  autoNextOnCorrect ? 'bg-accent' : 'bg-surface-muted border border-line'
-                }`}
+        ) : (
+          <div className="space-y-2 max-h-64 overflow-y-auto custom-scroll pr-1">
+            {backups.map((b) => (
+              <div
+                key={b.id}
+                className="p-3 rounded-xl border border-line bg-canvas/60 flex items-center justify-between gap-3"
               >
-                <span
-                  className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                    autoNextOnCorrect ? 'translate-x-5' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between text-xs text-ink-muted mb-1.5">
-                <span>{bi('每日刷题目标（0 为关闭）', 'Daily Goal (0 = off)')}</span>
-                <span className="font-mono text-ink tabular-nums">
-                  {dailyGoal > 0 ? bi(`${dailyGoal} 题/天`, `${dailyGoal}/day`) : bi('已关闭', 'Off')}
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="number"
-                  min={0}
-                  max={5000}
-                  value={dailyGoal}
-                  onChange={(e) => setDailyGoal(Number(e.target.value || 0))}
-                  className="w-24 h-8 px-2.5 rounded-lg border border-line bg-canvas text-xs text-ink tabular-nums outline-none focus:border-accent"
-                />
-                {([0, 20, 50, 100] as const).map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => setDailyGoal(preset)}
-                    className={`px-2.5 h-8 rounded-lg border text-xs font-medium transition-colors ${
-                      dailyGoal === preset
-                        ? 'border-accent bg-accent-soft text-accent'
-                        : 'border-line bg-canvas text-ink-muted hover:text-ink'
-                    }`}
-                  >
-                    {preset === 0 ? bi('关', 'Off') : `${preset}`}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs text-ink-muted mb-1.5">{bi('默认每次练习题数', 'Default Question Limit')}</label>
-              <div className="grid grid-cols-4 gap-1.5">
-                {(
-                  [
-                    { k: '10', label: '10' },
-                    { k: '20', label: '20' },
-                    { k: '50', label: '50' },
-                    { k: 'all', label: bi('全部', 'All') },
-                  ] as Array<{ k: DefaultLimitPref; label: string }>
-                ).map((opt) => (
-                  <button
-                    key={opt.k}
-                    type="button"
-                    onClick={() => setDefaultLimit(opt.k)}
-                    className={`py-1.5 rounded-lg border text-xs font-medium transition-colors ${
-                      defaultLimit === opt.k
-                        ? 'border-accent bg-accent-soft text-accent'
-                        : 'border-line bg-canvas text-ink-muted hover:text-ink'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-3 border-t border-line space-y-2">
-            <div className="text-xs font-semibold text-red-600 dark:text-red-400 inline-flex items-center gap-1">
-              <AlertTriangle className="w-3.5 h-3.5" />
-              {bi('危险区域（操作前自动云端备份）', 'Danger Zone (Auto-backed up)')}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" onClick={() => void handleClearHistory()}>
-                {bi('清空记录', 'Clear History')}
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => void handleClearBank()}>
-                {bi('清空题库', 'Clear Bank')}
-              </Button>
-              {!user?.isAdmin && (
-                <Button size="sm" variant="danger" onClick={() => void handleDeleteAccount()}>
-                  <Trash2 className="w-3.5 h-3.5" />
-                  {bi('注销账号', 'Delete Account')}
-                </Button>
-              )}
-            </div>
-          </div>
-        </Card>
-
-        <Card className="lg:col-span-7 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-ink">{bi('云端快照备份', 'Cloud Backups')}</h3>
-            <div className="flex items-center gap-1.5">
-              <Button size="sm" variant="outline" onClick={() => void handleCreateBackup('bank')}>
-                <Archive className="w-3.5 h-3.5" />
-                {bi('备份题库', 'Backup Bank')}
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => void handleCreateBackup('history')}>
-                <Archive className="w-3.5 h-3.5" />
-                {bi('备份记录', 'Backup History')}
-              </Button>
-            </div>
-          </div>
-
-          {loadingCloud ? (
-            <div className="text-xs text-ink-muted py-6 text-center">{bi('加载中…', 'Loading…')}</div>
-          ) : backups.length === 0 ? (
-            <div className="text-xs text-ink-muted py-6 text-center rounded-xl border border-dashed border-line">
-              {bi('暂无云端备份快照', 'No cloud backups yet')}
-            </div>
-          ) : (
-            <div className="space-y-2 max-h-60 overflow-y-auto custom-scroll pr-1">
-              {backups.map((b) => (
-                <div
-                  key={b.id}
-                  className="p-3 rounded-xl border border-line bg-canvas/60 flex items-center justify-between gap-3"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <Badge tone={b.type === 'bank' ? 'accent' : 'neutral'}>
-                        {b.type === 'bank' ? bi('题库', 'Bank') : bi('刷题记录', 'History')}
-                      </Badge>
-                      <span className="text-xs font-mono text-ink-muted">
-                        #{b.id} / {Math.round(b.size / 1024)} KB
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-ink-muted mt-1">{b.created_at}</div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Badge tone={b.type === 'bank' ? 'accent' : 'neutral'}>
+                      {b.type === 'bank' ? bi('题库', 'Bank') : bi('刷题记录', 'History')}
+                    </Badge>
+                    <span className="text-xs font-mono text-ink-muted">
+                      #{b.id} / {Math.round(b.size / 1024)} KB
+                    </span>
                   </div>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <Button size="sm" variant="ghost" onClick={() => void handleDownloadBackup(b)}>
-                      <Download className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => void handleRestoreBackup(b)}>
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      {bi('恢复', 'Restore')}
-                    </Button>
-                  </div>
+                  <div className="text-[11px] text-ink-muted mt-1">{b.created_at}</div>
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <Button size="sm" variant="ghost" onClick={() => void handleDownloadBackup(b)}>
+                    <Download className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => void handleRestoreBackup(b)}>
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    {bi('恢复', 'Restore')}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {logs.length > 0 && (
+          <details className="pt-2 border-t border-line text-xs">
+            <summary className="cursor-pointer font-medium text-ink-muted hover:text-ink">
+              {bi(`查看最近 ${logs.length} 条同步记录`, `Recent Sync Activity (${logs.length})`)}
+            </summary>
+            <div className="mt-2 max-h-40 overflow-y-auto custom-scroll space-y-1">
+              {logs.slice(0, 20).map((l) => (
+                <div key={l.id} className="flex items-center justify-between gap-2 text-[11px] py-1 border-b border-line last:border-b-0">
+                  <span className="font-mono text-ink-muted">{l.created_at}</span>
+                  <Badge tone={l.status === 'success' ? 'success' : 'warning'}>{l.status}</Badge>
                 </div>
               ))}
             </div>
-          )}
+          </details>
+        )}
+      </Card>
 
-          {logs.length > 0 && (
-            <details className="pt-2 border-t border-line text-xs">
-              <summary className="cursor-pointer font-medium text-ink-muted hover:text-ink">
-                {bi(`查看最近 ${logs.length} 条同步日志`, `Recent Sync Logs (${logs.length})`)}
-              </summary>
-              <div className="mt-2 max-h-40 overflow-y-auto custom-scroll space-y-1">
-                {logs.slice(0, 20).map((l) => (
-                  <div key={l.id} className="flex items-center justify-between gap-2 text-[11px] py-1 border-b border-line last:border-b-0">
-                    <span className="font-mono text-ink-muted">{l.created_at}</span>
-                    <Badge tone={l.status === 'success' ? 'success' : 'warning'}>{l.status}</Badge>
-                  </div>
-                ))}
-              </div>
-            </details>
+      {/* Danger Zone */}
+      <Card className="p-5 sm:p-6 border-red-500/25">
+        <div className="flex items-center gap-2 pb-4 border-b border-line text-sm font-semibold text-red-600 dark:text-red-400">
+          <AlertTriangle className="w-4 h-4" />
+          <span>{bi('危险操作区（执行前自动保存云端快照）', 'Danger Zone')}</span>
+        </div>
+
+        <div className="divide-y divide-line">
+          <div className="py-3.5 flex items-center justify-between gap-3">
+            <span className="text-sm text-ink">{bi('清空全部刷题记录', 'Clear all attempt history')}</span>
+            <Button size="sm" variant="outline" onClick={() => void handleClearHistory()}>
+              {bi('清空记录', 'Clear History')}
+            </Button>
+          </div>
+          <div className="py-3.5 flex items-center justify-between gap-3">
+            <span className="text-sm text-ink">{bi('清空全部题目', 'Clear entire question bank')}</span>
+            <Button size="sm" variant="outline" onClick={() => void handleClearBank()}>
+              {bi('清空题库', 'Clear Bank')}
+            </Button>
+          </div>
+          {!user?.isAdmin && (
+            <div className="pt-3.5 flex items-center justify-between gap-3">
+              <span className="text-sm text-ink">{bi('永久注销账号及全部数据', 'Permanently delete account')}</span>
+              <Button size="sm" variant="danger" onClick={() => void handleDeleteAccount()}>
+                <Trash2 className="w-3.5 h-3.5" />
+                {bi('注销账号', 'Delete Account')}
+              </Button>
+            </div>
           )}
-        </Card>
-      </div>
+        </div>
+      </Card>
 
       {/* Password Modal */}
       <Modal

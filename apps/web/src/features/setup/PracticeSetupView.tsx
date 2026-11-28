@@ -104,7 +104,7 @@ export const PracticeSetupView: React.FC<PracticeSetupViewProps> = ({
           if (raw.mode && ['random', 'natural', 'review', 'mistakes', 'starred'].includes(raw.mode)) {
             nextMode = raw.mode;
           }
-          if (raw.type && ['all', 'mcq', 'multi', 'tf', 'fill'].includes(raw.type)) {
+          if (raw.type && ['all', 'mcq', 'multi', 'tf', 'fill', 'qa'].includes(raw.type)) {
             nextType = raw.type;
           }
           if (raw.limit && ['10', '20', '50', 'all'].includes(raw.limit)) {
@@ -435,6 +435,7 @@ export const PracticeSetupView: React.FC<PracticeSetupViewProps> = ({
                 <option value="multi">{bi('多选题', 'Multiple Choice')}</option>
                 <option value="tf">{bi('判断题', 'True / False')}</option>
                 <option value="fill">{bi('填空题', 'Fill in Blank')}</option>
+                <option value="qa">{bi('问答题', 'Q&A')}</option>
               </select>
             </div>
             <div>

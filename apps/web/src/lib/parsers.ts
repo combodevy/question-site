@@ -1,4 +1,11 @@
-import type { Question, QuestionType } from '@qs/shared';
+import {
+  countStemBlanks,
+  formatFillAnswerDisplay,
+  parseFillBlanks,
+  serializeFillBlanks,
+  type Question,
+  type QuestionType,
+} from '@qs/shared';
 import { escapeHtml, naturalCompare, normalizeQuestionText, sanitizeTableHTML, SAFE_IMG_URL_RE } from './text';
 
 export interface JsonSyntaxDiag {
@@ -235,7 +242,7 @@ export function sanitizeImportedBank(
   defaultSub = '导入题目',
   defaultChap = '未分类',
 ): SanitizedImportResult {
-  const allowed = new Set<QuestionType>(['mcq', 'multi', 'tf', 'fill']);
+  const allowed = new Set<QuestionType>(['mcq', 'multi', 'tf', 'fill', 'qa']);
   const grouped: Record<string, Record<string, Question[]>> = {};
   const flat: Question[] = [];
   const seenIds = new Set<string>();
@@ -344,6 +351,19 @@ export function sanitizeImportedBank(
     completion: 'fill',
     填空: 'fill',
     填空题: 'fill',
+    qa: 'qa',
+    essay: 'qa',
+    short: 'qa',
+    shortanswer: 'qa',
+    subjective: 'qa',
+    问答: 'qa',
+    问答题: 'qa',
+    简答: 'qa',
+    简答题: 'qa',
+    主观: 'qa',
+    主观题: 'qa',
+    论述: 'qa',
+    论述题: 'qa',
   };
 
   for (const [rawSub, chapDict] of Object.entries(bank)) {
@@ -411,10 +431,32 @@ export function sanitizeImportedBank(
 
         if (Array.isArray(copy.a)) {
           const isOpts = Array.isArray(copy.o) && copy.o.length >= 2;
-          copy.a = copy.a
-            .map((x) => String(x ?? '').trim())
-            .filter(Boolean)
-            .join(isOpts ? '' : '|');
+          const rawTypeLow = typeof copy.type === 'string' ? copy.type.trim().toLowerCase() : '';
+          const mappedType = TYPE_ALIAS[rawTypeLow];
+          const stemStr = String(copy.q ?? '');
+          const isMultiBlankFill = !isOpts && (mappedType === 'fill' || countStemBlanks(stemStr) >= 2);
+          if (isMultiBlankFill) {
+            copy.a = serializeFillBlanks(
+              copy.a.map((x) =>
+                Array.isArray(x)
+                  ? x
+                      .map((subItem) => String(subItem ?? '').trim())
+                      .filter(Boolean)
+                      .join('|')
+                  : String(x ?? '').trim(),
+              ),
+            );
+          } else if (mappedType === 'qa') {
+            copy.a = copy.a
+              .map((x) => String(x ?? '').trim())
+              .filter(Boolean)
+              .join('\n');
+          } else {
+            copy.a = copy.a
+              .map((x) => String(x ?? '').trim())
+              .filter(Boolean)
+              .join(isOpts ? '' : '|');
+          }
           autoFixed++;
         } else if (typeof copy.a === 'boolean') {
           copy.a = copy.a ? 'T' : 'F';
@@ -431,6 +473,7 @@ export function sanitizeImportedBank(
           }
         } else if (!copy.type) {
           const ansRaw = String(copy.a ?? '').trim();
+          const stemStr = String(copy.q ?? '').trim();
           if (Array.isArray(copy.o) && copy.o.length >= 2) {
             const lettersOnly = ansRaw.replace(/[^A-Za-z]/g, '');
             copy.type = lettersOnly.length > 1 ? 'multi' : 'mcq';
@@ -443,7 +486,15 @@ export function sanitizeImportedBank(
             copy.type = 'tf';
             autoFixed++;
           } else if (ansRaw) {
-            copy.type = 'fill';
+            const hasBlankMarkers = countStemBlanks(stemStr) > 0;
+            const looksSubjective =
+              ansRaw.includes('\n') ||
+              ansRaw.length > 40 ||
+              (!hasBlankMarkers &&
+                /(简述|论述|阐述|解释|说明|分析|比较|区别|优缺点|原理|概述|总结|什么是|为什么|如何|谈谈|\b(explain|describe|discuss|compare|what is)\b)/i.test(
+                  stemStr,
+                ));
+            copy.type = looksSubjective ? 'qa' : 'fill';
             autoFixed++;
           }
         }
@@ -455,7 +506,7 @@ export function sanitizeImportedBank(
             chap,
             idx,
             copy,
-            `不支持的题型 "${String(copy.type || '空')}"（仅支持 mcq/multi/tf/fill）`,
+            `不支持的题型 "${String(copy.type || '空')}"（仅支持 mcq/multi/tf/fill/qa）`,
           );
           return;
         }
@@ -562,19 +613,25 @@ export function sanitizeImportedBank(
             return;
           }
         } else if (qType === 'fill') {
-          const variants = aText
-            .split('|')
-            .map((s) => s.trim())
-            .filter(Boolean);
-          if (!variants.length) {
+          const serialized = serializeFillBlanks(parseFillBlanks(aText).map((b) => b.join('|')));
+          if (!serialized) {
             recordInvalid(sub, chap, idx, copy, '填空题答案为空');
             return;
           }
-          aText = variants.join('|');
+          aText = serialized;
+          if (aText.length > 2000) {
+            recordInvalid(sub, chap, idx, copy, '填空题答案过长（超过 2000 字符）');
+            return;
+          }
+        } else if (qType === 'qa') {
+          if (!aText) {
+            recordInvalid(sub, chap, idx, copy, '问答题参考答案为空');
+            return;
+          }
         }
 
-        if (aText.length > 500) {
-          recordInvalid(sub, chap, idx, copy, '答案过长（超过 500 字符）');
+        if (aText.length > 20000) {
+          recordInvalid(sub, chap, idx, copy, '答案过长（超过 20000 字符）');
           return;
         }
 
@@ -681,6 +738,7 @@ export function parsePlainTextQuestions(
     // Extract answer and explanation lines from bottom/middle
     let answer = '';
     let explanation = '';
+    let inAnswer = false;
     const opts: string[] = [];
     const stemParts: string[] = [];
 
@@ -688,15 +746,17 @@ export function parsePlainTextQuestions(
       const ansMatch = l.match(/^(?:【?答案】?|参考答案|正确答案|Answer)\s*[:：]?\s*(.+)$/i);
       if (ansMatch) {
         answer = ansMatch[1].trim();
+        inAnswer = true;
         continue;
       }
       const expMatch = l.match(/^(?:【?解析】?|答案解析|详解|Explanation|Analysis)\s*[:：]?\s*(.+)$/i);
       if (expMatch) {
         explanation = expMatch[1].trim();
+        inAnswer = false;
         continue;
       }
       const optMatch = l.match(/^([A-P])[.．、)\）\s]\s*(.+)$/);
-      if (optMatch) {
+      if (optMatch && !inAnswer) {
         opts.push(optMatch[2].trim());
         continue;
       }
@@ -704,6 +764,8 @@ export function parsePlainTextQuestions(
         stemParts.push(l);
       } else if (explanation) {
         explanation += '\n' + l;
+      } else if (inAnswer) {
+        answer += '\n' + l;
       } else if (opts.length) {
         opts[opts.length - 1] += ' ' + l;
       }
@@ -725,10 +787,18 @@ export function parsePlainTextQuestions(
     if (opts.length >= 2) {
       const letters = answer.toUpperCase().replace(/[^A-P]/g, '');
       type = letters.length > 1 ? 'multi' : 'mcq';
-    } else if (/^(t|f|true|false|对|错|正确|错误|√|×)$/i.test(answer)) {
+    } else if (/^(t|f|true|false|对|错|正确|错误|√|×)$/i.test(answer.trim())) {
       type = 'tf';
     } else {
-      type = 'fill';
+      const hasBlankMarkers = countStemBlanks(qText) > 0;
+      const looksSubjective =
+        answer.includes('\n') ||
+        answer.length > 40 ||
+        (!hasBlankMarkers &&
+          /(简述|论述|阐述|解释|说明|分析|比较|区别|优缺点|原理|概述|总结|什么是|为什么|如何|谈谈|\b(explain|describe|discuss|compare|what is)\b)/i.test(
+            qText,
+          ));
+      type = looksSubjective ? 'qa' : 'fill';
     }
 
     parsedItems.push({
@@ -862,6 +932,7 @@ export function openPrintableSheet(
     multi: '多选',
     tf: '判断',
     fill: '填空',
+    qa: '问答',
   };
 
   let n = 0;
@@ -898,10 +969,10 @@ export function openPrintableSheet(
               ? '√ 正确'
               : '× 错误'
             : q.type === 'fill'
-              ? q.a.split('|').join(' / ')
+              ? formatFillAnswerDisplay(q.a)
               : q.a;
         const ansHtml = opts.showAnswers
-          ? `<div class="ans"><b>答案：</b>${escapeHtml(ansText)}${
+          ? `<div class="ans"><b>答案：</b><span style="white-space:pre-wrap">${escapeHtml(ansText)}</span>${
               opts.showExplanations && q.d ? `<div class="exp"><b>解析：</b>${escapeHtml(q.d)}</div>` : ''
             }</div>`
           : `<div class="myans">作答：________________________</div>`;
@@ -995,10 +1066,18 @@ export const BANK_TEMPLATE_JSON = JSON.stringify(
         {
           id: 'net-104',
           type: 'fill',
-          q: '传输控制协议的英文缩写是 __。',
+          q: '传输控制协议的英文缩写是 __，HTTPS 默认端口为 __。',
           o: [],
-          a: 'TCP|传输控制协议',
-          d: 'TCP = Transmission Control Protocol。',
+          a: 'TCP|传输控制协议;;443',
+          d: '多个空位使用 ";;" 分隔，单个空位内的同义答案使用 "|" 分隔。',
+        },
+        {
+          id: 'net-105',
+          type: 'qa',
+          q: '简述三次握手建立 TCP 连接的过程。',
+          o: [],
+          a: '1. 客户端发送 SYN 报文请求建立连接；\n2. 服务端回复 SYN+ACK 报文确认并同步序号；\n3. 客户端回传 ACK 报文，连接进入 ESTABLISHED 状态。',
+          d: '核心在于双向确认初始序列号并防历史失效连接。',
         },
       ],
     },
@@ -1011,9 +1090,9 @@ export const AI_IMPORT_PROMPT = `请把下面的题目转换成标准 JSON 题�
 1. 顶层结构为 { "科目名": { "章节名": [ 题目数组 ] } }
 2. 每道题包含字段：
    - id: 唯一字符串（如 "subj-101"）
-   - type: "mcq"（单选）| "multi"（多选）| "tf"（判断）| "fill"（填空）
+   - type: "mcq"（单选）| "multi"（多选）| "tf"（判断）| "fill"（填空）| "qa"（问答/简答）
    - q: 题干文本（如有图片或表格用 [图1]、[表1] 占位，配合 media 数组）
-   - o: 选项字符串数组（mcq/multi 必填，不带 A./B. 前缀；tf/fill 填 []）
-   - a: 标准答案（mcq 填单个大写字母 "A"；multi 填按字母序拼接如 "AC"；tf 填 "T" 或 "F"；fill 多答案用 "|" 分隔如 "TCP|传输控制协议"）
+   - o: 选项字符串数组（mcq/multi 必填，不带 A./B. 前缀；tf/fill/qa 填 []）
+   - a: 标准答案（mcq 填单个大写字母 "A"；multi 填按字母序拼接如 "AC"；tf 填 "T" 或 "F"；fill 单空同义词用 "|" 分隔，多空用 ";;" 分隔如 "TCP|传输控制协议;;443"；qa 填完整参考答案文本，支持换行）
    - d: 详细解析（字符串，可空）
 3. 只输出合法 JSON，不要多余解释。`;

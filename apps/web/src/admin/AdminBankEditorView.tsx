@@ -90,9 +90,9 @@ export const AdminBankEditorView: React.FC<AdminBankEditorViewProps> = ({ initia
         if (up !== 'T' && up !== 'F') {
           issues.push(`#${idx + 1} (${q.id}): 判断题答案 "${q.a}" 不是 T 或 F`);
         }
-      } else if (q.type === 'fill') {
+      } else if (q.type === 'fill' || q.type === 'qa') {
         if (!String(q.a || '').trim()) {
-          issues.push(`#${idx + 1} (${q.id}): 填空题缺少答案`);
+          issues.push(`#${idx + 1} (${q.id}): ${q.type === 'qa' ? '问答题' : '填空题'}缺少答案`);
         }
       }
       const key = `${q.sub}::${q.q.trim()}`;
@@ -147,7 +147,7 @@ export const AdminBankEditorView: React.FC<AdminBankEditorViewProps> = ({ initia
         <div>
           <h1 className="text-xl font-semibold text-ink">用户题库在线编辑与质检</h1>
           <p className="text-xs text-ink-muted mt-0.5">
-            支持单/多/判/填四类题型过滤，完整保留 media/psg/大小写
+            支持单/多/判/填/问五类题型过滤，完整保留 media/psg/大小写
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -214,6 +214,7 @@ export const AdminBankEditorView: React.FC<AdminBankEditorViewProps> = ({ initia
           <option value="multi">多选 (multi)</option>
           <option value="tf">判断 (tf)</option>
           <option value="fill">填空 (fill)</option>
+          <option value="qa">问答 (qa)</option>
         </select>
       </Card>
 

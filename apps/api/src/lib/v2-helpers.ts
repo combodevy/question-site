@@ -50,7 +50,11 @@ export function rowToCanonicalQuestion(row: V2QuestionRow): Question {
     }
 
     const qType =
-        row.type === 'mcq' || row.type === 'multi' || row.type === 'tf' || row.type === 'fill'
+        row.type === 'mcq' ||
+        row.type === 'multi' ||
+        row.type === 'tf' ||
+        row.type === 'fill' ||
+        row.type === 'qa'
             ? row.type
             : 'mcq';
 

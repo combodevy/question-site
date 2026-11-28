@@ -43,7 +43,7 @@ describe('parsers', () => {
       { sub: 'Math', chap: 'Ch1', question: '2+2=4', answer: '对' },
       { sub: 'OS', chap: 'Ch1', q: 'Select valid', o: ['X', 'Y', 'Z'], a: ['C', 'A'] },
       { sub: 'Net', chap: 'Ch2', q: 'Protocol?', a: ['TCP', 'UDP'] },
-      { sub: 'Bad', chap: 'Ch1', q: 'Bad Q', type: 'essay', a: 'foo' },
+      { sub: 'Bad', chap: 'Ch1', q: 'Bad Q', type: 'unknown_type', a: 'foo' },
     ];
     const san = sanitizeImportedBank(input);
     expect(san.questions).toHaveLength(3);
