@@ -17,7 +17,7 @@ const TONE_CLS: Record<NonNullable<BadgeProps['tone']>, string> = {
 export const Badge: React.FC<BadgeProps> = ({ tone = 'neutral', className = '', children, ...rest }) => (
   <span
     {...rest}
-    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-xs font-medium leading-tight ${TONE_CLS[tone]} ${className}`}
+    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-xs font-medium leading-tight whitespace-nowrap flex-shrink-0 ${TONE_CLS[tone]} ${className}`}
   >
     {children}
   </span>
