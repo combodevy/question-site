@@ -79,16 +79,16 @@ export const LabShellLayout: React.FC<LabShellLayoutProps> = ({
     badge?: number;
   }> = [
     { key: 'overview', label: bi('精练概览', 'Overview'), shortLabel: bi('概览', 'Home'), icon: <LayoutDashboard className="w-4 h-4" /> },
-    { key: 'setup', label: bi('科学组卷', 'Compose'), shortLabel: bi('组卷', 'Setup'), icon: <SlidersHorizontal className="w-4 h-4" /> },
+    { key: 'setup', label: bi('练习配置', 'Practice'), shortLabel: bi('练习', 'Setup'), icon: <SlidersHorizontal className="w-4 h-4" /> },
     {
       key: 'mistakes',
-      label: bi('双轨错题', 'Dual-Track'),
-      shortLabel: bi('错题', 'Risks'),
+      label: bi('重点错题', 'Mistakes'),
+      shortLabel: bi('错题', 'Mistakes'),
       icon: <AlertTriangle className="w-4 h-4" />,
       badge: riskCount > 0 ? riskCount : undefined,
     },
-    { key: 'analytics', label: bi('记忆分析', 'Memory Stats'), shortLabel: bi('分析', 'Stats'), icon: <BarChart3 className="w-4 h-4" /> },
-    { key: 'settings', label: bi('策略与数据', 'Lab Settings'), shortLabel: bi('策略', 'Settings'), icon: <Settings2 className="w-4 h-4" /> },
+    { key: 'analytics', label: bi('学习分析', 'Analytics'), shortLabel: bi('分析', 'Stats'), icon: <BarChart3 className="w-4 h-4" /> },
+    { key: 'settings', label: bi('设置与数据', 'Settings'), shortLabel: bi('设置', 'Settings'), icon: <Settings2 className="w-4 h-4" /> },
   ];
 
   const isDarkActive = resolveIsDark(theme);
@@ -149,7 +149,7 @@ export const LabShellLayout: React.FC<LabShellLayoutProps> = ({
                     {user?.username || '—'}
                   </div>
                   <div className="text-[10px] text-accent font-medium truncate">
-                    {bi('科学精练', 'Science Lab')}
+                    {bi('精练模式', 'Focused Lab')}
                   </div>
                 </div>
                 <ChevronsUpDown className="w-3.5 h-3.5 text-ink-muted opacity-60 group-hover:opacity-100 group-hover:text-accent transition-all flex-shrink-0" />
@@ -171,7 +171,7 @@ export const LabShellLayout: React.FC<LabShellLayoutProps> = ({
           <div className="space-y-0.5">
             {!collapsed && (
               <div className="px-2.5 pb-1 text-[11px] font-medium text-ink-muted/75 tracking-wide">
-                {bi('认知精练', 'Science Lab')}
+                {bi('精练学习', 'Practice')}
               </div>
             )}
             {navItems.map((item) => {
@@ -185,14 +185,14 @@ export const LabShellLayout: React.FC<LabShellLayoutProps> = ({
                   onClick={() => onSelectTab(item.key)}
                   className={`group relative w-full h-9 flex items-center gap-2 ${
                     collapsed ? 'justify-center px-2' : 'justify-between px-2.5'
-                  } rounded-lg text-[13.5px] transition-all duration-150 ${
+                  } rounded-lg text-[13.5px] interactive-row ${
                     active
                       ? 'bg-accent-soft text-accent font-semibold'
                       : 'text-ink-muted font-medium hover:text-ink hover:bg-surface-muted/75'
                   }`}
                 >
                   {active && !collapsed && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-accent" />
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-accent anim-pop-in" />
                   )}
                   <span className="flex items-center gap-2.5 min-w-0">
                     <span className="inline-flex transition-transform duration-150 group-hover:scale-105">{item.icon}</span>
@@ -214,29 +214,29 @@ export const LabShellLayout: React.FC<LabShellLayoutProps> = ({
           <div className={`space-y-0.5 ${collapsed ? 'pt-3 border-t border-line/70' : 'pt-2 border-t border-line/70'}`}>
             {!collapsed && (
               <div className="px-2.5 pb-1 text-[11px] font-medium text-ink-muted/75 tracking-wide">
-                {bi('双系统联动', 'Shared Links')}
+                {bi('切换入口', 'Switch Mode')}
               </div>
             )}
             <a
               href="/#library"
-              title={collapsed ? bi('编辑共享题库', 'Manage Shared Bank') : undefined}
-              className={`w-full h-9 flex items-center ${
+              title={collapsed ? bi('管理共享题库', 'Manage Shared Bank') : undefined}
+              className={`interactive-row w-full h-9 flex items-center ${
                 collapsed ? 'justify-center px-2' : 'gap-2.5 px-2.5'
-              } rounded-lg text-[13.5px] font-medium text-ink-muted hover:text-ink hover:bg-surface-muted/75 transition-colors`}
+              } rounded-lg text-[13.5px] font-medium text-ink-muted hover:text-ink hover:bg-surface-muted/75`}
             >
               <Library className="w-4 h-4 flex-shrink-0" />
-              {!collapsed && <span className="truncate">{bi('管理共享题库', 'Manage Bank')}</span>}
+              {!collapsed && <span className="truncate">{bi('管理共享题库', 'Shared Bank')}</span>}
             </a>
             <a
               href="/"
               data-testid="back-to-classic-link"
-              title={collapsed ? bi('返回经典刷题', 'Classic Mode') : undefined}
-              className={`w-full h-9 flex items-center ${
+              title={collapsed ? bi('返回经典版', 'Classic Mode') : undefined}
+              className={`interactive-row w-full h-9 flex items-center ${
                 collapsed ? 'justify-center px-2' : 'gap-2.5 px-2.5'
-              } rounded-lg text-[13.5px] font-medium text-teal-700 dark:text-teal-400 hover:bg-teal-500/10 transition-colors`}
+              } rounded-lg text-[13.5px] font-medium text-teal-700 dark:text-teal-400 hover:bg-teal-500/10`}
             >
               <ArrowLeft className="w-4 h-4 flex-shrink-0" />
-              {!collapsed && <span className="truncate">{bi('返回经典刷题', 'Classic Mode')}</span>}
+              {!collapsed && <span className="truncate">{bi('返回经典版', 'Classic Mode')}</span>}
             </a>
           </div>
         </nav>

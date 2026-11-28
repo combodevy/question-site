@@ -39,6 +39,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { MediaContent } from '@/components/ui/MediaContent';
 import { Modal } from '@/components/ui/Modal';
+import { useAnimatedPresence } from '@/hooks/useAnimatedPresence';
 
 interface LabQuizViewProps {
   data: LiveLabSnapshot;
@@ -141,6 +142,7 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [psgOpenMobile, setPsgOpenMobile] = useState(false);
+  const { mounted: psgMobileMounted, phase: psgMobilePhase } = useAnimatedPresence(psgOpenMobile, 210);
   const [psgFontSize, setPsgFontSize] = useState(15);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [multiDraft, setMultiDraft] = useState<Set<string>>(new Set());
@@ -554,8 +556,8 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
           <div>
             <h2 className="text-xl font-semibold text-ink">
               {settings.delayedFeedback
-                ? bi('模拟考延迟评估完成', 'Delayed Exam Graded')
-                : bi('科学精练会话完成', 'Science Session Complete')}
+                ? bi('交卷结算完成', 'Exam Grading Complete')
+                : bi('本次练习完成', 'Practice Complete')}
             </h2>
             <p className="text-sm text-ink-muted mt-1 tabular-nums">
               {bi(
@@ -569,12 +571,12 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
             <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
               {hyperItems.length > 0 && (
                 <Badge tone="danger">
-                  {bi(`高自信误区 ${hyperItems.length} 题（已安排 4 天内强复测）`, `${hyperItems.length} Hypercorrection Risks (<=4d)`)}
+                  {bi(`易混错题 ${hyperItems.length} 题（4 天内优先复测）`, `${hyperItems.length} High-Conf Errors (<=4d)`)}
                 </Badge>
               )}
               {guessOkItems.length > 0 && (
                 <Badge tone="warning">
-                  {bi(`低自信蒙对 ${guessOkItems.length} 题（已缩短间隔至 1-2 天）`, `${guessOkItems.length} Lucky Guesses (1-2d)`)}
+                  {bi(`蒙对 ${guessOkItems.length} 题（1-2 天内复测）`, `${guessOkItems.length} Lucky Guesses (1-2d)`)}
                 </Badge>
               )}
             </div>
@@ -584,19 +586,19 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
             {wrongItems.length > 0 && (
               <Button variant="primary" onClick={() => retryWrong()}>
                 <RotateCcw className="w-4 h-4" />
-                {bi(`错题巩固再练 (${wrongItems.length})`, `Retry Wrong (${wrongItems.length})`)}
+                {bi(`重练错题 (${wrongItems.length})`, `Retry Wrong (${wrongItems.length})`)}
               </Button>
             )}
             <Button variant="outline" onClick={exitSession}>
-              {bi('返回精练概览', 'Back to Lab Overview')}
+              {bi('返回概览', 'Back to Overview')}
             </Button>
           </div>
         </Card>
 
         {wrongItems.length > 0 && (
-          <Card className="space-y-3">
+          <Card className="space-y-3 anim-stagger" style={{ '--stagger-i': 1 } as React.CSSProperties}>
             <h3 className="text-sm font-semibold text-ink">
-              {bi(`本场错题与精析 (${wrongItems.length})`, `Wrong Items & Explanations (${wrongItems.length})`)}
+              {bi(`错题与解析 (${wrongItems.length})`, `Wrong Items & Explanations (${wrongItems.length})`)}
             </h3>
             <div className="divide-y divide-line">
               {wrongItems.map(({ it, state }) => (
@@ -604,7 +606,7 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge tone="neutral">{it.question.sub} / {it.question.chap}</Badge>
                     {state?.conf === 3 && (
-                      <Badge tone="danger">{bi('高自信误区', 'High-Conf Error')}</Badge>
+                      <Badge tone="danger">{bi('易混错题', 'High-Conf Error')}</Badge>
                     )}
                   </div>
                   <div className="text-sm font-bold text-ink">
@@ -674,12 +676,12 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
             <div className="text-xs font-medium text-ink truncate flex items-center gap-1.5">
               <span>{title || `${q.sub} / ${q.chap}`}</span>
               {item.isRequeued && (
-                <Badge tone="warning">{bi('组内回炉重测', 'Requeued')}</Badge>
+                <Badge tone="warning">{bi('错题再测', 'Retest')}</Badge>
               )}
             </div>
             <div className="text-[11px] text-ink-muted tabular-nums">
               {bi(`第 ${idx + 1} / ${queue.length} 题 | 已答 ${answeredCount}`, `${idx + 1} / ${queue.length} | ${answeredCount} answered`)}
-              {settings.delayedFeedback && ` | ${bi('延迟评估中', 'Delayed Exam')}`}
+              {settings.delayedFeedback && ` | ${bi('交卷统一出分', 'Grade at End')}`}
             </div>
           </div>
         </div>
@@ -697,11 +699,11 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
               size="sm"
               onClick={handleRequestHint}
               data-testid="lab-hint-btn"
-              title={bi('渐进支架提示（3秒防滥用冷却）', 'Scaffolded hint (3s cooldown)')}
+              title={bi('查看解题提示', 'Show hint')}
             >
               <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
               <span className="hidden sm:inline">
-                {hintsUsed === 0 ? bi('线索 1', 'Hint 1') : bi('线索 2', 'Hint 2')}
+                {hintsUsed === 0 ? bi('提示 1', 'Hint 1') : bi('提示 2', 'Hint 2')}
               </span>
             </Button>
           )}
@@ -815,29 +817,29 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
               <MediaContent text={q.q} media={q.media} />
             </div>
 
-            {/* Scaffolded Hint Panel */}
+            {/* Hint Panel */}
             {hintsUsed > 0 && !canShowFeedbackNow && (
               <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-800 dark:text-amber-200 space-y-1 anim-slide-down">
                 <div className="font-semibold flex items-center gap-1.5">
                   <Lightbulb className="w-3.5 h-3.5" />
-                  {bi('支架提示', 'Scaffold Hint')}
+                  {bi('解题提示', 'Hint')}
                 </div>
                 {hintsUsed >= 1 && (
                   <div>
                     {q.type === 'mcq' && eliminatedOrigIndex >= 0
-                      ? bi('线索 1：已帮你排除一个明显干扰项（已置灰）。', 'Hint 1: One distractor has been eliminated below.')
+                      ? bi('提示 1：已帮你排除一个错误选项（已置灰）。', 'Hint 1: One incorrect choice is dimmed below.')
                       : q.type === 'fill'
-                      ? bi(`线索 1：共有 ${fillBlankCount} 个空位，请留意核心专业术语。`, `Hint 1: Expecting ${fillBlankCount} blank(s).`)
-                      : bi(`线索 1：本题所属知识模块为 ${q.sub} / ${q.chap}。`, `Hint 1: Focus on ${q.sub} / ${q.chap}.`)}
+                      ? bi(`提示 1：共有 ${fillBlankCount} 个空位，注意核心概念词。`, `Hint 1: Expecting ${fillBlankCount} blank(s).`)
+                      : bi(`提示 1：本题所属章节为 ${q.sub} / ${q.chap}。`, `Hint 1: Section ${q.sub} / ${q.chap}.`)}
                   </div>
                 )}
                 {hintsUsed >= 2 && (
                   <div>
                     {q.d
-                      ? bi(`线索 2：${q.d.slice(0, 80)}${q.d.length > 80 ? '...' : ''}`, `Hint 2: ${q.d.slice(0, 80)}`)
+                      ? bi(`提示 2：${q.d.slice(0, 80)}${q.d.length > 80 ? '...' : ''}`, `Hint 2: ${q.d.slice(0, 80)}`)
                       : q.type === 'fill'
-                      ? bi(`线索 2：首空参考开头为 "${parseFillBlanks(q.a)[0]?.[0]?.slice(0, 2) || ''}..."`, `Hint 2: Starts with "${parseFillBlanks(q.a)[0]?.[0]?.slice(0, 2) || ''}..."`)
-                      : bi('线索 2：对照题干限定条件再核验一次边界情况。', 'Hint 2: Double-check boundary conditions in the stem.')}
+                      ? bi(`提示 2：首空开头为 "${parseFillBlanks(q.a)[0]?.[0]?.slice(0, 2) || ''}..."`, `Hint 2: Starts with "${parseFillBlanks(q.a)[0]?.[0]?.slice(0, 2) || ''}..."`)
+                      : bi('提示 2：对照题干限定条件再核验一次边界情况。', 'Hint 2: Check key conditions in the question stem.')}
                   </div>
                 )}
               </div>
@@ -847,7 +849,7 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
           {/* Confidence Selector Strip */}
           {settings.confidenceMode !== 'off' && q.type !== 'qa' && !isAnswered && (
             <div
-              className={`p-2.5 rounded-2xl border transition-all flex flex-wrap items-center justify-between gap-2 ${
+              className={`p-2.5 rounded-2xl border transition-all duration-200 flex flex-wrap items-center justify-between gap-2 anim-fade-in ${
                 confHighlight
                   ? 'border-amber-500 bg-amber-500/10 ring-1 ring-amber-500/40 anim-shake'
                   : 'border-line bg-surface'
@@ -856,8 +858,8 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
             >
               <span className="text-xs font-medium text-ink-muted">
                 {settings.confidenceMode === 'required'
-                  ? bi('作答前必选把握度：', 'Confidence (Required):')
-                  : bi('可选把握度标注：', 'Confidence (Optional):')}
+                  ? bi('选择把握度（必选）：', 'Confidence (Required):')
+                  : bi('把握度：', 'Confidence:')}
               </span>
               <div className="flex items-center gap-1.5">
                 {(
@@ -894,11 +896,11 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
           {/* Answer Controls: MCQ / MULTI */}
           {(q.type === 'mcq' || q.type === 'multi') && (
             !optionsRevealed ? (
-              <Card className="space-y-3 text-center py-6 anim-fade-in" data-testid="lab-blind-cover">
+              <Card className="space-y-3 text-center py-6 anim-pop-in" data-testid="lab-blind-cover">
                 <p className="text-xs text-ink-muted">
                   {bi(
-                    '盲答保护已开启：请先尝试不看选项回忆答案，再点击展开对照。',
-                    'Blind recall active: retrieve the answer mentally before revealing choices.',
+                    '请先在心里回忆答案，再展开选项进行核对。',
+                    'Recall the answer mentally before revealing the options.',
                   )}
                 </p>
                 <div className="flex justify-center">
@@ -908,12 +910,12 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
                     data-testid="lab-blind-reveal-btn"
                   >
                     <Eye className="w-4 h-4" />
-                    {bi('我想好了，展开选项 [Space]', 'Reveal Options [Space]')}
+                    {bi('展开选项 [Space]', 'Show Options [Space]')}
                   </Button>
                 </div>
               </Card>
             ) : (
-              <div className="space-y-2.5 anim-fade-in">
+              <div className="space-y-2.5 anim-pop-in">
                 {item.optionOrder.map((origIdx, visIdx) => {
                   const optText = q.o[origIdx] ?? '';
                   const origLetter = String.fromCharCode(65 + origIdx);
@@ -953,8 +955,9 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
                       data-testid={`lab-opt-${visIdx}`}
                       data-orig-letter={origLetter}
                       onClick={() => submitChoice(origLetter)}
-                      className={`w-full text-left p-4 rounded-2xl border transition-all duration-200 ${
-                        !isAnswered && !isEliminated ? 'hover:translate-x-0.5 active:scale-[0.99]' : ''
+                      style={{ '--stagger-i': visIdx } as React.CSSProperties}
+                      className={`anim-stagger w-full text-left p-4 rounded-2xl border transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                        !isAnswered && !isEliminated ? 'hover:translate-x-0.5 active:scale-[0.985]' : ''
                       } flex items-start gap-3.5 ${boxCls}`}
                     >
                       <span
@@ -1114,7 +1117,7 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
                   {!isAnswered && (
                     <div className="space-y-2 pt-1">
                       <div className="text-xs text-ink-muted">
-                        {bi('按 FSRS 提取流畅度自评（决定下次复习间隔）：', 'Rate recall fluency for FSRS scheduling:')}
+                        {bi('按掌握程度自评（自动安排下次复习）：', 'Rate your mastery for next review:')}
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         {(
@@ -1136,7 +1139,7 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
                             },
                             {
                               r: 4 as FsrsRating,
-                              label: bi('秒杀熟练', 'Easy'),
+                              label: bi('很熟练', 'Easy'),
                               cls: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20',
                             },
                           ] as const
@@ -1148,11 +1151,11 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
                               type="button"
                               data-testid={`lab-qa-rate-${opt.r}`}
                               onClick={() => handleQaRate(opt.r)}
-                              className={`p-2.5 rounded-xl border text-center transition-all active:scale-95 ${opt.cls}`}
+                              className={`p-2.5 rounded-xl border text-center transition-all duration-150 hover:-translate-y-0.5 active:scale-95 ${opt.cls}`}
                             >
                               <div className="text-xs font-semibold">{opt.label}</div>
                               <div className="text-[10px] opacity-80 tabular-nums mt-0.5">
-                                {opt.r === 1 ? bi('1 天内回炉', 'Soon / 1d') : bi(`${days} 天后`, `${days}d`)}
+                                {opt.r === 1 ? bi('稍后复测', 'Soon / 1d') : bi(`${days} 天后`, `${days}d`)}
                               </div>
                             </button>
                           );
@@ -1167,9 +1170,9 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
 
           {/* Delayed Mode Saved Notice (before grading) */}
           {isAnswered && settings.delayedFeedback && (
-            <Card className="border-accent/40 bg-accent-soft/30 flex items-center justify-between gap-2 text-xs">
+            <Card className="border-accent/40 bg-accent-soft/30 flex items-center justify-between gap-2 text-xs anim-slide-down">
               <span className="text-ink font-medium">
-                {bi('已记录本题作答（延迟反馈模式下交卷后统一查看对错与精析）。', 'Recorded silently. Full grading appears when you submit all.')}
+                {bi('已记录本题作答，交卷后统一核对答案与解析。', 'Answer saved. Full grading shows upon submission.')}
               </span>
               {idx < queue.length - 1 ? (
                 <Button size="sm" variant="primary" onClick={() => setIndex(idx + 1)}>
@@ -1202,7 +1205,7 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
                       <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                       <span className="text-emerald-700 dark:text-emerald-300">
                         {saved.conf === 1
-                          ? bi('蒙对已确认（已缩短复现间隔）', 'Lucky Guess Recorded (Shortened Interval)')
+                          ? bi('已记为蒙对（1-2 天内复测）', 'Lucky Guess Recorded (1-2d review)')
                           : bi('回答正确', 'Correct')}
                       </span>
                     </>
@@ -1221,9 +1224,9 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
                         }
                       >
                         {q.type === 'qa'
-                          ? bi('已记为需要巩固，FSRS 已缩短间隔', 'Scheduled for soon reinforcement')
+                          ? bi('已记为待巩固，系统将缩短复习间隔', 'Scheduled for soon review')
                           : bi(
-                              `${saved?.conf === 3 ? '高自信误区 | ' : '回答有误 | '}正确答案：${
+                              `${saved?.conf === 3 ? '易混错题 | ' : '回答有误 | '}正确答案：${
                                 q.type === 'fill' ? formatFillAnswerDisplay(q.a) : q.a
                               }`,
                               `${saved?.conf === 3 ? 'High-Conf Error | ' : 'Incorrect | '}Answer: ${
@@ -1258,19 +1261,19 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
               </div>
 
               {!saved?.ok && saved?.conf === 3 && (
-                <div className="px-3 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-xs text-amber-900 dark:text-amber-200">
+                <div className="px-3 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-xs text-amber-900 dark:text-amber-200 anim-slide-down">
                   {bi(
-                    '超纠正警报：你很确定却答错了本题，FSRS 已将其锁定在 4 天内强制复测，防止顽固误区一周后返潮。',
-                    'Hypercorrection alert: high-confidence error locked for mandatory review within 4 days.',
+                    '提示：本题你选择“很确定”但答错了，系统已安排在 4 天内优先复测。',
+                    'Note: you felt certain yet missed this item; prioritized for review within 4 days.',
                   )}
                 </div>
               )}
 
               {requeueNotice && (
-                <div className="px-3 py-2 rounded-xl bg-accent-soft/60 border border-accent/25 text-xs text-accent flex items-center gap-1.5">
+                <div className="px-3 py-2 rounded-xl bg-accent-soft/60 border border-accent/25 text-xs text-accent flex items-center gap-1.5 anim-slide-down">
                   <RefreshCw className="w-3.5 h-3.5 flex-shrink-0" />
                   <span>
-                    {bi('已将该题安排到 4 题后进行组内延迟回炉重测（选项将重新乱序）。', 'Scheduled for in-session delayed re-test 4 items later.')}
+                    {bi('已安排在 4 题后重新测验一次。', 'Scheduled to re-test 4 items later.')}
                   </span>
                 </div>
               )}
@@ -1306,8 +1309,12 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
       </div>
 
       {/* Mobile Passage Drawer */}
-      {q.psg && psgOpenMobile && (
-        <div className="fixed inset-0 z-50 md:hidden flex flex-col bg-surface">
+      {q.psg && psgMobileMounted && (
+        <div
+          className={`fixed inset-0 z-50 md:hidden flex flex-col bg-surface ${
+            psgMobilePhase === 'exit' ? 'anim-sheet-out pointer-events-none' : 'anim-sheet-in'
+          }`}
+        >
           <div className="px-4 py-3 border-b border-line flex items-center justify-between gap-2">
             <span className="text-sm font-semibold text-ink">{bi('阅读材料', 'Passage')}</span>
             <div className="flex items-center gap-2">
@@ -1319,7 +1326,11 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
                 <Highlighter className="w-3 h-3 text-amber-500" />
                 {bi('标亮', 'Mark')}
               </button>
-              <button type="button" onClick={() => setPsgOpenMobile(false)} className="p-1 text-ink-muted">
+              <button
+                type="button"
+                onClick={() => setPsgOpenMobile(false)}
+                className="p-1 text-ink-muted hover:text-ink transition-transform duration-200 hover:rotate-90 active:scale-90"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1334,8 +1345,8 @@ export const LabQuizView: React.FC<LabQuizViewProps> = ({ data, stats, anyModalO
       <Modal
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
-        title={bi('科学精练答题卡', 'Lab Session Map')}
-        subtitle={bi(`共 ${queue.length} 槽位，已答 ${answeredCount}`, `${answeredCount} / ${queue.length} answered`)}
+        title={bi('答题卡', 'Question Map')}
+        subtitle={bi(`共 ${queue.length} 题，已作答 ${answeredCount} 题`, `${answeredCount} / ${queue.length} answered`)}
         size="md"
         footer={
           <Button

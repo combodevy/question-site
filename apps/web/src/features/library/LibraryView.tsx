@@ -26,6 +26,7 @@ import {
 import { parseFillBlanks, type Question, type QuestionType } from '@qs/shared';
 import type { LocalQuestion } from '@/db';
 import type { LiveStudySnapshot, StudyStats } from '@/sync/hooks';
+import { useAnimatedPresence } from '@/hooks/useAnimatedPresence';
 import { getSyncEngine } from '@/sync/engine';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useQuizStore } from '@/store/useQuizStore';
@@ -137,6 +138,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const [moreOpen, setMoreOpen] = useState(false);
+  const { mounted: moreMounted, phase: morePhase } = useAnimatedPresence(moreOpen, 150);
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
 
   // Multi-select & Batch move modal
@@ -551,10 +553,12 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               <ChevronDown className={`w-3.5 h-3.5 text-ink-muted transition-transform duration-150 ${moreOpen ? 'rotate-180' : ''}`} />
             </Button>
 
-            {moreOpen && (
+            {moreMounted && (
               <div
                 data-testid="lib-more-menu"
-                className="absolute right-0 mt-1.5 w-44 rounded-xl bg-surface border border-line shadow-lg py-1 z-30 anim-dropdown-in"
+                className={`absolute right-0 mt-1.5 w-44 rounded-xl bg-surface border border-line shadow-lg py-1 z-30 ${
+                  morePhase === 'exit' ? 'anim-dropdown-out pointer-events-none' : 'anim-dropdown-in'
+                }`}
               >
                 <button
                   type="button"

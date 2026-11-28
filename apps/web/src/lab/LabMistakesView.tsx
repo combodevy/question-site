@@ -101,31 +101,31 @@ export const LabMistakesView: React.FC<LabMistakesViewProps> = ({ data, stats })
       questions: filtered,
       title:
         track === 'hyper'
-          ? bi('高自信误区专练', 'Hypercorrection Drill')
+          ? bi('易混错题专练', 'High-Conf Errors')
           : track === 'guess'
-          ? bi('低自信蒙对核验', 'Lucky Guess Verification')
+          ? bi('蒙对题重测', 'Lucky Guess Review')
           : track === 'starred'
-          ? bi('精练收藏专练', 'Lab Starred')
-          : bi('双轨错题专练', 'Dual-Track Mistakes'),
+          ? bi('收藏专练', 'Starred Practice')
+          : bi('重点错题专练', 'Mistakes & Guesses'),
       settings: data.settings,
     });
   };
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 anim-fade-in">
         <div className="flex items-center gap-2.5">
-          <span className="w-9 h-9 rounded-xl bg-accent-soft text-accent inline-flex items-center justify-center">
+          <span className="w-9 h-9 rounded-xl bg-accent-soft text-accent inline-flex items-center justify-center transition-transform duration-200 hover:scale-105">
             <AlertTriangle className="w-4 h-4" />
           </span>
           <div>
             <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-ink">
-              {bi('双轨错题本', 'Dual-Track Error Book')}
+              {bi('重点错题本', 'Mistakes & Guesses')}
             </h1>
             <p className="text-xs text-ink-muted">
               {bi(
-                '高自信误区与低自信蒙对均独立存储，不与经典错题混淆',
-                'Hypercorrection errors & lucky guesses tracked separately from Classic',
+                '记录本模式下的做错与蒙对题目，与经典版互不影响',
+                'Tracks mistakes and lucky guesses independently from Classic Mode',
               )}
             </p>
           </div>
@@ -138,18 +138,14 @@ export const LabMistakesView: React.FC<LabMistakesViewProps> = ({ data, stats })
               size="sm"
               onClick={() => {
                 void getLabSyncEngine()?.restoreHiddenMistakes();
-                pushToast(bi('已恢复全部已隐藏错题', 'Restored hidden items'), 'info');
+                pushToast(bi('已恢复全部已移出错题', 'Restored hidden items'), 'info');
               }}
             >
               <RotateCcw className="w-3.5 h-3.5" />
               {bi(`恢复隐藏 (${stats.hiddenMistakeIds.size})`, `Restore (${stats.hiddenMistakeIds.size})`)}
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowAnswers((v) => !v)}
-          >
+          <Button variant="outline" size="sm" onClick={() => setShowAnswers((v) => !v)}>
             {showAnswers ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
             {showAnswers ? bi('隐藏答案', 'Hide Answers') : bi('显示答案', 'Show Answers')}
           </Button>
@@ -161,21 +157,21 @@ export const LabMistakesView: React.FC<LabMistakesViewProps> = ({ data, stats })
             data-testid="lab-mistakes-drill-btn"
           >
             <Play className="w-3.5 h-3.5" />
-            {bi(`专练本批 (${filtered.length})`, `Drill (${filtered.length})`)}
+            {bi(`重练当前 (${filtered.length})`, `Practice (${filtered.length})`)}
           </Button>
         </div>
       </div>
 
-      {/* Track Tabs + Filter Bar */}
-      <Card padding="sm" className="space-y-3">
+      {/* Filter Bar */}
+      <Card padding="sm" className="space-y-3 anim-stagger" style={{ '--stagger-i': 0 } as React.CSSProperties}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="inline-flex flex-wrap p-0.5 rounded-xl bg-surface-muted border border-line text-xs gap-0.5">
             {(
               [
                 { k: 'all', label: bi(`全部错题 (${stats.visibleMistakeIds.size})`, `All (${stats.visibleMistakeIds.size})`) },
-                { k: 'hyper', label: bi(`高自信误区 (${stats.hyperRiskIds.size})`, `Hyper (${stats.hyperRiskIds.size})`) },
-                { k: 'guess', label: bi(`低自信蒙对 (${stats.luckyGuessIds.size})`, `Lucky Guess (${stats.luckyGuessIds.size})`) },
-                { k: 'starred', label: bi(`精练收藏 (${stats.starredIds.size})`, `Starred (${stats.starredIds.size})`) },
+                { k: 'hyper', label: bi(`易混错题 (${stats.hyperRiskIds.size})`, `High-Conf (${stats.hyperRiskIds.size})`) },
+                { k: 'guess', label: bi(`蒙对题目 (${stats.luckyGuessIds.size})`, `Guesses (${stats.luckyGuessIds.size})`) },
+                { k: 'starred', label: bi(`收藏夹 (${stats.starredIds.size})`, `Starred (${stats.starredIds.size})`) },
               ] as const
             ).map((t) => (
               <button
@@ -183,7 +179,7 @@ export const LabMistakesView: React.FC<LabMistakesViewProps> = ({ data, stats })
                 type="button"
                 data-testid={`lab-track-${t.k}`}
                 onClick={() => setTrack(t.k)}
-                className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                className={`px-3 py-1.5 rounded-lg font-medium transition-all duration-150 ${
                   track === t.k ? 'bg-surface text-ink shadow-sm' : 'text-ink-muted hover:text-ink'
                 }`}
               >
@@ -200,7 +196,7 @@ export const LabMistakesView: React.FC<LabMistakesViewProps> = ({ data, stats })
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={bi('搜索题干或解析…', 'Search…')}
-                className="w-full h-9 pl-8 pr-3 rounded-xl bg-canvas border border-line text-xs text-ink outline-none focus:border-accent"
+                className="w-full h-9 pl-8 pr-3 rounded-xl bg-canvas border border-line text-xs text-ink outline-none focus:border-accent transition-colors"
               />
             </div>
             <select
@@ -222,36 +218,41 @@ export const LabMistakesView: React.FC<LabMistakesViewProps> = ({ data, stats })
       {filtered.length === 0 ? (
         <EmptyState
           icon={<Sparkles className="w-5 h-5" />}
-          title={bi('当前轨道暂无题目', 'No Items in This Track')}
-          description={bi('继续完成科学精练会话后，高自信误区和低自信蒙对会自动归纳至此。', 'Complete sessions to populate hypercorrection and lucky-guess queues.')}
+          title={bi('当前分类暂无题目', 'No Questions Here')}
+          description={bi('完成练习后，做错和蒙对的题目会自动整理到这里。', 'Missed and lucky-guess questions will appear here after practice.')}
         />
       ) : (
         <div className="space-y-3">
-          {visibleItems.map((q) => {
+          {visibleItems.map((q, idx) => {
             const card = stats.cardMap.get(q.id);
             const flag = data.flagsMap.get(q.id);
             const starred = Boolean(flag?.starred);
             const rPct = card ? Math.round(card.retrievability * 100) : 100;
             return (
-              <Card key={q.id} className="space-y-3" data-testid={`lab-mistake-card-${q.id}`}>
+              <Card
+                key={q.id}
+                style={{ '--stagger-i': Math.min(idx, 10) } as React.CSSProperties}
+                className="space-y-3 anim-stagger card-hover"
+                data-testid={`lab-mistake-card-${q.id}`}
+              >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <Badge tone="accent">{q.sub} / {q.chap}</Badge>
                     {card?.isHyperRisk && (
                       <Badge tone="danger">
                         <ShieldAlert className="w-3 h-3" />
-                        {bi('高自信误区', 'Hypercorrection Risk')}
+                        {bi('易混错题', 'High-Conf Error')}
                       </Badge>
                     )}
                     {card?.isLuckyGuess && (
                       <Badge tone="warning">
                         <AlertTriangle className="w-3 h-3" />
-                        {bi('低自信蒙对', 'Lucky Guess')}
+                        {bi('蒙对题目', 'Lucky Guess')}
                       </Badge>
                     )}
                     {card && card.attempts > 0 && (
                       <span className="text-[11px] font-mono text-ink-muted tabular-nums">
-                        R {rPct}% | S {card.stability}d | {bi(`错 ${card.wrongCount}/${card.attempts}`, `${card.wrongCount}/${card.attempts} err`)}
+                        {bi(`记忆度 ${rPct}%`, `R ${rPct}%`)} | {bi(`错 ${card.wrongCount}/${card.attempts}`, `${card.wrongCount}/${card.attempts} err`)}
                       </span>
                     )}
                   </div>
@@ -260,8 +261,8 @@ export const LabMistakesView: React.FC<LabMistakesViewProps> = ({ data, stats })
                     <button
                       type="button"
                       onClick={() => void getLabSyncEngine()?.setFlag(q.id, { starred: !starred })}
-                      title={bi('精练收藏', 'Lab Star')}
-                      className={`p-1.5 rounded-lg transition-colors ${
+                      title={bi('收藏本题', 'Star')}
+                      className={`p-1.5 rounded-lg transition-all duration-150 active:scale-90 ${
                         starred ? 'text-amber-500 bg-amber-500/10' : 'text-ink-muted hover:text-ink hover:bg-surface-muted'
                       }`}
                     >
@@ -272,10 +273,10 @@ export const LabMistakesView: React.FC<LabMistakesViewProps> = ({ data, stats })
                         type="button"
                         onClick={() => {
                           void getLabSyncEngine()?.setFlag(q.id, { mistakeHidden: true });
-                          pushToast(bi('已从双轨错题本隐藏（可在右上角恢复）', 'Hidden from dual-track list'), 'info');
+                          pushToast(bi('已移出当前列表（可随时恢复）', 'Hidden from list'), 'info');
                         }}
-                        title={bi('移出错题本', 'Hide from error book')}
-                        className="p-1.5 rounded-lg text-ink-muted hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                        title={bi('移出列表', 'Hide')}
+                        className="p-1.5 rounded-lg text-ink-muted hover:text-red-500 hover:bg-red-500/10 transition-all duration-150 active:scale-90"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -284,7 +285,9 @@ export const LabMistakesView: React.FC<LabMistakesViewProps> = ({ data, stats })
                 </div>
 
                 {showAnswers ? (
-                  <QuestionPreviewBlock question={q} showExplanation />
+                  <div className="anim-slide-down">
+                    <QuestionPreviewBlock question={q} showExplanation />
+                  </div>
                 ) : (
                   <div className="text-sm font-bold text-ink leading-relaxed">{q.q}</div>
                 )}
@@ -294,7 +297,7 @@ export const LabMistakesView: React.FC<LabMistakesViewProps> = ({ data, stats })
 
           {hasMore && (
             <div ref={loadMoreRef} className="py-4 text-center text-xs text-ink-muted">
-              {bi(`向下滚动继续加载（已显示 ${visibleItems.length} / ${filtered.length}）`, `Scroll to load more (${visibleItems.length}/${filtered.length})`)}
+              {bi(`继续向下滚动加载（已显示 ${visibleItems.length} / ${filtered.length}）`, `Scroll to load more (${visibleItems.length}/${filtered.length})`)}
             </div>
           )}
         </div>

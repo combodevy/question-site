@@ -5,6 +5,7 @@ import type { LocalQuestion } from '@/db';
 import { useBi } from '@/i18n/useBi';
 import { Badge } from '@/components/ui/Badge';
 import { QuestionPreviewBlock } from '@/components/ui/QuestionPreviewBlock';
+import { useAnimatedPresence, useLastValue } from '@/hooks/useAnimatedPresence';
 
 interface QuestionInsightDrawerProps {
   question: LocalQuestion | null;
@@ -18,6 +19,8 @@ export const QuestionInsightDrawer: React.FC<QuestionInsightDrawerProps> = ({
   onClose,
 }) => {
   const { bi } = useBi();
+  const { mounted, phase } = useAnimatedPresence(Boolean(question), 220);
+  const displayQ = useLastValue(question);
 
   useEffect(() => {
     if (!question) return;
@@ -28,10 +31,11 @@ export const QuestionInsightDrawer: React.FC<QuestionInsightDrawerProps> = ({
     return () => window.removeEventListener('keydown', onKey);
   }, [question, onClose]);
 
-  if (!question) return null;
+  if (!mounted || !displayQ) return null;
+  const exiting = phase === 'exit';
 
   const records = history
-    .filter((h) => h.id === question.id)
+    .filter((h) => h.id === displayQ.id)
     .sort((a, b) => a.t - b.t);
   const recent = [...records].reverse().slice(0, 10);
   const correct = records.filter((r) => r.r).length;
@@ -41,8 +45,8 @@ export const QuestionInsightDrawer: React.FC<QuestionInsightDrawerProps> = ({
     ? Math.round((durRecs.reduce((acc, r) => acc + (r.d || 0), 0) / durRecs.length / 1000) * 10) / 10
     : null;
   const hasOlderEdits =
-    typeof question._editedAt === 'number' &&
-    recent.some((r) => r.t < (question._editedAt as number));
+    typeof displayQ._editedAt === 'number' &&
+    recent.some((r) => r.t < (displayQ._editedAt as number));
 
   const fmtDuration = (ms?: number, capped?: boolean) => {
     if (!ms || ms <= 0) return '—';
@@ -53,20 +57,36 @@ export const QuestionInsightDrawer: React.FC<QuestionInsightDrawerProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex justify-end" data-testid="question-insight-drawer">
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-[1px] anim-fade-in" onClick={onClose} />
-      <aside className="relative w-full max-w-lg bg-surface border-l border-line h-full flex flex-col shadow-2xl z-10 anim-drawer-in">
+    <div
+      className={`fixed inset-0 z-[60] flex justify-end ${exiting ? 'pointer-events-none' : ''}`}
+      data-testid="question-insight-drawer"
+    >
+      <div
+        className={`fixed inset-0 bg-black/40 backdrop-blur-[1px] ${
+          exiting ? 'anim-fade-out' : 'anim-fade-in'
+        }`}
+        onClick={() => {
+          if (!exiting) onClose();
+        }}
+      />
+      <aside
+        className={`relative w-full max-w-lg bg-surface border-l border-line h-full flex flex-col shadow-2xl z-10 ${
+          exiting ? 'anim-drawer-out' : 'anim-drawer-in'
+        }`}
+      >
         <div className="px-5 py-4 border-b border-line flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-xs text-ink-muted truncate">
-              {question.sub} / {question.chap}
+              {displayQ.sub} / {displayQ.chap}
             </div>
             <h3 className="text-sm font-semibold text-ink mt-0.5">{bi('题目洞察与作答历史', 'Question History & Insights')}</h3>
           </div>
           <button
             type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-muted hover:text-ink hover:bg-surface-muted"
+            onClick={() => {
+              if (!exiting) onClose();
+            }}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-muted hover:text-ink hover:bg-surface-muted transition-all duration-200 hover:rotate-90 active:scale-90"
             aria-label="Close"
           >
             <X className="w-4 h-4" />
@@ -74,20 +94,20 @@ export const QuestionInsightDrawer: React.FC<QuestionInsightDrawerProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scroll p-5 space-y-5">
-          {question.psg && (
+          {displayQ.psg && (
             <details className="p-3 rounded-xl bg-canvas border border-line text-xs">
               <summary className="cursor-pointer font-medium text-ink-muted inline-flex items-center gap-1.5">
                 <FileText className="w-3.5 h-3.5 text-accent" />
                 {bi('查看关联短文材料', 'View Reading Passage')}
               </summary>
               <div className="mt-2 pt-2 border-t border-line font-serif leading-relaxed text-ink whitespace-pre-wrap max-h-48 overflow-y-auto custom-scroll">
-                {question.psg}
+                {displayQ.psg}
               </div>
             </details>
           )}
 
           <div className="p-4 rounded-xl bg-canvas border border-line">
-            <QuestionPreviewBlock question={question} />
+            <QuestionPreviewBlock question={displayQ} />
           </div>
 
           <div className="grid grid-cols-2 gap-2.5 text-xs">

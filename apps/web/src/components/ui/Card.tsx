@@ -18,7 +18,7 @@ export const Card: React.FC<CardProps> = ({
   ...rest
 }) => (
   <div
-    className={`bg-surface border border-line rounded-2xl shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-[border-color,box-shadow,background-color] duration-200 ${PAD_CLS[padding]} ${className}`}
+    className={`bg-surface border border-line rounded-2xl shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${PAD_CLS[padding]} ${className}`}
     {...rest}
   >
     {children}

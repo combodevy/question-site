@@ -127,7 +127,7 @@ export const LabApp: React.FC = () => {
       <QueryClientProvider client={queryClient}>
         {status === 'booting' ? (
           <div className="lab-theme min-h-screen bg-canvas flex items-center justify-center text-xs text-ink-muted">
-            正在载入科学精练系统…
+            正在载入精练模式…
           </div>
         ) : status === 'authenticated' ? (
           <AuthenticatedLabApp key={user?.id || 'lab-auth'} />

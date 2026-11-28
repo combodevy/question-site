@@ -96,9 +96,9 @@ export const LabAuthGate: React.FC = () => {
             <FlaskConical className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-sm font-semibold text-ink">{bi('科学精练系统', 'Science Lab')}</div>
+            <div className="text-sm font-semibold text-ink">{bi('精练模式', 'Focused Lab')}</div>
             <div className="text-[11px] text-ink-muted">
-              {bi('FSRS 记忆调度 / 双轨纠偏 / 共享题库隔离记录', 'FSRS / Metacognitive Calibration / Isolated Stats')}
+              {bi('智能复习 / 错题巩固 / 独立学习统计', 'Smart Review / Error Drill / Isolated Stats')}
             </div>
           </div>
         </div>
@@ -132,26 +132,26 @@ export const LabAuthGate: React.FC = () => {
       <main className="max-w-4xl w-full mx-auto my-8 grid grid-cols-1 md:grid-cols-12 gap-8 items-center anim-page-in">
         <div className="md:col-span-6 space-y-5 px-1">
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-ink leading-snug">
-            {bi('告别机械重复，按认知规律做每一次提取。', 'Evidence-based retrieval practice, completely isolated from your classic stats.')}
+            {bi('按记忆规律复习，把每一道错题练透。', 'Targeted retrieval practice, completely isolated from your classic stats.')}
           </h1>
           <p className="text-sm text-ink-muted leading-relaxed">
             {bi(
-              '与经典刷题共用同一账号与题库内容，但所有作答记录、正确率、FSRS 稳定度与双轨错题完全独立存储，互不串扰。',
-              'Shares your account and question bank read-only, while storing all FSRS memory traces, accuracy metrics, and dual-track mistakes separately.',
+              '与经典版共用账号与题库内容，练习记录与正确率统计完全独立保存，互不影响。',
+              'Shares your account and question bank read-only while keeping all practice records and accuracy stats separate.',
             )}
           </p>
           <div className="grid grid-cols-3 gap-3 pt-1">
-            <div className="p-3 rounded-xl bg-surface border border-line card-hover">
-              <div className="text-xs font-semibold text-ink">{bi('FSRS 引擎', 'FSRS-5 DSR')}</div>
-              <div className="text-[11px] text-ink-muted mt-1">{bi('结合耗时动态排程', 'Response-time aware')}</div>
+            <div className="p-3 rounded-xl bg-surface border border-line card-hover anim-stagger" style={{ '--stagger-i': 0 } as React.CSSProperties}>
+              <div className="text-xs font-semibold text-ink">{bi('智能复习', 'Smart Review')}</div>
+              <div className="text-[11px] text-ink-muted mt-1">{bi('按遗忘规律提醒复习', 'Spaced intervals')}</div>
             </div>
-            <div className="p-3 rounded-xl bg-surface border border-line card-hover">
-              <div className="text-xs font-semibold text-ink">{bi('盲答与穿插', 'Blind & Mix')}</div>
-              <div className="text-[11px] text-ink-muted mt-1">{bi('阻断位置表层记忆', 'Cross-chapter interleaving')}</div>
+            <div className="p-3 rounded-xl bg-surface border border-line card-hover anim-stagger" style={{ '--stagger-i': 1 } as React.CSSProperties}>
+              <div className="text-xs font-semibold text-ink">{bi('防背选项', 'Anti-Rote')}</div>
+              <div className="text-[11px] text-ink-muted mt-1">{bi('打乱选项与先想后选', 'Shuffle & recall first')}</div>
             </div>
-            <div className="p-3 rounded-xl bg-surface border border-line card-hover">
-              <div className="text-xs font-semibold text-ink">{bi('双轨纠偏', 'Calibration')}</div>
-              <div className="text-[11px] text-ink-muted mt-1">{bi('高自信误区 + 蒙对', 'Hypercorrection tracking')}</div>
+            <div className="p-3 rounded-xl bg-surface border border-line card-hover anim-stagger" style={{ '--stagger-i': 2 } as React.CSSProperties}>
+              <div className="text-xs font-semibold text-ink">{bi('错题巩固', 'Error Focus')}</div>
+              <div className="text-[11px] text-ink-muted mt-1">{bi('重点追踪错题与蒙对', 'Wrong & lucky guesses')}</div>
             </div>
           </div>
         </div>

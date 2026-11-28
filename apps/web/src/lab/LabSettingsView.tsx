@@ -44,7 +44,7 @@ export const LabSettingsView: React.FC<LabSettingsViewProps> = ({ data, stats })
     try {
       const ok = await getLabSyncEngine()?.syncNow();
       pushToast(
-        ok ? bi('科学精练数据同步完成', 'Lab data synced') : bi('同步失败，请稍后重试', 'Sync failed'),
+        ok ? bi('同步完成', 'Synced') : bi('同步失败，请稍后重试', 'Sync failed'),
         ok ? 'success' : 'error',
       );
     } finally {
@@ -54,44 +54,44 @@ export const LabSettingsView: React.FC<LabSettingsViewProps> = ({ data, stats })
 
   const handleClearLabHistory = async () => {
     const ok = await confirm({
-      title: bi('清空科学精练记录', 'Clear Lab History'),
+      title: bi('清空练习记录', 'Clear Practice History'),
       message: bi(
-        '仅清空科学精练入口下的做题历史、FSRS 记忆轨迹与双轨错题记录；共享题库题目与经典版所有刷题统计 100% 保留不受影响。确认继续吗？',
-        'Clears ONLY Science Lab history, FSRS traces, and Lab flags. Classic records and the shared question bank remain 100% untouched.',
+        '仅清空精练模式下的做题记录、复习进度与重点错题；共享题库题目与经典版所有统计均保留不受影响。确认继续吗？',
+        'Clears ONLY this mode’s practice history and mistakes. Classic stats and the shared question bank remain untouched.',
       ),
       danger: true,
-      confirmText: bi('确认清空精练记录', 'Clear Lab Only'),
+      confirmText: bi('确认清空', 'Clear Now'),
     });
     if (!ok) return;
     await getLabSyncEngine()?.clearHistory();
     await getLabSyncEngine()?.syncNow({ quiet: true });
-    pushToast(bi('科学精练历史已清空（经典版记录完好）', 'Lab history cleared cleanly'), 'success');
+    pushToast(bi('练习记录已清空（经典版记录完好）', 'Practice history cleared'), 'success');
   };
 
   const retentionPct = Math.round(settings.desiredRetention * 100);
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center gap-2.5">
-        <span className="w-9 h-9 rounded-xl bg-accent-soft text-accent inline-flex items-center justify-center">
+      <div className="flex items-center gap-2.5 anim-fade-in">
+        <span className="w-9 h-9 rounded-xl bg-accent-soft text-accent inline-flex items-center justify-center transition-transform duration-200 hover:scale-105">
           <Settings2 className="w-4 h-4" />
         </span>
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-ink">
-            {bi('认知策略与数据隔离', 'Lab Strategy & Isolated Data')}
+            {bi('设置与数据', 'Settings & Data')}
           </h1>
           <p className="text-xs text-ink-muted">
-            {bi('调整 FSRS 目标保持率，或管理独立的科学精练记录', 'Tune FSRS retention target and manage isolated Lab data')}
+            {bi('调整复习记忆目标与管理本模式数据', 'Adjust review target and manage isolated practice data')}
           </p>
         </div>
       </div>
 
-      {/* FSRS Retention Target */}
-      <Card className="space-y-4">
+      {/* Retention Target */}
+      <Card className="space-y-4 anim-stagger card-hover" style={{ '--stagger-i': 0 } as React.CSSProperties}>
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Brain className="w-4 h-4 text-accent" />
-            <h2 className="text-sm font-semibold text-ink">{bi('FSRS-5 目标记忆保持率', 'FSRS-5 Desired Retention')}</h2>
+            <h2 className="text-sm font-semibold text-ink">{bi('目标记忆保持率', 'Target Memory Retention')}</h2>
           </div>
           <Badge tone="accent">{retentionPct}%</Badge>
         </div>
@@ -111,47 +111,47 @@ export const LabSettingsView: React.FC<LabSettingsViewProps> = ({ data, stats })
         />
 
         <div className="flex items-center justify-between text-[11px] text-ink-muted">
-          <span>80% ({bi('轻量轻松', 'Lighter load')})</span>
-          <span>90% ({bi('科学黄金默认', 'Recommended 90%')})</span>
-          <span>95% ({bi('高压密集', 'Heavy workload')})</span>
+          <span>80% ({bi('题量较少', 'Lighter load')})</span>
+          <span>90% ({bi('推荐默认值', 'Recommended 90%')})</span>
+          <span>95% ({bi('复习更密集', 'Intensive')})</span>
         </div>
 
         {retentionPct >= 94 && (
-          <div className="px-3 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-xs text-amber-800 dark:text-amber-200">
+          <div className="px-3 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-xs text-amber-800 dark:text-amber-200 anim-slide-down">
             {bi(
-              '提示：将目标保持率设在 94% 以上会导致间隔大幅缩短、每日复习题量倍增，通常 90% 是性价比最佳的平衡点。',
-              'Caution: setting retention >= 94% sharply shortens intervals and can double daily workload. 90% is optimal.',
+              '提示：设为 94% 以上会显著增加每日待复习题量，通常保持在 90% 左右更合适。',
+              'Note: setting retention >= 94% sharply increases daily reviews; 90% is usually optimal.',
             )}
           </div>
         )}
       </Card>
 
       {/* Isolation Status & Sync */}
-      <Card className="space-y-4">
+      <Card className="space-y-4 anim-stagger card-hover" style={{ '--stagger-i': 1 } as React.CSSProperties}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Database className="w-4 h-4 text-accent" />
-            <h2 className="text-sm font-semibold text-ink">{bi('双系统数据隔离状态', 'Isolation & Sync Status')}</h2>
+            <h2 className="text-sm font-semibold text-ink">{bi('同步与数据状态', 'Sync & Storage Status')}</h2>
           </div>
           <Button variant="outline" size="sm" loading={syncingNow} onClick={handleManualSync}>
             <RefreshCw className="w-3.5 h-3.5" />
-            {bi('立即同步精练记录', 'Sync Lab Now')}
+            {bi('立即同步', 'Sync Now')}
           </Button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
-          <div className="p-3 rounded-xl bg-canvas border border-line space-y-1">
-            <div className="text-ink-muted">{bi('共用资源', 'Shared')}</div>
-            <div className="font-semibold text-ink">{bi(`账号 + ${stats.totalQuestions} 道共享题库`, `Account + ${stats.totalQuestions} Qs`)}</div>
+          <div className="p-3 rounded-xl bg-canvas border border-line space-y-1 card-hover">
+            <div className="text-ink-muted">{bi('共享题库', 'Shared Bank')}</div>
+            <div className="font-semibold text-ink">{bi(`账号与 ${stats.totalQuestions} 道题库`, `Account + ${stats.totalQuestions} Qs`)}</div>
           </div>
-          <div className="p-3 rounded-xl bg-canvas border border-line space-y-1">
-            <div className="text-ink-muted">{bi('精练独立流水', 'Isolated History')}</div>
+          <div className="p-3 rounded-xl bg-canvas border border-line space-y-1 card-hover">
+            <div className="text-ink-muted">{bi('独立记录', 'Practice History')}</div>
             <div className="font-semibold text-ink tabular-nums">
-              {bi(`${stats.totalAttempts} 条作答 | ${stats.cardMap.size} 题已追踪`, `${stats.totalAttempts} attempts | ${stats.cardMap.size} cards`)}
+              {bi(`${stats.totalAttempts} 条作答 | ${stats.cardMap.size} 题`, `${stats.totalAttempts} attempts | ${stats.cardMap.size} tracked`)}
             </div>
           </div>
-          <div className="p-3 rounded-xl bg-canvas border border-line space-y-1">
-            <div className="text-ink-muted">{bi('待上传变更', 'Outbox Pending')}</div>
+          <div className="p-3 rounded-xl bg-canvas border border-line space-y-1 card-hover">
+            <div className="text-ink-muted">{bi('待同步变更', 'Pending Sync')}</div>
             <div className="font-semibold text-ink tabular-nums">
               {sync.pendingCount} ({sync.status})
             </div>
@@ -162,17 +162,17 @@ export const LabSettingsView: React.FC<LabSettingsViewProps> = ({ data, stats })
           <ShieldCheck className="w-4 h-4 text-emerald-500 flex-shrink-0" />
           <span>
             {bi(
-              '科学精练写入独立的服务器表与本机库，绝不读写经典版的历史流水与正确率。',
-              'Science Lab uses isolated DB tables and local storage without touching Classic history.',
+              '本模式的练习记录独立保存，绝不会影响经典版的历史数据与正确率。',
+              'Practice history is stored separately and never alters Classic Mode stats.',
             )}
           </span>
         </div>
       </Card>
 
       {/* Danger Zone */}
-      <Card className="border-red-500/30 space-y-3">
+      <Card className="border-red-500/30 space-y-3 anim-stagger" style={{ '--stagger-i': 2 } as React.CSSProperties}>
         <h2 className="text-sm font-semibold text-red-600 dark:text-red-400">
-          {bi('独立数据重置（不影响经典版与共享题库）', 'Reset Lab Data Only')}
+          {bi('重置精练记录（不影响经典版与共享题库）', 'Reset Practice Data')}
         </h2>
         <div className="flex flex-wrap items-center gap-2.5">
           {stats.hiddenMistakeIds.size > 0 && (
@@ -181,11 +181,11 @@ export const LabSettingsView: React.FC<LabSettingsViewProps> = ({ data, stats })
               size="sm"
               onClick={() => {
                 void getLabSyncEngine()?.restoreHiddenMistakes();
-                pushToast(bi('已恢复全部已隐藏错题', 'Restored hidden mistakes'), 'info');
+                pushToast(bi('已恢复全部已移出错题', 'Restored hidden mistakes'), 'info');
               }}
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              {bi('恢复隐藏错题', 'Restore Hidden Mistakes')}
+              {bi('恢复已移出错题', 'Restore Hidden')}
             </Button>
           )}
           <Button
@@ -195,7 +195,7 @@ export const LabSettingsView: React.FC<LabSettingsViewProps> = ({ data, stats })
             onClick={() => void handleClearLabHistory()}
           >
             <Trash2 className="w-3.5 h-3.5" />
-            {bi('清空科学精练做题记录', 'Clear Lab History')}
+            {bi('清空精练做题记录', 'Clear Practice History')}
           </Button>
         </div>
       </Card>

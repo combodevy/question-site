@@ -7,6 +7,7 @@ export interface ToastItem {
   id: string;
   message: string;
   tone: 'info' | 'success' | 'warning' | 'error';
+  leaving?: boolean;
 }
 
 export interface DialogState {
@@ -213,7 +214,14 @@ export const useUiStore = create<UiState>((set, get) => ({
   },
 
   dismissToast: (id) => {
-    set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));
+    const existing = get().toasts.find((t) => t.id === id);
+    if (!existing || existing.leaving) return;
+    set((s) => ({
+      toasts: s.toasts.map((t) => (t.id === id ? { ...t, leaving: true } : t)),
+    }));
+    setTimeout(() => {
+      set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));
+    }, 210);
   },
 
   confirm: (opts) =>

@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useUiStore } from '@/store/useUiStore';
+import { useLastValue } from '@/hooks/useAnimatedPresence';
 import { Modal } from './Modal';
 import { Button } from './Button';
 import { useBi } from '@/i18n/useBi';
 
 export const ConfirmDialog: React.FC = () => {
   const { dialog, closeDialog } = useUiStore();
+  const displayDialog = useLastValue(dialog);
   const { bi } = useBi();
   const [val, setVal] = useState('');
 
@@ -15,40 +17,40 @@ export const ConfirmDialog: React.FC = () => {
     }
   }, [dialog]);
 
-  if (!dialog) return null;
+  if (!displayDialog) return null;
 
-  const isPrompt = dialog.mode === 'prompt';
+  const isPrompt = displayDialog.mode === 'prompt';
   const cancelVal = isPrompt ? null : false;
   const okVal = isPrompt ? val : true;
 
   return (
     <Modal
-      open={true}
+      open={Boolean(dialog)}
       onClose={() => closeDialog(cancelVal)}
-      title={dialog.title}
+      title={displayDialog.title}
       size="sm"
       footer={
         <>
           <Button variant="ghost" size="sm" onClick={() => closeDialog(cancelVal)}>
-            {dialog.cancelText || bi('取消', 'Cancel')}
+            {displayDialog.cancelText || bi('取消', 'Cancel')}
           </Button>
           <Button
-            variant={dialog.danger ? 'danger' : 'primary'}
+            variant={displayDialog.danger ? 'danger' : 'primary'}
             size="sm"
             onClick={() => closeDialog(okVal)}
           >
-            {dialog.confirmText || bi('确定', 'Confirm')}
+            {displayDialog.confirmText || bi('确定', 'Confirm')}
           </Button>
         </>
       }
     >
-      <p className="text-sm text-ink whitespace-pre-line leading-relaxed">{dialog.message}</p>
+      <p className="text-sm text-ink whitespace-pre-line leading-relaxed">{displayDialog.message}</p>
       {isPrompt && (
         <input
           autoFocus
-          type={dialog.inputType || 'text'}
+          type={displayDialog.inputType || 'text'}
           value={val}
-          placeholder={dialog.placeholder}
+          placeholder={displayDialog.placeholder}
           onChange={(e) => setVal(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {

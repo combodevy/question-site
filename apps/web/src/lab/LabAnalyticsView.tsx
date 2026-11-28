@@ -135,8 +135,8 @@ export const LabAnalyticsView: React.FC<LabAnalyticsViewProps> = ({ data, stats 
     return (
       <EmptyState
         icon={<BarChart3 className="w-5 h-5" />}
-        title={bi('科学精练暂无独立数据', 'No Lab Analytics Yet')}
-        description={bi('完成一次科学精练会话后，这里将独立绘制 FSRS 提取率分布、元认知校准矩阵与未来 14 天负荷预测。', 'Complete a Lab session to generate FSRS, calibration, and workload charts.')}
+        title={bi('暂无学习分析数据', 'No Analytics Data Yet')}
+        description={bi('完成一次练习后，这里会自动生成正确率趋势、记忆度分布和待复习安排。', 'Complete a practice session to see accuracy trends and memory stats.')}
       />
     );
   }
@@ -159,19 +159,26 @@ export const LabAnalyticsView: React.FC<LabAnalyticsViewProps> = ({ data, stats 
   const C = 2 * Math.PI * 42;
   let donutAcc = 0;
 
+  const bucketLabels: Record<string, { zh: string; en: string }> = {
+    critical: { zh: '< 70% 急需复习', en: '< 70% Review Now' },
+    gold: { zh: '70% - 85% 建议复习', en: '70-85% Due Soon' },
+    good: { zh: '85% - 92% 保持良好', en: '85-92% Good' },
+    solid: { zh: '> 92% 记忆牢固', en: '> 92% Solid' },
+  };
+
   return (
     <div className="space-y-6" data-testid="lab-analytics-view">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 anim-fade-in">
         <div className="flex items-center gap-2.5">
-          <span className="w-9 h-9 rounded-xl bg-accent-soft text-accent inline-flex items-center justify-center">
+          <span className="w-9 h-9 rounded-xl bg-accent-soft text-accent inline-flex items-center justify-center transition-transform duration-200 hover:scale-105">
             <BarChart3 className="w-4 h-4" />
           </span>
           <div>
             <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-ink">
-              {bi('记忆曲线与校准分析', 'Memory & Calibration Analytics')}
+              {bi('学习分析', 'Learning Analytics')}
             </h1>
             <p className="text-xs text-ink-muted">
-              {bi('仅统计科学精练入口作答数据，与经典统计完全隔离', 'Strictly scoped to Science Lab history')}
+              {bi('本模式练习记录独立统计', 'Independent stats for this practice mode')}
             </p>
           </div>
         </div>
@@ -179,9 +186,9 @@ export const LabAnalyticsView: React.FC<LabAnalyticsViewProps> = ({ data, stats 
 
       {/* 6 KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <Card padding="sm">
+        <Card padding="sm" className="anim-stagger card-hover" style={{ '--stagger-i': 0 } as React.CSSProperties}>
           <div className="text-xs text-ink-muted flex items-center justify-between">
-            <span>{bi('精练作答', 'Attempts')}</span>
+            <span>{bi('作答次数', 'Attempts')}</span>
             <Target className="w-3.5 h-3.5 text-accent" />
           </div>
           <div className="text-2xl font-semibold text-ink tabular-nums mt-2">{stats.totalAttempts}</div>
@@ -190,20 +197,20 @@ export const LabAnalyticsView: React.FC<LabAnalyticsViewProps> = ({ data, stats 
           </div>
         </Card>
 
-        <Card padding="sm">
+        <Card padding="sm" className="anim-stagger card-hover" style={{ '--stagger-i': 1 } as React.CSSProperties}>
           <div className="text-xs text-ink-muted flex items-center justify-between">
-            <span>{bi('近 50 题正确率', 'Sweet Spot')}</span>
+            <span>{bi('近期正确率', 'Recent Accuracy')}</span>
             <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
           </div>
           <div className="text-2xl font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums mt-2">
             {stats.recent50Accuracy !== null ? `${stats.recent50Accuracy}%` : `${stats.accuracyPercent}%`}
           </div>
-          <div className="text-[11px] text-ink-muted mt-0.5">{bi('目标 75-85%', 'Target 75-85%')}</div>
+          <div className="text-[11px] text-ink-muted mt-0.5">{bi('推荐 75%-85%', 'Target 75-85%')}</div>
         </Card>
 
-        <Card padding="sm">
+        <Card padding="sm" className="anim-stagger card-hover" style={{ '--stagger-i': 2 } as React.CSSProperties}>
           <div className="text-xs text-ink-muted flex items-center justify-between">
-            <span>{bi('连续精练', 'Streak')}</span>
+            <span>{bi('连续练习', 'Streak')}</span>
             <Flame className="w-3.5 h-3.5 text-amber-500" />
           </div>
           <div className="text-2xl font-semibold text-ink tabular-nums mt-2">
@@ -211,9 +218,9 @@ export const LabAnalyticsView: React.FC<LabAnalyticsViewProps> = ({ data, stats 
           </div>
         </Card>
 
-        <Card padding="sm">
+        <Card padding="sm" className="anim-stagger card-hover" style={{ '--stagger-i': 3 } as React.CSSProperties}>
           <div className="text-xs text-ink-muted flex items-center justify-between">
-            <span>{bi('提取均时', 'Avg Latency')}</span>
+            <span>{bi('单题均时', 'Avg Time')}</span>
             <Clock className="w-3.5 h-3.5 text-sky-500" />
           </div>
           <div className="text-2xl font-semibold text-ink tabular-nums mt-2">
@@ -221,9 +228,9 @@ export const LabAnalyticsView: React.FC<LabAnalyticsViewProps> = ({ data, stats 
           </div>
         </Card>
 
-        <Card padding="sm">
+        <Card padding="sm" className="anim-stagger card-hover" style={{ '--stagger-i': 4 } as React.CSSProperties}>
           <div className="text-xs text-ink-muted flex items-center justify-between">
-            <span>{bi('已追踪题数', 'Tracked Cards')}</span>
+            <span>{bi('已练题数', 'Practiced')}</span>
             <Layers className="w-3.5 h-3.5 text-violet-500" />
           </div>
           <div className="text-2xl font-semibold text-ink tabular-nums mt-2">{stats.cardMap.size}</div>
@@ -232,21 +239,21 @@ export const LabAnalyticsView: React.FC<LabAnalyticsViewProps> = ({ data, stats 
           </div>
         </Card>
 
-        <Card padding="sm">
+        <Card padding="sm" className="anim-stagger card-hover" style={{ '--stagger-i': 5 } as React.CSSProperties}>
           <div className="text-xs text-ink-muted flex items-center justify-between">
-            <span>{bi('平均可提取率', 'Avg R')}</span>
+            <span>{bi('整体记忆度', 'Retention')}</span>
             <Brain className="w-3.5 h-3.5 text-indigo-500" />
           </div>
           <div className="text-2xl font-semibold text-accent tabular-nums mt-2">{stats.avgRetrievability}%</div>
         </Card>
       </div>
 
-      {/* Trend + FSRS Retrievability Distribution */}
+      {/* Trend + Retention Distribution */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        <Card className="lg:col-span-7 space-y-3">
+        <Card className="lg:col-span-7 space-y-3 anim-stagger" style={{ '--stagger-i': 6 } as React.CSSProperties}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-ink">
-              {bi('作答频率与正确率趋势', 'Lab Activity & Accuracy')}
+              {bi('做题量与正确率趋势', 'Activity & Accuracy')}
             </h3>
             <div className="inline-flex p-0.5 rounded-xl bg-surface-muted border border-line text-xs">
               {(
@@ -260,7 +267,7 @@ export const LabAnalyticsView: React.FC<LabAnalyticsViewProps> = ({ data, stats 
                   key={opt.k}
                   type="button"
                   onClick={() => setTrendRange(opt.k)}
-                  className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
+                  className={`px-2.5 py-1 rounded-lg font-medium transition-all duration-150 ${
                     trendRange === opt.k ? 'bg-surface text-ink shadow-sm' : 'text-ink-muted hover:text-ink'
                   }`}
                 >
@@ -282,8 +289,25 @@ export const LabAnalyticsView: React.FC<LabAnalyticsViewProps> = ({ data, stats 
                 <g key={d.key}>
                   {d.total > 0 ? (
                     <>
-                      <rect x={x} y={130 - totalH} width={barW} height={totalH} rx="3" fill="var(--accent)" fillOpacity="0.24" />
-                      <rect x={x} y={130 - okH} width={barW} height={okH} rx="3" fill="var(--accent)" />
+                      <rect
+                        x={x}
+                        y={130 - totalH}
+                        width={barW}
+                        height={totalH}
+                        rx="3"
+                        fill="var(--accent)"
+                        fillOpacity="0.24"
+                        className="anim-bar-grow"
+                      />
+                      <rect
+                        x={x}
+                        y={130 - okH}
+                        width={barW}
+                        height={okH}
+                        rx="3"
+                        fill="var(--accent)"
+                        className="anim-bar-grow"
+                      />
                     </>
                   ) : (
                     <rect x={x} y={128} width={barW} height={2} rx="1" fill="var(--border)" />
@@ -309,24 +333,25 @@ export const LabAnalyticsView: React.FC<LabAnalyticsViewProps> = ({ data, stats 
           </svg>
         </Card>
 
-        <Card className="lg:col-span-5 space-y-4">
+        <Card className="lg:col-span-5 space-y-4 anim-stagger" style={{ '--stagger-i': 7 } as React.CSSProperties}>
           <div className="flex items-center gap-2">
             <Brain className="w-4 h-4 text-accent" />
-            <h3 className="text-sm font-semibold text-ink">{bi('FSRS 可提取率分布', 'FSRS Retrievability Distribution')}</h3>
+            <h3 className="text-sm font-semibold text-ink">{bi('记忆牢固度分布', 'Memory Strength Distribution')}</h3>
           </div>
           <div className="space-y-3">
             {stats.retrievabilityBuckets.map((b) => {
               const pct = stats.cardMap.size ? Math.round((b.count / stats.cardMap.size) * 100) : 0;
+              const lbl = bucketLabels[b.key] || { zh: b.labelZh, en: b.labelEn };
               return (
                 <div key={b.key} className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-ink">{bi(b.labelZh, b.labelEn)}</span>
+                    <span className="font-medium text-ink">{bi(lbl.zh, lbl.en)}</span>
                     <span className="text-ink-muted tabular-nums">
                       {b.count} {bi('题', 'Q')} ({pct}%)
                     </span>
                   </div>
                   <div className="h-2 w-full rounded-full bg-surface-muted overflow-hidden">
-                    <div className={`h-full rounded-full ${b.cls}`} style={{ width: `${pct}%` }} />
+                    <div className={`h-full rounded-full anim-bar-x ${b.cls}`} style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               );
@@ -335,17 +360,17 @@ export const LabAnalyticsView: React.FC<LabAnalyticsViewProps> = ({ data, stats 
         </Card>
       </div>
 
-      {/* Metacognitive Calibration Matrix + 14-day Workload Forecast + Latency Donut */}
+      {/* Confidence Calibration + 14-day Forecast + Time Donut */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        <Card className="lg:col-span-5 space-y-3.5" data-testid="lab-calibration-matrix">
+        <Card className="lg:col-span-5 space-y-3.5 anim-stagger" style={{ '--stagger-i': 8 } as React.CSSProperties} data-testid="lab-calibration-matrix">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-ink flex items-center gap-1.5">
               <ShieldAlert className="w-4 h-4 text-amber-500" />
-              {bi('元认知自信度校准矩阵', 'Metacognitive Calibration Matrix')}
+              {bi('把握度与正确率统计', 'Confidence & Accuracy')}
             </h3>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center text-xs">
-            <div className="p-2 rounded-lg bg-surface-muted font-medium text-ink-muted">{bi('标注级别', 'Confidence')}</div>
+            <div className="p-2 rounded-lg bg-surface-muted font-medium text-ink-muted">{bi('把握度', 'Confidence')}</div>
             <div className="p-2 rounded-lg bg-emerald-500/10 font-semibold text-emerald-700 dark:text-emerald-300">{bi('答对次数', 'Correct')}</div>
             <div className="p-2 rounded-lg bg-red-500/10 font-semibold text-red-700 dark:text-red-300">{bi('答错次数', 'Wrong')}</div>
 
@@ -354,7 +379,7 @@ export const LabAnalyticsView: React.FC<LabAnalyticsViewProps> = ({ data, stats 
               {stats.calibrationMatrix.highOk}
             </div>
             <div
-              className={`p-2.5 rounded-lg border tabular-nums font-semibold ${
+              className={`p-2.5 rounded-lg border tabular-nums font-semibold transition-colors ${
                 stats.calibrationMatrix.highWrong > 0
                   ? 'border-amber-500/50 bg-amber-500/15 text-amber-800 dark:text-amber-300'
                   : 'border-line bg-canvas text-ink'
@@ -373,7 +398,7 @@ export const LabAnalyticsView: React.FC<LabAnalyticsViewProps> = ({ data, stats 
 
             <div className="p-2.5 rounded-lg bg-canvas border border-line font-medium text-ink">{bi('蒙的', 'Guess')}</div>
             <div
-              className={`p-2.5 rounded-lg border tabular-nums font-semibold ${
+              className={`p-2.5 rounded-lg border tabular-nums font-semibold transition-colors ${
                 stats.calibrationMatrix.lowOk > 0
                   ? 'border-amber-500/50 bg-amber-500/15 text-amber-800 dark:text-amber-300'
                   : 'border-line bg-canvas text-ink'
@@ -387,16 +412,16 @@ export const LabAnalyticsView: React.FC<LabAnalyticsViewProps> = ({ data, stats 
           </div>
           <p className="text-[11px] text-ink-muted leading-relaxed">
             {bi(
-              '右上角“很确定却答错”是超纠正高危误区；左下角“蒙的却答对”会缩短复现间隔防止假掌握。',
-              'High-confidence errors trigger hypercorrection review; lucky guesses are re-tested within 1-2 days.',
+              '“很确定却答错”的题目会优先安排复测；“蒙对”的题目会缩短下次复习间隔。',
+              'High-confidence errors are prioritized; lucky guesses get shorter review intervals.',
             )}
           </p>
         </Card>
 
-        <Card className="lg:col-span-4 space-y-3">
+        <Card className="lg:col-span-4 space-y-3 anim-stagger" style={{ '--stagger-i': 9 } as React.CSSProperties}>
           <div className="flex items-center gap-2">
             <CalendarClock className="w-4 h-4 text-accent" />
-            <h3 className="text-sm font-semibold text-ink">{bi('未来 14 天 FSRS 到期负荷预测', '14-Day FSRS Workload')}</h3>
+            <h3 className="text-sm font-semibold text-ink">{bi('未来 14 天待复习量', '14-Day Review Schedule')}</h3>
           </div>
           <div className="grid grid-cols-14 gap-1 items-end h-32 pt-3" style={{ gridTemplateColumns: 'repeat(14, minmax(0, 1fr))' }}>
             {stats.workload14d.map((w) => {
@@ -404,9 +429,9 @@ export const LabAnalyticsView: React.FC<LabAnalyticsViewProps> = ({ data, stats 
               return (
                 <div key={w.key} className="flex flex-col items-center justify-end h-full gap-1" title={`${w.label}: ${w.count}`}>
                   <span className="text-[9px] text-ink-muted tabular-nums">{w.count > 0 ? w.count : ''}</span>
-                  <div className="w-full flex-1 flex items-end bg-surface-muted/60 rounded-t">
+                  <div className="w-full flex-1 flex items-end bg-surface-muted/60 rounded-t overflow-hidden">
                     <div
-                      className="w-full rounded-t bg-accent/80 transition-all"
+                      className="w-full rounded-t bg-accent/80 anim-bar-grow"
                       style={{ height: `${w.count > 0 ? Math.max(8, hPct) : 0}%` }}
                     />
                   </div>
@@ -417,10 +442,10 @@ export const LabAnalyticsView: React.FC<LabAnalyticsViewProps> = ({ data, stats 
           </div>
         </Card>
 
-        <Card className="lg:col-span-3 space-y-3">
+        <Card className="lg:col-span-3 space-y-3 anim-stagger" style={{ '--stagger-i': 10 } as React.CSSProperties}>
           <div className="flex items-center gap-2">
             <Hourglass className="w-4 h-4 text-sky-500" />
-            <h3 className="text-sm font-semibold text-ink">{bi('提取反应时分布', 'ARTS Latency')}</h3>
+            <h3 className="text-sm font-semibold text-ink">{bi('单题耗时分布', 'Response Time')}</h3>
           </div>
           <div className="flex items-center gap-4">
             <div className="relative w-24 h-24 flex-shrink-0">
@@ -468,13 +493,13 @@ export const LabAnalyticsView: React.FC<LabAnalyticsViewProps> = ({ data, stats 
         </Card>
       </div>
 
-      {/* Top High-Risk Questions */}
+      {/* Top Mistakes & Guesses */}
       {topRiskQuestions.length > 0 && (
-        <Card className="space-y-3">
+        <Card className="space-y-3 anim-stagger" style={{ '--stagger-i': 11 } as React.CSSProperties}>
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-ink flex items-center gap-1.5">
               <AlertTriangle className="w-4 h-4 text-amber-500" />
-              {bi('高危错题与脆弱记忆榜', 'Top Risk & Fragile Items')}
+              {bi('高频错题与蒙对榜', 'Top Mistakes & Guesses')}
             </h3>
             <Button
               size="sm"
@@ -483,23 +508,23 @@ export const LabAnalyticsView: React.FC<LabAnalyticsViewProps> = ({ data, stats 
                 startSession({
                   mode: 'dual_track',
                   questions: topRiskQuestions.map((x) => x.q),
-                  title: bi('高危榜单专练', 'Top Risk Drill'),
+                  title: bi('重点错题专练', 'Focused Review'),
                   settings: data.settings,
                 })
               }
             >
-              {bi('专练这几题', 'Drill These')}
+              {bi('重练这几题', 'Practice These')}
             </Button>
           </div>
           <div className="space-y-3">
             {topRiskQuestions.map(({ q, card }) => (
-              <div key={q.id} className="p-3.5 rounded-xl border border-line bg-canvas/55 space-y-2">
+              <div key={q.id} className="p-3.5 rounded-xl border border-line bg-canvas/55 space-y-2 card-hover">
                 <div className="flex items-center gap-2 flex-wrap text-xs">
                   <Badge tone="neutral">{q.sub} / {q.chap}</Badge>
-                  {card.isHyperRisk && <Badge tone="danger">{bi('高自信误区', 'Hypercorrection')}</Badge>}
-                  {card.isLuckyGuess && <Badge tone="warning">{bi('蒙对隐患', 'Lucky Guess')}</Badge>}
+                  {card.isHyperRisk && <Badge tone="danger">{bi('易混错题', 'High-Conf Error')}</Badge>}
+                  {card.isLuckyGuess && <Badge tone="warning">{bi('蒙对题目', 'Lucky Guess')}</Badge>}
                   <span className="text-[11px] font-mono text-ink-muted tabular-nums">
-                    R {Math.round(card.retrievability * 100)}% | {bi(`错 ${card.wrongCount}/${card.attempts}`, `${card.wrongCount}/${card.attempts}`)}
+                    {bi(`记忆度 ${Math.round(card.retrievability * 100)}%`, `R ${Math.round(card.retrievability * 100)}%`)} | {bi(`错 ${card.wrongCount}/${card.attempts}`, `${card.wrongCount}/${card.attempts}`)}
                   </span>
                 </div>
                 <QuestionPreviewBlock question={q} compact showExplanation />

@@ -54,6 +54,7 @@
 :root {
   --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
 }
 
 html {
@@ -170,6 +171,15 @@ html {
   }
 }
 
+@keyframes qsFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 @keyframes qsPageIn {
   from {
     opacity: 0;
@@ -184,18 +194,29 @@ html {
 @keyframes qsModalIn {
   from {
     opacity: 0;
-    transform: translate3d(0, 10px, 0) scale(0.97);
+    transform: translate3d(0, 14px, 0) scale(0.96);
   }
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+@keyframes qsModalOut {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.96);
   }
 }
 
 @keyframes qsDrawerIn {
   from {
     opacity: 0;
-    transform: translate3d(36px, 0, 0);
+    transform: translate3d(38px, 0, 0);
   }
   to {
     opacity: 1;
@@ -203,14 +224,58 @@ html {
   }
 }
 
-@keyframes qsToastIn {
+@keyframes qsDrawerOut {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(38px, 0, 0);
+  }
+}
+
+@keyframes qsSheetUpIn {
   from {
     opacity: 0;
-    transform: translate3d(20px, 0, 0) scale(0.96);
+    transform: translate3d(0, 26px, 0);
   }
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+@keyframes qsSheetDownOut {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, 24px, 0);
+  }
+}
+
+@keyframes qsToastIn {
+  from {
+    opacity: 0;
+    transform: translate3d(24px, 0, 0) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes qsToastOut {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(28px, 0, 0) scale(0.95);
   }
 }
 
@@ -233,6 +298,17 @@ html {
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+@keyframes qsDropdownOut {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, -6px, 0) scale(0.97);
   }
 }
 
@@ -285,23 +361,47 @@ html {
 }
 
 .anim-fade-in {
-  animation: qsFadeIn 180ms var(--ease-out);
+  animation: qsFadeIn 190ms var(--ease-out);
+}
+
+.anim-fade-out {
+  animation: qsFadeOut 185ms var(--ease-exit) forwards;
 }
 
 .anim-page-in {
-  animation: qsPageIn 240ms var(--ease-spring);
+  animation: qsPageIn 250ms var(--ease-spring);
 }
 
 .anim-modal-in {
-  animation: qsModalIn 220ms var(--ease-spring);
+  animation: qsModalIn 230ms var(--ease-spring);
+}
+
+.anim-modal-out {
+  animation: qsModalOut 190ms var(--ease-exit) forwards;
 }
 
 .anim-drawer-in {
   animation: qsDrawerIn 260ms var(--ease-spring);
 }
 
+.anim-drawer-out {
+  animation: qsDrawerOut 210ms var(--ease-exit) forwards;
+}
+
+.anim-sheet-in {
+  animation: qsSheetUpIn 250ms var(--ease-spring);
+}
+
+.anim-sheet-out {
+  animation: qsSheetDownOut 200ms var(--ease-exit) forwards;
+}
+
 .anim-toast-in {
   animation: qsToastIn 240ms var(--ease-spring);
+}
+
+.anim-toast-out {
+  animation: qsToastOut 200ms var(--ease-exit) forwards;
 }
 
 .anim-question-in {
@@ -339,6 +439,24 @@ html {
 
 .anim-dropdown-in {
   animation: qsSlideDown 180ms var(--ease-spring);
+}
+
+.anim-dropdown-out {
+  animation: qsDropdownOut 150ms var(--ease-exit) forwards;
+}
+
+.switch-track:active .switch-thumb {
+  width: 21px;
+}
+
+.interactive-row {
+  transition: transform 180ms var(--ease-spring), border-color 180ms ease, background-color 180ms ease;
+}
+
+@media (hover: hover) {
+  .interactive-row:hover {
+    transform: translate3d(2px, 0, 0);
+  }
 }
 
 .anim-fab {

@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
+import { useAnimatedPresence } from '@/hooks/useAnimatedPresence';
 
 export interface ModalProps {
   open: boolean;
@@ -31,6 +32,8 @@ export const Modal: React.FC<ModalProps> = ({
   footer,
   children,
 }) => {
+  const { mounted, phase } = useAnimatedPresence(open, 200);
+
   useEffect(() => {
     if (!open || !closeOnEsc) return;
     const handler = (e: KeyboardEvent) => {
@@ -43,19 +46,25 @@ export const Modal: React.FC<ModalProps> = ({
     return () => window.removeEventListener('keydown', handler);
   }, [open, closeOnEsc, onClose]);
 
-  if (!open) return null;
+  if (!mounted) return null;
+  const exiting = phase === 'exit';
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/45 backdrop-blur-[2px] anim-fade-in"
+      data-state={exiting ? 'closing' : 'open'}
+      className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/45 backdrop-blur-[2px] ${
+        exiting ? 'anim-fade-out pointer-events-none' : 'anim-fade-in'
+      }`}
       onMouseDown={(e) => {
-        if (closeOnBackdrop && e.target === e.currentTarget) onClose();
+        if (open && closeOnBackdrop && e.target === e.currentTarget) onClose();
       }}
     >
       <div
         role="dialog"
         aria-modal="true"
-        className={`w-full ${SIZE_CLS[size]} max-h-[90vh] flex flex-col bg-surface border border-line rounded-2xl shadow-2xl overflow-hidden anim-modal-in`}
+        className={`w-full ${SIZE_CLS[size]} max-h-[90vh] flex flex-col bg-surface border border-line rounded-2xl shadow-2xl overflow-hidden ${
+          exiting ? 'anim-modal-out' : 'anim-modal-in'
+        }`}
       >
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-line">
           <div className="min-w-0">
@@ -64,8 +73,10 @@ export const Modal: React.FC<ModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-muted hover:text-ink hover:bg-surface-muted transition-colors flex-shrink-0"
+            onClick={() => {
+              if (open) onClose();
+            }}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-muted hover:text-ink hover:bg-surface-muted transition-all duration-200 hover:rotate-90 active:scale-90 flex-shrink-0"
             aria-label="Close"
           >
             <X className="w-4 h-4" />

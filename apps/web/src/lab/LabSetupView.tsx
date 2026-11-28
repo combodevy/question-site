@@ -33,6 +33,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 
 interface LabSetupViewProps {
   data: LiveLabSnapshot;
@@ -300,17 +301,17 @@ export const LabSetupView: React.FC<LabSetupViewProps> = ({ data, stats }) => {
     });
 
     if (!composed.length) {
-      pushToast(bi('当前筛选条件下没有可组卷题目', 'No questions match current configuration'), 'warning');
+      pushToast(bi('当前筛选条件下没有符合的题目', 'No matching questions'), 'warning');
       return;
     }
 
     const modeNames: Record<LabPracticeMode, string> = {
-      smart_interleave: bi('智能穿插精练', 'Smart Interleave'),
-      fsrs_review: bi('FSRS 到期复习', 'FSRS Review'),
-      dual_track: bi('双轨错题攻坚', 'Dual-Track Mistakes'),
-      blocked_build: bi('分块建图式', 'Blocked Schema Build'),
-      blocked_to_interleaved: bi('先分块后穿插', 'Blocked -> Interleaved'),
-      starred: bi('精练收藏专练', 'Lab Starred'),
+      smart_interleave: bi('智能混合练习', 'Smart Mixed'),
+      fsrs_review: bi('到期复习', 'Due Review'),
+      dual_track: bi('错题与蒙对专练', 'Mistakes & Guesses'),
+      blocked_build: bi('按章顺序练习', 'Chapter Order'),
+      blocked_to_interleaved: bi('先单章后混练', 'Focused then Mixed'),
+      starred: bi('收藏专练', 'Starred Practice'),
     };
 
     startSession({
@@ -326,11 +327,11 @@ export const LabSetupView: React.FC<LabSetupViewProps> = ({ data, stats }) => {
       <EmptyState
         icon={<FlaskConical className="w-5 h-5" />}
         title={bi('共享题库暂无题目', 'No Shared Questions')}
-        description={bi('请先在经典版题库管理中添加题目，即可在此进行科学组卷。', 'Add questions in Classic Library first.')}
+        description={bi('请先在经典版题库管理中添加题目，即可在此开始练习。', 'Add questions in Classic Library first.')}
         action={
           <a
             href="/#library"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-accent-fg text-xs font-medium hover:bg-accent-hover transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-accent-fg text-xs font-medium hover:bg-accent-hover transition-all duration-200 active:scale-[0.97]"
           >
             {bi('打开共享题库', 'Open Shared Library')}
           </a>
@@ -350,17 +351,17 @@ export const LabSetupView: React.FC<LabSetupViewProps> = ({ data, stats }) => {
   }> = [
     {
       key: 'smart_interleave',
-      label: bi('智能穿插 (75-85%)', 'Smart Interleave'),
-      hint: bi('临近遗忘 + 双轨风险 + 跨章混编', 'Sweet spot + cross-chapter mix'),
+      label: bi('智能混合练习', 'Smart Mixed'),
+      hint: bi('跨章混出，难度适中', 'Mixed chapters, balanced'),
       icon: <Shuffle className="w-4 h-4" />,
       iconTone: 'bg-accent-soft text-accent',
-      badge: bi('推荐', 'Best'),
+      badge: bi('推荐', 'Pick'),
       badgeTone: 'accent',
     },
     {
       key: 'fsrs_review',
-      label: bi('FSRS 到期复习', 'FSRS Due Queue'),
-      hint: bi('优先抢救濒临遗忘与高危误区', 'Lowest retrievability first'),
+      label: bi('到期复习', 'Due Review'),
+      hint: bi('今日到点该复习的题', 'Due for review today'),
       icon: <Brain className="w-4 h-4" />,
       iconTone: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
       badge: stats.dueCount,
@@ -368,8 +369,8 @@ export const LabSetupView: React.FC<LabSetupViewProps> = ({ data, stats }) => {
     },
     {
       key: 'dual_track',
-      label: bi('双轨错题攻坚', 'Dual-Track Errors'),
-      hint: bi('高自信误区优先 + 蒙对隐患复测', 'Hypercorrection + lucky guesses'),
+      label: bi('错题与蒙对专练', 'Mistakes & Guesses'),
+      hint: bi('重练做错和蒙对的题', 'Retry missed & guessed items'),
       icon: <AlertTriangle className="w-4 h-4" />,
       iconTone: 'bg-red-500/15 text-red-600 dark:text-red-400',
       badge: stats.visibleMistakeIds.size,
@@ -377,22 +378,22 @@ export const LabSetupView: React.FC<LabSetupViewProps> = ({ data, stats }) => {
     },
     {
       key: 'blocked_to_interleaved',
-      label: bi('先分块后穿插', 'Blocked -> Interleaved'),
-      hint: bi('前 40% 小组抓共性，后 60% 辨差异', '40% schema + 60% discrimination'),
+      label: bi('先单章后混练', 'Focused then Mixed'),
+      hint: bi('先按章熟悉，再混合辨析', 'Learn by chapter, then mix'),
       icon: <Layers className="w-4 h-4" />,
       iconTone: 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
     },
     {
       key: 'blocked_build',
-      label: bi('分块建图式', 'Blocked Practice'),
-      hint: bi('新手入门与词汇表按章集中', 'Chapter-grouped for novices/vocab'),
+      label: bi('按章顺序练习', 'Chapter Order'),
+      hint: bi('逐章集中刷，适合入门', 'Chapter by chapter'),
       icon: <BookOpen className="w-4 h-4" />,
       iconTone: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
     },
     {
       key: 'starred',
-      label: bi('精练收藏专练', 'Lab Starred'),
-      hint: bi('仅练科学精练内加星标的题', 'Isolated Lab bookmarks'),
+      label: bi('收藏专练', 'Starred Items'),
+      hint: bi('只练本模式收藏的题目', 'Practice starred items'),
       icon: <Star className="w-4 h-4" />,
       iconTone: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
       badge: stats.starredIds.size,
@@ -407,77 +408,77 @@ export const LabSetupView: React.FC<LabSetupViewProps> = ({ data, stats }) => {
   }> = [
     {
       key: 'shuffleOptions',
-      label: bi('选项随机乱序', 'Shuffle Options'),
-      desc: bi('消除记住 A/B/C/D 位置的虚假熟练', 'Prevents position memorization'),
+      label: bi('打乱选项顺序', 'Shuffle Options'),
+      desc: bi('防止记住 ABCD 固定位置', 'Prevents memorizing option slots'),
     },
     {
       key: 'blindRecall',
-      label: bi('盲答先思考模式', 'Blind Recall Mode'),
-      desc: bi('选择题先遮挡选项，回忆后再展开对照', 'Hide choices until recalled'),
+      label: bi('先思考再看选项', 'Think Before Options'),
+      desc: bi('先看题目回忆答案，再展开选项核对', 'Hide choices until recalled'),
     },
     {
       key: 'requeueWrong',
-      label: bi('错题组内回炉', 'In-Session Requeue'),
-      desc: bi('答错自动延后 4-5 题再测，落实连续重学', 'Re-test missed items 4-5 slots later'),
+      label: bi('错题本组重练', 'Retry Missed Soon'),
+      desc: bi('答错的题稍后在本组内再考一次', 'Re-test missed items later in session'),
     },
     {
       key: 'delayedFeedback',
-      label: bi('整组延迟反馈', 'Delayed Exam Feedback'),
-      desc: bi('交卷后统一看解析，防卡漏洞与读秒焦虑', 'Grade entire session upon completion'),
+      label: bi('交卷统一出分', 'Grade After Submit'),
+      desc: bi('全部做完后统一对答案和看解析', 'Show grading after completing all'),
     },
     {
       key: 'hideTimer',
-      label: bi('隐藏读秒倒数感', 'Hide Live Timer'),
-      desc: bi('后台继续测反应时，界面不制造限时焦虑', 'Still logs ARTS speed silently'),
+      label: bi('隐藏答题计时', 'Hide Live Timer'),
+      desc: bi('作答时不显示读秒，减少时间压力', 'Hides ticking timer while practicing'),
     },
   ];
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 anim-fade-in">
         <div className="flex items-center gap-2.5">
-          <span className="w-9 h-9 rounded-xl bg-accent-soft text-accent inline-flex items-center justify-center">
+          <span className="w-9 h-9 rounded-xl bg-accent-soft text-accent inline-flex items-center justify-center transition-transform duration-200 hover:scale-105">
             <SlidersHorizontal className="w-4 h-4" />
           </span>
           <div>
             <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-ink">
-              {bi('科学组卷配置', 'Cognitive Session Composer')}
+              {bi('练习配置', 'Practice Setup')}
             </h1>
             <p className="text-xs text-ink-muted">
-              {bi('支持穿插调度、盲答提取、组内回炉与置信度捕捉', 'Interleaving, blind recall, requeuing & confidence calibration')}
+              {bi('选择练习模式、辅助设置与章节范围', 'Choose mode, helpers, and chapter scope')}
             </p>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        {/* Left: Mode + Strategy Panel */}
         <div className="lg:col-span-5 space-y-4">
-          <Card className="space-y-4">
+          <Card className="space-y-4 anim-stagger" style={{ '--stagger-i': 0 } as React.CSSProperties}>
             <label className="text-xs font-semibold text-ink flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-accent" />
-              {bi('选择练习序列模式', 'Sequencing Mode')}
+              {bi('选择练习模式', 'Practice Mode')}
             </label>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5" data-testid="lab-setup-mode-grid">
-              {modeCards.map((m) => {
+              {modeCards.map((m, idx) => {
                 const selected = mode === m.key;
                 return (
                   <button
                     key={m.key}
                     type="button"
                     data-testid={`lab-mode-${m.key}`}
+                    style={{ '--stagger-i': idx } as React.CSSProperties}
                     onClick={() => {
                       setMode(m.key);
                       persistPrefs(selectedChaps, seenChaps, m.key, typeFilter, limit);
                     }}
-                    className={`group relative text-left p-3 rounded-2xl border transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.985] flex items-start gap-2.5 ${
+                    className={`anim-stagger group relative text-left p-3 rounded-2xl border transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 active:scale-[0.98] flex items-start gap-2.5 ${
                       selected
                         ? 'border-accent bg-accent-soft/50 shadow-sm ring-1 ring-accent/25'
                         : 'border-line bg-canvas/70 hover:bg-canvas hover:border-ink-muted/35'
                     }`}
                   >
-                    <span className={`w-8 h-8 rounded-xl inline-flex items-center justify-center flex-shrink-0 ${m.iconTone}`}>
+                    <span className={`w-8 h-8 rounded-xl inline-flex items-center justify-center flex-shrink-0 transition-transform duration-200 group-hover:scale-105 ${m.iconTone}`}>
                       {m.icon}
                     </span>
                     <div className="min-w-0 flex-1">
@@ -490,7 +491,7 @@ export const LabSetupView: React.FC<LabSetupViewProps> = ({ data, stats }) => {
                       <div className="text-[11px] text-ink-muted mt-0.5 line-clamp-1">{m.hint}</div>
                     </div>
                     {selected && (
-                      <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-accent text-accent-fg flex items-center justify-center shadow-sm">
+                      <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-accent text-accent-fg flex items-center justify-center shadow-sm anim-pop-in">
                         <Check className="w-2.5 h-2.5 stroke-[3]" />
                       </span>
                     )}
@@ -502,7 +503,7 @@ export const LabSetupView: React.FC<LabSetupViewProps> = ({ data, stats }) => {
             <div className="grid grid-cols-2 gap-3 pt-1">
               <div>
                 <label className="block text-xs font-medium text-ink-muted mb-1.5">
-                  {bi('题型过滤', 'Type Filter')}
+                  {bi('题型筛选', 'Question Type')}
                 </label>
                 <select
                   value={typeFilter}
@@ -511,7 +512,7 @@ export const LabSetupView: React.FC<LabSetupViewProps> = ({ data, stats }) => {
                     setTypeFilter(v);
                     persistPrefs(selectedChaps, seenChaps, mode, v, limit);
                   }}
-                  className="w-full h-9 px-2.5 rounded-xl bg-canvas border border-line text-sm text-ink outline-none focus:border-accent"
+                  className="w-full h-9 px-2.5 rounded-xl bg-canvas border border-line text-sm text-ink outline-none focus:border-accent transition-colors"
                 >
                   <option value="all">{bi('全部题型', 'All Types')}</option>
                   <option value="mcq">{bi('单选题', 'Single Choice')}</option>
@@ -532,7 +533,7 @@ export const LabSetupView: React.FC<LabSetupViewProps> = ({ data, stats }) => {
                     setLimit(v);
                     persistPrefs(selectedChaps, seenChaps, mode, typeFilter, v);
                   }}
-                  className="w-full h-9 px-2.5 rounded-xl bg-canvas border border-line text-sm text-ink outline-none focus:border-accent"
+                  className="w-full h-9 px-2.5 rounded-xl bg-canvas border border-line text-sm text-ink outline-none focus:border-accent transition-colors"
                 >
                   <option value="10">10 {bi('题', 'Q')}</option>
                   <option value="20">20 {bi('题', 'Q')}</option>
@@ -546,7 +547,7 @@ export const LabSetupView: React.FC<LabSetupViewProps> = ({ data, stats }) => {
             <div className="pt-3 border-t border-line space-y-2.5">
               <div className="flex items-center justify-between gap-2 text-xs">
                 <span className="text-ink-muted tabular-nums">
-                  {bi(`拟组卷 ${previewComposed.length} 题`, `${previewComposed.length} questions queued`)}
+                  {bi(`已匹配 ${previewComposed.length} 题`, `${previewComposed.length} questions ready`)}
                 </span>
                 {previewComposed.length > 0 && (
                   <Badge
@@ -558,7 +559,7 @@ export const LabSetupView: React.FC<LabSetupViewProps> = ({ data, stats }) => {
                         : 'neutral'
                     }
                   >
-                    {bi(`预计正确率 ~${predictedAcc}%`, `Est. Accuracy ~${predictedAcc}%`)}
+                    {bi(`预计正确率约 ${predictedAcc}%`, `Est. Accuracy ~${predictedAcc}%`)}
                   </Badge>
                 )}
               </div>
@@ -571,16 +572,16 @@ export const LabSetupView: React.FC<LabSetupViewProps> = ({ data, stats }) => {
                 data-testid="lab-setup-start-btn"
               >
                 <Play className="w-4 h-4" />
-                {bi('开始科学精练', 'Start Science Session')}
+                {bi('开始练习', 'Start Practice')}
               </Button>
             </div>
           </Card>
 
-          <Card className="space-y-3">
+          <Card className="space-y-3 anim-stagger" style={{ '--stagger-i': 1 } as React.CSSProperties}>
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-ink flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-accent" />
-                {bi('认知策略护栏（自动保存）', 'Cognitive Strategy Toggles')}
+                {bi('练习辅助设置', 'Practice Helpers')}
               </span>
             </div>
 
@@ -588,28 +589,30 @@ export const LabSetupView: React.FC<LabSetupViewProps> = ({ data, stats }) => {
               {strategyToggles.map((t) => {
                 const on = Boolean(settings[t.key]);
                 return (
-                  <label
+                  <div
                     key={t.key}
-                    className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-canvas/70 border border-line cursor-pointer hover:border-accent/40 transition-colors"
+                    onClick={() => updateStrategySetting(t.key, !on)}
+                    className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-canvas/70 border border-line cursor-pointer hover:border-accent/40 transition-all duration-150"
                   >
                     <div className="min-w-0">
                       <div className="text-xs font-medium text-ink">{t.label}</div>
                       <div className="text-[11px] text-ink-muted">{t.desc}</div>
                     </div>
-                    <input
-                      type="checkbox"
-                      checked={on}
-                      data-testid={`lab-toggle-${t.key}`}
-                      onChange={(e) => updateStrategySetting(t.key, e.target.checked)}
-                      className="accent-[var(--accent)] w-4 h-4 flex-shrink-0"
-                    />
-                  </label>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <ToggleSwitch
+                        checked={on}
+                        testId={`lab-toggle-${t.key}`}
+                        ariaLabel={t.label}
+                        onChange={(val) => updateStrategySetting(t.key, val)}
+                      />
+                    </div>
+                  </div>
                 );
               })}
 
               <div className="p-2.5 rounded-xl bg-canvas/70 border border-line space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-ink">{bi('自信度捕捉模式', 'Confidence Capture')}</span>
+                  <span className="text-xs font-medium text-ink">{bi('把握度标记', 'Confidence Tag')}</span>
                   <select
                     value={settings.confidenceMode}
                     data-testid="lab-confidence-mode-select"
@@ -622,14 +625,14 @@ export const LabSetupView: React.FC<LabSetupViewProps> = ({ data, stats }) => {
                     className="h-7 px-2 rounded-lg bg-surface border border-line text-xs text-ink outline-none focus:border-accent"
                   >
                     <option value="off">{bi('关闭', 'Off')}</option>
-                    <option value="quick">{bi('轻量快捷 (默认)', 'Quick (Default)')}</option>
-                    <option value="required">{bi('深度必选', 'Required')}</option>
+                    <option value="quick">{bi('快捷标记 (默认)', 'Quick (Default)')}</option>
+                    <option value="required">{bi('每题必选', 'Required')}</option>
                   </select>
                 </div>
                 <p className="text-[11px] text-ink-muted">
                   {bi(
-                    '用于识别高自信误区（4天窗口强化复测）和低自信蒙对（缩短复现间隔）。',
-                    'Detects hypercorrection errors (<=4d window) and low-confidence lucky guesses.',
+                    '区分“确定但做错”与“蒙对”的题目，重点安排复测。',
+                    'Separates high-confidence errors from lucky guesses for targeted review.',
                   )}
                 </p>
               </div>
@@ -637,8 +640,7 @@ export const LabSetupView: React.FC<LabSetupViewProps> = ({ data, stats }) => {
           </Card>
         </div>
 
-        {/* Right: Subjects & Chapters Tree */}
-        <Card className="lg:col-span-7 space-y-4">
+        <Card className="lg:col-span-7 space-y-4 anim-stagger" style={{ '--stagger-i': 2 } as React.CSSProperties}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="w-7 h-7 rounded-lg bg-accent-soft text-accent inline-flex items-center justify-center">
@@ -673,10 +675,10 @@ export const LabSetupView: React.FC<LabSetupViewProps> = ({ data, stats }) => {
           </div>
 
           {isGlobalPoolMode && (
-            <div className="px-3 py-2 rounded-xl bg-accent-soft/45 border border-accent/25 text-xs text-ink">
+            <div className="px-3 py-2 rounded-xl bg-accent-soft/45 border border-accent/25 text-xs text-ink anim-slide-down">
               {bi(
-                '当前处于跨科智能审查模式（FSRS 到期 / 双轨错题 / 精练收藏），默认覆盖全部已勾选之外的全库记录；点击右侧“直练”可立即针对单章穿插练习。',
-                'Current mode scopes globally across tracked questions; click Go on any chapter to launch a chapter-scoped session.',
+                '当前模式默认覆盖全库范围；点击右侧章节“直练”可直接针对单章混合练习。',
+                'This mode spans all tracked items; click Go on any chapter to practice that chapter alone.',
               )}
             </div>
           )}
@@ -687,7 +689,7 @@ export const LabSetupView: React.FC<LabSetupViewProps> = ({ data, stats }) => {
               const checkedCount = keys.filter((k) => selectedChaps.has(k)).length;
               const allChecked = keys.length > 0 && checkedCount === keys.length;
               return (
-                <div key={s.sub} className="rounded-xl border border-line bg-canvas/50 p-3.5 space-y-2.5">
+                <div key={s.sub} className="rounded-xl border border-line bg-canvas/50 p-3.5 space-y-2.5 transition-colors hover:border-ink-muted/35">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <button
                       type="button"
@@ -708,14 +710,14 @@ export const LabSetupView: React.FC<LabSetupViewProps> = ({ data, stats }) => {
                       <button
                         type="button"
                         onClick={() => selectOnlySubject(s.sub, s.chapters)}
-                        className="px-2 py-0.5 rounded-md border border-line bg-surface text-[11px] font-medium text-ink-muted hover:text-ink hover:border-accent/50 transition-colors"
+                        className="px-2 py-0.5 rounded-md border border-line bg-surface text-[11px] font-medium text-ink-muted hover:text-ink hover:border-accent/50 transition-all active:scale-95"
                       >
                         {bi('仅此科', 'Only')}
                       </button>
                       <button
                         type="button"
                         onClick={() => launch(keys, s.sub)}
-                        className="px-2 py-0.5 rounded-md bg-accent-soft text-accent text-[11px] font-medium hover:bg-accent hover:text-accent-fg transition-colors inline-flex items-center gap-1"
+                        className="px-2 py-0.5 rounded-md bg-accent-soft text-accent text-[11px] font-medium hover:bg-accent hover:text-accent-fg transition-all active:scale-95 inline-flex items-center gap-1"
                       >
                         <Play className="w-2.5 h-2.5" />
                         {bi('直练', 'Go')}
@@ -730,7 +732,7 @@ export const LabSetupView: React.FC<LabSetupViewProps> = ({ data, stats }) => {
                       return (
                         <div
                           key={key}
-                          className={`flex items-center justify-between gap-1.5 px-2.5 py-2 rounded-lg border text-xs transition-colors ${
+                          className={`flex items-center justify-between gap-1.5 px-2.5 py-2 rounded-lg border text-xs transition-all duration-150 ${
                             checked ? 'border-accent/40 bg-surface' : 'border-line bg-surface/50 opacity-75'
                           }`}
                         >
@@ -756,7 +758,7 @@ export const LabSetupView: React.FC<LabSetupViewProps> = ({ data, stats }) => {
                           <button
                             type="button"
                             onClick={() => launch([key], c.chap)}
-                            className="px-1.5 py-0.5 rounded bg-accent-soft text-accent text-[11px] font-medium hover:bg-accent hover:text-accent-fg transition-colors flex-shrink-0"
+                            className="px-1.5 py-0.5 rounded bg-accent-soft text-accent text-[11px] font-medium hover:bg-accent hover:text-accent-fg transition-all active:scale-95 flex-shrink-0"
                           >
                             {bi('直练', 'Go')}
                           </button>
