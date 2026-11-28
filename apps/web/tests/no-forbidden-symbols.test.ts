@@ -21,6 +21,7 @@ describe('frontend forbidden symbols and legacy branding guard', () => {
     const repoRoot = path.resolve(webRoot, '../..');
     const files = [
       path.join(webRoot, 'index.html'),
+      path.join(webRoot, 'lab.html'),
       path.join(webRoot, 'admin.html'),
       ...walkFiles(path.join(webRoot, 'src'), new Set(['.ts', '.tsx', '.json', '.css'])),
       ...walkFiles(path.join(repoRoot, 'packages/shared/src'), new Set(['.ts', '.tsx'])),

@@ -92,7 +92,7 @@ export default defineConfig({
         clientsClaim: true,
         skipWaiting: true,
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//, /^\/admin\.html/, /^\/admin$/, /^\/english\//, /^\/fonts\//, /^\/media\//],
+        navigateFallbackDenylist: [/^\/api\//, /^\/admin\.html/, /^\/admin$/, /^\/lab\.html/, /^\/lab$/, /^\/english\//, /^\/fonts\//, /^\/media\//],
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         globIgnores: ['**/admin.html', '**/assets/admin-*.js'],
       },
@@ -128,6 +128,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
+        lab: path.resolve(__dirname, 'lab.html'),
         admin: path.resolve(__dirname, 'admin.html'),
       },
       output: {

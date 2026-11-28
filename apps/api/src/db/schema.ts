@@ -233,3 +233,77 @@ export const v2AppliedOps = sqliteTable(
         pk: primaryKey({ columns: [table.userId, table.opId] }),
     })
 );
+
+// ==========================================
+// Isolated Science Lab tables (zero crossover with v2_answer_history / v2_question_flags)
+// ==========================================
+
+export const labUserSyncMeta = sqliteTable('lab_user_sync_meta', {
+    userId: text('user_id')
+        .primaryKey()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull().default(0),
+    syncSeq: integer('sync_seq').notNull().default(0),
+    historyResetSeq: integer('history_reset_seq').notNull().default(0),
+    lastPracticeTime: integer('last_practice_time'),
+    settingsJson: text('settings_json').notNull().default('{}'),
+    updatedAt: integer('updated_at').notNull(),
+});
+
+export const labAnswerHistory = sqliteTable(
+    'lab_answer_history',
+    {
+        userId: text('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        rid: text('rid').notNull(),
+        questionId: text('question_id').notNull(),
+        isCorrect: integer('is_correct').notNull(),
+        answeredAt: integer('answered_at').notNull(),
+        durationMs: integer('duration_ms'),
+        capped: integer('capped').notNull().default(0),
+        confidence: integer('confidence'),
+        rating: integer('rating'),
+        mode: text('mode'),
+        blindRecall: integer('blind_recall').notNull().default(0),
+        requeued: integer('requeued').notNull().default(0),
+        syncSeq: integer('sync_seq').notNull().default(1),
+    },
+    (table) => ({
+        pk: primaryKey({ columns: [table.userId, table.rid] }),
+        syncSeqIdx: index('idx_lab_history_sync_seq').on(table.userId, table.syncSeq),
+        answeredIdx: index('idx_lab_history_answered').on(table.userId, table.answeredAt),
+    })
+);
+
+export const labQuestionFlags = sqliteTable(
+    'lab_question_flags',
+    {
+        userId: text('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        questionId: text('question_id').notNull(),
+        starred: integer('starred').notNull().default(0),
+        mistakeHidden: integer('mistake_hidden').notNull().default(0),
+        updatedAt: integer('updated_at').notNull(),
+        syncSeq: integer('sync_seq').notNull().default(1),
+    },
+    (table) => ({
+        pk: primaryKey({ columns: [table.userId, table.questionId] }),
+        syncSeqIdx: index('idx_lab_flags_sync_seq').on(table.userId, table.syncSeq),
+    })
+);
+
+export const labAppliedOps = sqliteTable(
+    'lab_applied_ops',
+    {
+        userId: text('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        opId: text('op_id').notNull(),
+        appliedAt: integer('applied_at').notNull(),
+    },
+    (table) => ({
+        pk: primaryKey({ columns: [table.userId, table.opId] }),
+    })
+);

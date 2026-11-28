@@ -4,6 +4,7 @@ import {
   BookOpenCheck,
   ChevronsUpDown,
   FileText,
+  FlaskConical,
   Globe,
   LayoutDashboard,
   Library,
@@ -217,6 +218,24 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({
               </div>
             )}
             {workspaceNavItems.map(renderNavButton)}
+            <a
+              href="/lab.html"
+              data-testid="enter-science-lab-link"
+              title={sidebarCollapsed ? bi('科学精练', 'Science Lab') : undefined}
+              className={`group w-full h-9 flex items-center ${
+                sidebarCollapsed ? 'justify-center px-2' : 'justify-between px-2.5'
+              } rounded-lg text-[13.5px] font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 transition-colors`}
+            >
+              <span className="flex items-center gap-2.5 min-w-0">
+                <FlaskConical className="w-4 h-4 flex-shrink-0 transition-transform duration-150 group-hover:scale-105" />
+                {!sidebarCollapsed && <span className="truncate">{bi('科学精练', 'Science Lab')}</span>}
+              </span>
+              {!sidebarCollapsed && (
+                <span className="px-1.5 py-0.5 rounded-md bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 text-[10px] font-semibold">
+                  {bi('新模式', 'Lab')}
+                </span>
+              )}
+            </a>
             {user?.isAdmin && (
               <a
                 href="/admin.html"
@@ -294,6 +313,15 @@ export const ShellLayout: React.FC<ShellLayoutProps> = ({
           <ChevronsUpDown className="w-3 h-3 text-ink-muted flex-shrink-0" />
         </button>
         <div className="flex items-center gap-1.5">
+          <a
+            href="/lab.html"
+            data-testid="mobile-enter-science-lab-link"
+            title={bi('进入科学精练', 'Enter Science Lab')}
+            className="h-8 px-2.5 rounded-lg border border-indigo-500/35 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 text-xs font-medium inline-flex items-center gap-1"
+          >
+            <FlaskConical className="w-3.5 h-3.5" />
+            <span>{bi('精练', 'Lab')}</span>
+          </a>
           <button
             type="button"
             onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}

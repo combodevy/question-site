@@ -37,6 +37,20 @@
   color-scheme: dark;
 }
 
+.lab-theme {
+  --accent: #4F46E5;
+  --accent-hover: #4338CA;
+  --accent-soft: #EEF2FF;
+  --accent-fg: #FFFFFF;
+}
+
+.dark .lab-theme {
+  --accent: #818CF8;
+  --accent-hover: #A5B4FC;
+  --accent-soft: rgba(129, 140, 248, 0.16);
+  --accent-fg: #0F172A;
+}
+
 :root {
   --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);

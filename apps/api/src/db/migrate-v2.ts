@@ -173,6 +173,53 @@ CREATE TABLE IF NOT EXISTS v2_applied_ops (
     applied_at INTEGER NOT NULL,
     PRIMARY KEY (user_id, op_id)
 );
+
+CREATE TABLE IF NOT EXISTS lab_user_sync_meta (
+    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    version INTEGER NOT NULL DEFAULT 0,
+    sync_seq INTEGER NOT NULL DEFAULT 0,
+    history_reset_seq INTEGER NOT NULL DEFAULT 0,
+    last_practice_time INTEGER,
+    settings_json TEXT NOT NULL DEFAULT '{}',
+    updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS lab_answer_history (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    rid TEXT NOT NULL,
+    question_id TEXT NOT NULL,
+    is_correct INTEGER NOT NULL,
+    answered_at INTEGER NOT NULL,
+    duration_ms INTEGER,
+    capped INTEGER NOT NULL DEFAULT 0,
+    confidence INTEGER,
+    rating INTEGER,
+    mode TEXT,
+    blind_recall INTEGER NOT NULL DEFAULT 0,
+    requeued INTEGER NOT NULL DEFAULT 0,
+    sync_seq INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (user_id, rid)
+);
+CREATE INDEX IF NOT EXISTS idx_lab_history_sync_seq ON lab_answer_history(user_id, sync_seq);
+CREATE INDEX IF NOT EXISTS idx_lab_history_answered ON lab_answer_history(user_id, answered_at);
+
+CREATE TABLE IF NOT EXISTS lab_question_flags (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    question_id TEXT NOT NULL,
+    starred INTEGER NOT NULL DEFAULT 0,
+    mistake_hidden INTEGER NOT NULL DEFAULT 0,
+    updated_at INTEGER NOT NULL,
+    sync_seq INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (user_id, question_id)
+);
+CREATE INDEX IF NOT EXISTS idx_lab_flags_sync_seq ON lab_question_flags(user_id, sync_seq);
+
+CREATE TABLE IF NOT EXISTS lab_applied_ops (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    op_id TEXT NOT NULL,
+    applied_at INTEGER NOT NULL,
+    PRIMARY KEY (user_id, op_id)
+);
 `;
 
 export function ensureV2Schema(rawDb: Database.Database): void {

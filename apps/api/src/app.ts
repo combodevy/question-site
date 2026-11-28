@@ -5,6 +5,7 @@ import { createDrizzleDb } from './db/index.js';
 import { securityAndCorsMiddleware } from './middleware/cors.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createSyncV2Router } from './routes/sync-v2.js';
+import { createLabSyncRouter } from './routes/lab-sync.js';
 import { createLegacyCompatRouter } from './routes/legacy-compat.js';
 import { createAdminRouter } from './routes/admin.js';
 import { createOpsRouter } from './routes/ops.js';
@@ -33,6 +34,7 @@ export function createApp({ db, config }: { db: Database.Database; config: AppCo
 
     app.route('/api/auth', createAuthRouter());
     app.route('/api/sync', createSyncV2Router());
+    app.route('/api/lab/sync', createLabSyncRouter());
     app.route('/api/admin/server-ops', createOpsRouter());
     app.route('/api/admin', createAdminRouter());
     app.route('/api', createLegacyCompatRouter());

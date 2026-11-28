@@ -1,4 +1,10 @@
-import type { Question, SyncMutation } from '@qs/shared';
+import type {
+  LabHistoryEntry,
+  LabSettings,
+  LabSyncMutation,
+  Question,
+  SyncMutation,
+} from '@qs/shared';
 
 const TOKEN_STORAGE_KEY = 'qs-auth-token';
 
@@ -349,6 +355,45 @@ export const syncApi = {
       method: 'POST',
       body: { message, stack, page },
     }).catch(() => ({ ok: true as const })),
+};
+
+export interface LabSyncPullResponse {
+  ok: true;
+  cursor: number;
+  version: number;
+  bankCursor: number;
+  historyResetRequired: boolean;
+  meta: {
+    bankName: string | null;
+    lastPracticeTime: number | null;
+  };
+  settings: LabSettings;
+  questions: PulledQuestion[];
+  history: Array<LabHistoryEntry & { syncSeq: number }>;
+  flags: Array<{
+    questionId: string;
+    starred: boolean;
+    mistakeHidden: boolean;
+    updatedAt: number;
+    syncSeq: number;
+  }>;
+}
+
+export const labSyncApi = {
+  push: (mutations: LabSyncMutation[]) =>
+    apiFetch<{
+      ok: true;
+      cursor: number;
+      version: number;
+      results: Array<{ opId: string; op: LabSyncMutation['op']; status: string; syncSeq?: number }>;
+    }>('/api/lab/sync/push', {
+      method: 'POST',
+      body: { mutations },
+    }),
+  pull: (cursor: number, bankCursor: number) =>
+    apiFetch<LabSyncPullResponse>(
+      `/api/lab/sync/pull?cursor=${Math.max(0, Math.floor(cursor))}&bankCursor=${Math.max(0, Math.floor(bankCursor))}`,
+    ),
 };
 
 /* ---------- Admin & Ops Types ---------- */
